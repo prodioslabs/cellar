@@ -7,29 +7,24 @@ import (
 	"time"
 )
 
-// Role identifies a node's role in the cluster.
+// Role identifies a node's type in the cluster.
+// Cellar uses a single node type for all peers.
 type Role string
 
 const (
-	RoleWorker  Role = "worker"
-	RoleManager Role = "manager"
+	// RoleCellarNode is the only node type.
+	RoleCellarNode Role = "cellar-node"
 )
 
-// OU returns the Organizational Unit used in node certificates.
-func (r Role) OU() string {
-	return "cellar-" + string(r)
-}
+// OU is the Organizational Unit embedded in node certificates.
+const OU = "cellar-node"
 
 // ParseOU maps a certificate OU back to a Role.
 func ParseOU(ou string) (Role, error) {
-	switch ou {
-	case "cellar-worker":
-		return RoleWorker, nil
-	case "cellar-manager":
-		return RoleManager, nil
-	default:
-		return "", fmt.Errorf("unknown OU %q", ou)
+	if ou == OU {
+		return RoleCellarNode, nil
 	}
+	return "", fmt.Errorf("unknown OU %q", ou)
 }
 
 // Membership reflects whether a node is accepted into the cluster.
@@ -42,13 +37,13 @@ const (
 
 // Node is a registered cluster node record.
 type Node struct {
-	ID                  string     `json:"node_id"`
-	Role                Role       `json:"role"`
-	Membership          Membership `json:"membership"`
-	PubKeyFingerprint   string     `json:"csr_pubkey_fingerprint"`
-	IssuedAt            time.Time  `json:"issued_at"`
-	ExpiresAt           time.Time  `json:"expires_at"`
-	CertificatePEM      string     `json:"certificate,omitempty"`
+	ID                string     `json:"node_id"`
+	Role              Role       `json:"role"`
+	Membership        Membership `json:"membership"`
+	PubKeyFingerprint string     `json:"csr_pubkey_fingerprint"`
+	IssuedAt          time.Time  `json:"issued_at"`
+	ExpiresAt         time.Time  `json:"expires_at"`
+	CertificatePEM    string     `json:"certificate,omitempty"`
 }
 
 // NewID generates a 32-byte hex node ID (64 hex characters).

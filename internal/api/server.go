@@ -37,8 +37,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/ca/certificate", s.handleCACertificate)
 	s.mux.HandleFunc("POST /api/v1/ca/issue", s.handleIssue)
 	s.mux.HandleFunc("GET /api/v1/ca/status/{node_id}", s.handleStatus)
-	s.mux.HandleFunc("GET /api/v1/cluster/tokens", s.handleTokens)
-	s.mux.HandleFunc("POST /api/v1/cluster/rotate-tokens", s.handleRotateTokens)
+	s.mux.HandleFunc("GET /api/v1/cluster/token", s.handleToken)
+	s.mux.HandleFunc("POST /api/v1/cluster/rotate-token", s.handleRotateToken)
 }
 
 type errorBody struct {
@@ -60,8 +60,8 @@ type initRequest struct {
 }
 
 type initResponse struct {
-	ClusterID string     `json:"cluster_id"`
-	Tokens    token.Pair `json:"tokens"`
+	ClusterID string `json:"cluster_id"`
+	Token     string `json:"token"`
 }
 
 func (s *Server) handleInit(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +77,7 @@ func (s *Server) handleInit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secrets, err := token.GenerateSecrets()
+	secret, err := token.GenerateSecret()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -98,7 +98,7 @@ func (s *Server) handleInit(w http.ResponseWriter, r *http.Request) {
 		ClusterID:    clusterID,
 		CertValidity: validity,
 		RootCA:       root,
-		JoinSecrets:  secrets,
+		JoinSecret:   secret,
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrAlreadyInitialized) {
@@ -109,15 +109,9 @@ func (s *Server) handleInit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pair, err := token.FormatPair(root.DigestPrefix(), secrets)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
 	writeJSON(w, http.StatusCreated, initResponse{
 		ClusterID: clusterID,
-		Tokens:    pair,
+		Token:     token.Format(root.DigestPrefix(), secret),
 	})
 }
 
@@ -194,15 +188,12 @@ func (s *Server) handleIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var (
-		nodeID string
-		role   node.Role
-	)
+	var nodeID string
+	role := node.RoleCellarNode
 
 	switch {
 	case req.Token != "":
-		role, err = token.Validate(req.Token, cluster.CADigestPrefix, cluster.JoinSecrets)
-		if err != nil {
+		if err := token.Validate(req.Token, cluster.CADigestPrefix, cluster.JoinSecret); err != nil {
 			writeError(w, http.StatusUnauthorized, err.Error())
 			return
 		}
@@ -221,14 +212,12 @@ func (s *Server) handleIssue(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		// Renewal: accept if CSR CN matches node ID, or public key matches prior fingerprint.
 		if csr.Subject.CommonName != "" && csr.Subject.CommonName != existing.ID {
 			writeError(w, http.StatusForbidden, "CSR CN does not match node ID")
 			return
 		}
 		nodeID = existing.ID
 		role = existing.Role
-		_ = fp // fingerprint updated on save
 	default:
 		writeError(w, http.StatusBadRequest, "token or node_id is required")
 		return
@@ -301,11 +290,11 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type tokensResponse struct {
-	Tokens token.Pair `json:"tokens"`
+type tokenResponse struct {
+	Token string `json:"token"`
 }
 
-func (s *Server) handleTokens(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	cluster, err := s.store.GetCluster(r.Context())
 	if err != nil {
 		if errors.Is(err, store.ErrNotInitialized) {
@@ -315,15 +304,12 @@ func (s *Server) handleTokens(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	pair, err := token.FormatPair(cluster.CADigestPrefix, cluster.JoinSecrets)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, tokensResponse{Tokens: pair})
+	writeJSON(w, http.StatusOK, tokenResponse{
+		Token: token.Format(cluster.CADigestPrefix, cluster.JoinSecret),
+	})
 }
 
-func (s *Server) handleRotateTokens(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRotateToken(w http.ResponseWriter, r *http.Request) {
 	cluster, err := s.store.GetCluster(r.Context())
 	if err != nil {
 		if errors.Is(err, store.ErrNotInitialized) {
@@ -333,22 +319,19 @@ func (s *Server) handleRotateTokens(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	secrets, err := token.GenerateSecrets()
+	secret, err := token.GenerateSecret()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	cluster.JoinSecrets = secrets
+	cluster.JoinSecret = secret
 	if err := s.store.SaveCluster(r.Context(), cluster); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	pair, err := token.FormatPair(cluster.CADigestPrefix, secrets)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, tokensResponse{Tokens: pair})
+	writeJSON(w, http.StatusOK, tokenResponse{
+		Token: token.Format(cluster.CADigestPrefix, secret),
+	})
 }
 
 // ListenAndServe is a convenience wrapper.

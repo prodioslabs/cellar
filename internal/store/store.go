@@ -7,7 +7,6 @@ import (
 
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
-	"github.com/prodioslabs/cellar/internal/token"
 )
 
 var (
@@ -21,11 +20,11 @@ var (
 
 // ClusterState is persisted cluster configuration (without private keys).
 type ClusterState struct {
-	ClusterID     string        `json:"cluster_id"`
-	CertValidity  time.Duration `json:"cert_validity_ns"`
-	JoinSecrets   token.Secrets `json:"join_secrets"`
-	CreatedAt     time.Time     `json:"created_at"`
-	CADigestPrefix string       `json:"ca_digest_prefix"`
+	ClusterID      string        `json:"cluster_id"`
+	CertValidity   time.Duration `json:"cert_validity_ns"`
+	JoinSecret     string        `json:"join_secret"`
+	CreatedAt      time.Time     `json:"created_at"`
+	CADigestPrefix string        `json:"ca_digest_prefix"`
 }
 
 // ClusterConfig is the input to InitCluster.
@@ -33,7 +32,7 @@ type ClusterConfig struct {
 	ClusterID    string
 	CertValidity time.Duration
 	RootCA       *ca.RootCA
-	JoinSecrets  token.Secrets
+	JoinSecret   string
 }
 
 // Store abstracts persistence so FileStore can later be swapped for RaftStore.

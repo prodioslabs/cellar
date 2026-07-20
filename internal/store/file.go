@@ -70,7 +70,7 @@ func (s *FileStore) InitCluster(ctx context.Context, cfg ClusterConfig) error {
 	state := &ClusterState{
 		ClusterID:      cfg.ClusterID,
 		CertValidity:   validity,
-		JoinSecrets:    cfg.JoinSecrets,
+		JoinSecret:     cfg.JoinSecret,
 		CreatedAt:      time.Now().UTC(),
 		CADigestPrefix: cfg.RootCA.DigestPrefix(),
 	}

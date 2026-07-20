@@ -35,7 +35,7 @@ func TestGenerateAndSign(t *testing.T) {
 	issued, err := root.SignNodeCSR(ca.IssueRequest{
 		CSR:      csr,
 		NodeID:   nodeID,
-		Role:     node.RoleWorker,
+		Role:     node.RoleCellarNode,
 		Validity: 24 * time.Hour,
 	})
 	if err != nil {
@@ -45,7 +45,7 @@ func TestGenerateAndSign(t *testing.T) {
 	if issued.Cert.Subject.CommonName != nodeID {
 		t.Fatalf("CN=%s", issued.Cert.Subject.CommonName)
 	}
-	if len(issued.Cert.Subject.OrganizationalUnit) != 1 || issued.Cert.Subject.OrganizationalUnit[0] != "cellar-worker" {
+	if len(issued.Cert.Subject.OrganizationalUnit) != 1 || issued.Cert.Subject.OrganizationalUnit[0] != node.OU {
 		t.Fatalf("OU=%v", issued.Cert.Subject.OrganizationalUnit)
 	}
 
