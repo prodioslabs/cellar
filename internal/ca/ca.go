@@ -186,7 +186,7 @@ func (r *RootCA) SignNodeCSR(req IssueRequest) (*IssuedCert, error) {
 	if req.NodeID == "" {
 		return nil, errors.New("node ID is required")
 	}
-	if req.Role != node.RoleCellarNode {
+	if req.Role != node.RoleWorker && req.Role != node.RoleManager {
 		return nil, fmt.Errorf("invalid role %q", req.Role)
 	}
 	validity := req.Validity
@@ -204,7 +204,7 @@ func (r *RootCA) SignNodeCSR(req IssueRequest) (*IssuedCert, error) {
 		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName:         req.NodeID,
-			OrganizationalUnit: []string{node.OU},
+			OrganizationalUnit: []string{req.Role.OU()},
 			Organization:       []string{"cellar"},
 		},
 		NotBefore:             now.Add(-5 * time.Minute),

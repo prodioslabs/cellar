@@ -23,7 +23,7 @@ import (
 
 func TestJoinRenewAndMTLS(t *testing.T) {
 	dir := t.TempDir()
-	fs, err := store.NewFileStore(filepath.Join(dir, "ca-server"))
+	fs, err := store.NewFileStore(filepath.Join(dir, "manager-data"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,13 +44,16 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 	}
 	var initOut struct {
 		ClusterID string `json:"cluster_id"`
-		Token     string `json:"token"`
+		Tokens    struct {
+			Worker  string `json:"worker"`
+			Manager string `json:"manager"`
+		} `json:"tokens"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&initOut); err != nil {
 		t.Fatal(err)
 	}
-	if initOut.Token == "" {
-		t.Fatal("missing join token")
+	if initOut.Tokens.Worker == "" || initOut.Tokens.Manager == "" {
+		t.Fatal("missing tokens")
 	}
 
 	resp2, err := http.Post(ts.URL+"/api/v1/cluster/init", "application/json", bytes.NewReader(payload))
@@ -62,25 +65,32 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 		t.Fatalf("expected conflict, got %d", resp2.StatusCode)
 	}
 
-	nodeA := agent.New(ts.URL, filepath.Join(dir, "node-a"))
-	idA, err := nodeA.Join(t.Context(), initOut.Token)
+	// Both roles use the same agent for join/renew/mTLS.
+	workerAgent := agent.New(ts.URL, filepath.Join(dir, "worker"))
+	workerID, err := workerAgent.Join(t.Context(), initOut.Tokens.Worker)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if idA.Role != node.RoleCellarNode {
-		t.Fatalf("role=%s", idA.Role)
+	if workerID.Role != node.RoleWorker {
+		t.Fatalf("role=%s", workerID.Role)
+	}
+	if workerAgent.CanAccessControlPlane() {
+		t.Fatal("worker must not access control plane")
 	}
 
-	nodeB := agent.New(ts.URL, filepath.Join(dir, "node-b"))
-	idB, err := nodeB.Join(t.Context(), initOut.Token)
+	managerAgent := agent.New(ts.URL, filepath.Join(dir, "manager-node"))
+	managerID, err := managerAgent.Join(t.Context(), initOut.Tokens.Manager)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if idB.Role != node.RoleCellarNode {
-		t.Fatalf("role=%s", idB.Role)
+	if managerID.Role != node.RoleManager {
+		t.Fatalf("role=%s", managerID.Role)
+	}
+	if !managerAgent.CanAccessControlPlane() {
+		t.Fatal("manager must access control plane")
 	}
 
-	st, err := http.Get(ts.URL + "/api/v1/ca/status/" + idA.NodeID)
+	st, err := http.Get(ts.URL + "/api/v1/ca/status/" + workerID.NodeID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,19 +99,19 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 		t.Fatalf("status: %d", st.StatusCode)
 	}
 
-	renewed, err := nodeA.Renew(t.Context())
+	renewed, err := workerAgent.Renew(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if renewed.NodeID != idA.NodeID {
-		t.Fatalf("node id changed on renew: %s -> %s", idA.NodeID, renewed.NodeID)
+	if renewed.NodeID != workerID.NodeID {
+		t.Fatalf("node id changed on renew: %s -> %s", workerID.NodeID, renewed.NodeID)
 	}
 
-	tlsA, err := nodeA.TLSConfig()
+	workerTLS, err := workerAgent.TLSConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tlsB, err := nodeB.TLSConfig()
+	managerTLS, err := managerAgent.TLSConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,15 +123,15 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 		}
 		_, _ = io.WriteString(w, r.TLS.PeerCertificates[0].Subject.CommonName)
 	}))
-	peer.TLS = tlsB
+	peer.TLS = managerTLS
 	peer.StartTLS()
 	defer peer.Close()
 
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				Certificates:       tlsA.Certificates,
-				RootCAs:            tlsA.RootCAs,
+				Certificates:       workerTLS.Certificates,
+				RootCAs:            workerTLS.RootCAs,
 				InsecureSkipVerify: true,
 				VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 					if len(rawCerts) == 0 {
@@ -131,7 +141,7 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					opts := x509.VerifyOptions{Roots: tlsA.RootCAs, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
+					opts := x509.VerifyOptions{Roots: workerTLS.RootCAs, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
 					_, err = cert.Verify(opts)
 					return err
 				},
@@ -144,11 +154,12 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 	}
 	defer r.Body.Close()
 	body, _ := io.ReadAll(r.Body)
-	if string(body) != idA.NodeID {
-		t.Fatalf("peer saw CN %q, want %q", body, idA.NodeID)
+	if string(body) != workerID.NodeID {
+		t.Fatalf("peer saw CN %q, want %q", body, workerID.NodeID)
 	}
 
-	rot, err := http.Post(ts.URL+"/api/v1/cluster/rotate-token", "application/json", nil)
+	// Control-plane rotate over plain HTTP (bootstrap) still works.
+	rot, err := http.Post(ts.URL+"/api/v1/cluster/rotate-tokens", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +172,7 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	badJoin, _ := json.Marshal(map[string]string{"csr": string(csrPEM), "token": initOut.Token})
+	badJoin, _ := json.Marshal(map[string]string{"csr": string(csrPEM), "token": initOut.Tokens.Worker})
 	badResp, err := http.Post(ts.URL+"/api/v1/ca/issue", "application/json", bytes.NewReader(badJoin))
 	if err != nil {
 		t.Fatal(err)
@@ -172,13 +183,109 @@ func TestJoinRenewAndMTLS(t *testing.T) {
 	}
 
 	for _, name := range []string{"ca.crt", "ca.key"} {
-		if _, err := os.Stat(filepath.Join(dir, "ca-server", "ca", name)); err != nil {
+		if _, err := os.Stat(filepath.Join(dir, "manager-data", "ca", name)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	block, _ := pem.Decode([]byte(idA.Certificate))
+	block, _ := pem.Decode([]byte(workerID.Certificate))
 	if block == nil {
-		t.Fatal("node cert not PEM")
+		t.Fatal("worker cert not PEM")
+	}
+}
+
+func TestControlPlaneRejectsWorkerClientCert(t *testing.T) {
+	dir := t.TempDir()
+	fs, err := store.NewFileStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := api.New(fs)
+
+	// Bootstrap over plain HTTP first.
+	plain := httptest.NewServer(srv.Handler())
+	defer plain.Close()
+
+	resp, err := http.Post(plain.URL+"/api/v1/cluster/init", "application/json", bytes.NewReader([]byte("{}")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var initOut struct {
+		Tokens struct {
+			Worker  string `json:"worker"`
+			Manager string `json:"manager"`
+		} `json:"tokens"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&initOut)
+	resp.Body.Close()
+
+	worker := agent.New(plain.URL, filepath.Join(dir, "worker"))
+	if _, err := worker.Join(t.Context(), initOut.Tokens.Worker); err != nil {
+		t.Fatal(err)
+	}
+	manager := agent.New(plain.URL, filepath.Join(dir, "manager"))
+	if _, err := manager.Join(t.Context(), initOut.Tokens.Manager); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := fs.GetRootCA(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverTLS, err := manager.TLSConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Server presents manager cert; requires client certs signed by cluster CA.
+	serverTLS.ClientAuth = tls.RequireAndVerifyClientCert
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(root.CertPEM)
+	serverTLS.ClientCAs = pool
+
+	tlsSrv := httptest.NewUnstartedServer(srv.Handler())
+	tlsSrv.TLS = serverTLS
+	tlsSrv.StartTLS()
+	defer tlsSrv.Close()
+
+	workerTLS, err := worker.TLSConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	managerTLS, err := manager.TLSConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	workerClient := &http.Client{Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			Certificates:       workerTLS.Certificates,
+			RootCAs:            pool,
+			InsecureSkipVerify: true,
+		},
+	}}
+	managerClient := &http.Client{Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			Certificates:       managerTLS.Certificates,
+			RootCAs:            pool,
+			InsecureSkipVerify: true,
+		},
+	}}
+
+	workerResp, err := workerClient.Get(tlsSrv.URL + "/api/v1/cluster/tokens")
+	if err != nil {
+		t.Fatal(err)
+	}
+	workerResp.Body.Close()
+	if workerResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("worker expected 403, got %d", workerResp.StatusCode)
+	}
+
+	managerResp, err := managerClient.Get(tlsSrv.URL + "/api/v1/cluster/tokens")
+	if err != nil {
+		t.Fatal(err)
+	}
+	managerResp.Body.Close()
+	if managerResp.StatusCode != http.StatusOK {
+		t.Fatalf("manager expected 200, got %d", managerResp.StatusCode)
 	}
 }
 
@@ -228,13 +335,15 @@ func TestCertOU(t *testing.T) {
 		t.Fatal(err)
 	}
 	var initOut struct {
-		Token string `json:"token"`
+		Tokens struct {
+			Manager string `json:"manager"`
+		} `json:"tokens"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&initOut)
 	resp.Body.Close()
 
 	a := agent.New(ts.URL, filepath.Join(dir, "n"))
-	id, err := a.Join(t.Context(), initOut.Token)
+	id, err := a.Join(t.Context(), initOut.Tokens.Manager)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,7 +356,7 @@ func TestCertOU(t *testing.T) {
 		t.Logf("validity window: %v", cert.NotAfter.Sub(cert.NotBefore))
 	}
 	role, err := node.ParseOU(cert.Subject.OrganizationalUnit[0])
-	if err != nil || role != node.RoleCellarNode {
+	if err != nil || role != node.RoleManager {
 		t.Fatalf("OU role=%v err=%v", role, err)
 	}
 }

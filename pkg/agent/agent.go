@@ -224,6 +224,12 @@ func (a *Agent) Role() node.Role {
 	return a.role
 }
 
+// CanAccessControlPlane reports whether this node's role may call control-plane APIs.
+// Both managers and workers use the agent for join/renew/mTLS; only managers return true.
+func (a *Agent) CanAccessControlPlane() bool {
+	return a.Role().CanAccessControlPlane()
+}
+
 type issueBody struct {
 	CSR    string `json:"csr"`
 	Token  string `json:"token,omitempty"`

@@ -2,29 +2,50 @@ package node
 
 import (
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/hex"
 	"fmt"
 	"time"
 )
 
-// Role identifies a node's type in the cluster.
-// Cellar uses a single node type for all peers.
+// Role identifies a node's role in the cluster.
 type Role string
 
 const (
-	// RoleCellarNode is the only node type.
-	RoleCellarNode Role = "cellar-node"
+	RoleWorker  Role = "worker"
+	RoleManager Role = "manager"
 )
 
-// OU is the Organizational Unit embedded in node certificates.
-const OU = "cellar-node"
+// OU returns the Organizational Unit used in node certificates.
+func (r Role) OU() string {
+	return "cellar-" + string(r)
+}
+
+// CanAccessControlPlane reports whether this role may call control-plane APIs.
+// Managers can; workers cannot. Both roles still use the node agent for join,
+// renewal, and peer mTLS.
+func (r Role) CanAccessControlPlane() bool {
+	return r == RoleManager
+}
 
 // ParseOU maps a certificate OU back to a Role.
 func ParseOU(ou string) (Role, error) {
-	if ou == OU {
-		return RoleCellarNode, nil
+	switch ou {
+	case RoleWorker.OU():
+		return RoleWorker, nil
+	case RoleManager.OU():
+		return RoleManager, nil
+	default:
+		return "", fmt.Errorf("unknown OU %q", ou)
 	}
-	return "", fmt.Errorf("unknown OU %q", ou)
+}
+
+// RoleFromCertificate extracts the cluster role from a leaf certificate's OU.
+func RoleFromCertificate(cert *x509.Certificate) (Role, error) {
+	if cert == nil || len(cert.Subject.OrganizationalUnit) == 0 {
+		return "", fmt.Errorf("certificate has no OU")
+	}
+	return ParseOU(cert.Subject.OrganizationalUnit[0])
 }
 
 // Membership reflects whether a node is accepted into the cluster.

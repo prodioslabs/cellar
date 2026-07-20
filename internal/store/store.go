@@ -7,6 +7,7 @@ import (
 
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/token"
 )
 
 var (
@@ -16,13 +17,15 @@ var (
 	ErrAlreadyInitialized = errors.New("cluster already initialized")
 	// ErrNodeNotFound indicates a node record is missing.
 	ErrNodeNotFound = errors.New("node not found")
+	// ErrNotLeader indicates the node is not the Raft leader.
+	ErrNotLeader = errors.New("not the raft leader")
 )
 
 // ClusterState is persisted cluster configuration (without private keys).
 type ClusterState struct {
 	ClusterID      string        `json:"cluster_id"`
 	CertValidity   time.Duration `json:"cert_validity_ns"`
-	JoinSecret     string        `json:"join_secret"`
+	JoinSecrets    token.Secrets `json:"join_secrets"`
 	CreatedAt      time.Time     `json:"created_at"`
 	CADigestPrefix string        `json:"ca_digest_prefix"`
 }
@@ -32,7 +35,7 @@ type ClusterConfig struct {
 	ClusterID    string
 	CertValidity time.Duration
 	RootCA       *ca.RootCA
-	JoinSecret   string
+	JoinSecrets  token.Secrets
 }
 
 // Store abstracts persistence so FileStore can later be swapped for RaftStore.
