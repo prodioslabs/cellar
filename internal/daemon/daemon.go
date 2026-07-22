@@ -728,8 +728,17 @@ func DialLocal(socketPath string) (*grpc.ClientConn, error) {
 	if socketPath == "" {
 		socketPath = DefaultSocket
 	}
-	return grpc.Dial(
-		"unix://"+socketPath,
+	abs, err := filepath.Abs(socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve socket path: %w", err)
+	}
+	// Resolve to an absolute path so unix:///… has an empty authority. Relative
+	// paths like ./foo.sock become unix://./foo.sock, which gRPC rejects.
+	return grpc.NewClient(
+		"unix://"+abs,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", abs)
+		}),
 	)
 }
