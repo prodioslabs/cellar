@@ -8,7 +8,7 @@ a CLI (`cellar`), mTLS gRPC between nodes, and a HashiCorp Raft–replicated clu
 
 | Binary | Role |
 |--------|------|
-| **`cellard`** | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:7946` after `init`/`join`. |
+| **`cellard`** | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. |
 | **`cellar`** | CLI client (`init`, `join`, `join-token`, `status`) talking to local `cellard`. |
 
 ## Roles
@@ -23,11 +23,13 @@ Local disk stores only this node’s leaf cert/key and the public CA cert.
 
 ## Ports / sockets
 
+Defaults avoid Docker Swarm’s control-plane ports (`7946` gossip, `2377` manager).
+
 | Listener | Default | Auth | Purpose |
 |----------|---------|------|---------|
 | Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions | `Init`, `Join`, `JoinToken`, `Status` |
-| Remote gRPC | `:7946` | Bootstrap insecure TLS + token digest; else mTLS | CA issue/renew, raft membership |
-| Raft TCP | `127.0.0.1:7947` | Manager network | Consensus / CA key replication |
+| Remote gRPC | `:17946` | Bootstrap insecure TLS + token digest; else mTLS | CA issue/renew, raft membership |
+| Raft TCP | `127.0.0.1:17947` | Manager network | Consensus / CA key replication |
 
 ## Build
 
@@ -43,19 +45,19 @@ Requires Go 1.26+.
 ```bash
 # Host A — start daemon (idle until init)
 ./bin/cellard --data-dir ./data-a --socket ./cellar-a.sock \
-  --listen 127.0.0.1:7946 --raft-addr 127.0.0.1:7947
+  --listen 127.0.0.1:17946 --raft-addr 127.0.0.1:17947
 
 # Initialize cluster (first manager)
-./bin/cellar --socket ./cellar-a.sock init --advertise-addr 127.0.0.1:7946 \
-  --listen-addr 127.0.0.1:7946 --raft-addr 127.0.0.1:7947
+./bin/cellar --socket ./cellar-a.sock init --advertise-addr 127.0.0.1:17946 \
+  --listen-addr 127.0.0.1:17946 --raft-addr 127.0.0.1:17947
 
 # Print ready-to-run join command
 ./bin/cellar --socket ./cellar-a.sock join-token worker
-# → cellar join --token CLLRN-1-… 127.0.0.1:7946
+# → cellar join --token CLLRN-1-… 127.0.0.1:17946
 
 # Host B — worker
 ./bin/cellard --data-dir ./data-b --socket ./cellar-b.sock
-./bin/cellar --socket ./cellar-b.sock join --token CLLRN-1-… 127.0.0.1:7946
+./bin/cellar --socket ./cellar-b.sock join --token CLLRN-1-… 127.0.0.1:17946
 ```
 
 Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).

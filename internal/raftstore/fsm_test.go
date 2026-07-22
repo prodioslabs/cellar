@@ -164,7 +164,7 @@ func TestRaftStoreRootCAReplication(t *testing.T) {
 		DataDir:       filepath.Join(dir, "a"),
 		NodeID:        "manager-a",
 		RaftAddr:      addrA,
-		GRPCAdvertise: "127.0.0.1:7946",
+		GRPCAdvertise: "127.0.0.1:17946",
 		Bootstrap:     true,
 	})
 	if err != nil {
@@ -336,9 +336,9 @@ func TestClusterRedact(t *testing.T) {
 	c := &store.Cluster{
 		ClusterID: "c",
 		RootCA: store.RootCAMaterial{
-			CAKey:      []byte("secret"),
-			CACert:     []byte("cert"),
-			CACertHash: "hash",
+			CAKey:       []byte("secret"),
+			CACert:      []byte("cert"),
+			CACertHash:  "hash",
 			JoinSecrets: token.Secrets{Worker: "w", Manager: "m"},
 		},
 	}

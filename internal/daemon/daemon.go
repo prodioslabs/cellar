@@ -30,8 +30,8 @@ import (
 
 const (
 	DefaultSocket     = "/var/run/cellar/cellar.sock"
-	DefaultListenAddr = ":7946"
-	DefaultRaftAddr   = "127.0.0.1:7947"
+	DefaultListenAddr = ":17946"
+	DefaultRaftAddr   = "127.0.0.1:17947"
 )
 
 // Config configures the always-on cellard process.

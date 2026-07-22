@@ -19,7 +19,7 @@ import (
 const (
 	applyTimeout     = 10 * time.Second
 	raftRetainSnap   = 2
-	defaultRaftAddr  = "127.0.0.1:7947"
+	defaultRaftAddr  = "127.0.0.1:17947"
 	maxPool          = 3
 	transportTimeout = 10 * time.Second
 )
@@ -29,7 +29,7 @@ type Config struct {
 	DataDir       string
 	NodeID        string
 	RaftAddr      string // host:port for Raft TCP transport
-	GRPCAdvertise string // e.g. 10.0.0.1:7946 for joiners / redirects
+	GRPCAdvertise string // e.g. 10.0.0.1:17946 for joiners / redirects
 	Bootstrap     bool
 }
 

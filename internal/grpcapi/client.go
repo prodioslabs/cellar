@@ -126,7 +126,7 @@ func normalizeAddr(addr string) string {
 	if _, _, err := net.SplitHostPort(addr); err == nil {
 		return addr
 	}
-	return net.JoinHostPort(addr, "7946")
+	return net.JoinHostPort(addr, "17946")
 }
 
 // SelfIssue creates a local manager leaf using an in-memory root (init path).
