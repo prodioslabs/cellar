@@ -75,21 +75,35 @@ func FormatPair(caDigestPrefix string, secrets Secrets) (Pair, error) {
 	return Pair{Worker: worker, Manager: manager}, nil
 }
 
+// Parsed is a decoded join token.
+type Parsed struct {
+	CADigestPrefix string
+	Secret         string
+}
+
+// Parse extracts the CA digest prefix and secret from a join token.
+func Parse(joinToken string) (Parsed, error) {
+	parts := strings.Split(joinToken, "-")
+	if len(parts) != 4 {
+		return Parsed{}, fmt.Errorf("invalid token format")
+	}
+	if parts[0] != prefix || parts[1] != version {
+		return Parsed{}, fmt.Errorf("invalid token prefix or version")
+	}
+	return Parsed{CADigestPrefix: parts[2], Secret: parts[3]}, nil
+}
+
 // Validate checks a join token against the CA digest and secrets.
 // Returns the matched role on success.
 func Validate(joinToken string, caDigestPrefix string, secrets Secrets) (node.Role, error) {
-	parts := strings.Split(joinToken, "-")
-	if len(parts) != 4 {
-		return "", fmt.Errorf("invalid token format")
+	parsed, err := Parse(joinToken)
+	if err != nil {
+		return "", err
 	}
-	if parts[0] != prefix || parts[1] != version {
-		return "", fmt.Errorf("invalid token prefix or version")
-	}
-	if parts[2] != caDigestPrefix {
+	if parsed.CADigestPrefix != caDigestPrefix {
 		return "", fmt.Errorf("token CA digest mismatch")
 	}
-	secret := parts[3]
-	switch secret {
+	switch parsed.Secret {
 	case secrets.Worker:
 		return node.RoleWorker, nil
 	case secrets.Manager:

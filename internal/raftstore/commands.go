@@ -6,21 +6,48 @@ import (
 	"time"
 
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/store"
 	"github.com/prodioslabs/cellar/internal/token"
 )
 
 const (
+	opCreateCluster = "create_cluster"
+	opUpdateCluster = "update_cluster"
+	opSaveNode      = "save_node"
+	opSavePeer      = "save_peer"
+
+	// Legacy ops still decoded for older log entries / tests.
 	opInitCluster = "init_cluster"
 	opSaveRootCA  = "save_root_ca"
 	opSaveCluster = "save_cluster"
-	opSaveNode    = "save_node"
-	opSavePeer    = "save_peer"
 )
 
-// command is the versioned Raft log envelope.
 type command struct {
 	Op      string          `json:"op"`
 	Payload json.RawMessage `json:"payload"`
+}
+
+type createClusterPayload struct {
+	Cluster store.Cluster `json:"cluster"`
+}
+
+type updateClusterPayload struct {
+	Cluster store.Cluster `json:"cluster"`
+}
+
+type saveNodePayload struct {
+	Node *node.Node `json:"node"`
+}
+
+// PeerInfo tracks a manager's Raft and gRPC addresses.
+type PeerInfo struct {
+	NodeID   string `json:"node_id"`
+	RaftAddr string `json:"raft_addr"`
+	GRPCAddr string `json:"grpc_addr"`
+}
+
+type savePeerPayload struct {
+	Peer PeerInfo `json:"peer"`
 }
 
 type initClusterPayload struct {
@@ -44,21 +71,6 @@ type saveClusterPayload struct {
 	JoinSecrets    token.Secrets `json:"join_secrets"`
 	CreatedAt      time.Time     `json:"created_at"`
 	CADigestPrefix string        `json:"ca_digest_prefix"`
-}
-
-type saveNodePayload struct {
-	Node *node.Node `json:"node"`
-}
-
-// PeerInfo tracks a manager's Raft and HTTP addresses for leader redirects.
-type PeerInfo struct {
-	NodeID   string `json:"node_id"`
-	RaftAddr string `json:"raft_addr"`
-	HTTPAddr string `json:"http_addr"`
-}
-
-type savePeerPayload struct {
-	Peer PeerInfo `json:"peer"`
 }
 
 func encodeCommand(op string, payload any) ([]byte, error) {

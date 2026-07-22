@@ -1,121 +1,81 @@
 # Cellar
 
-Cellar is a cluster certificate authority inspired by Docker Swarm-style join tokens. Managers form a [HashiCorp Raft](https://github.com/hashicorp/raft) cluster that replicates the root CA (including the private key). Workers join with a worker token, receive leaf certificates, and never hold the CA private key.
+Cellar is a Docker Swarm–style container orchestrator control plane for isolated sandboxes.
+This repository currently implements the **cluster identity layer**: an always-on daemon (`cellard`),
+a CLI (`cellar`), mTLS gRPC between nodes, and a HashiCorp Raft–replicated cluster CA.
+
+## Binaries
+
+| Binary | Role |
+|--------|------|
+| **`cellard`** | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:7946` after `init`/`join`. |
+| **`cellar`** | CLI client (`init`, `join`, `join-token`, `status`) talking to local `cellard`. |
 
 ## Roles
 
 | Role | Join token | Raft | Holds RootCA key | Control plane |
 |------|------------|------|------------------|---------------|
-| **Manager** | `tokens.manager` | Voter | Yes (via Raft FSM) | Yes |
-| **Worker** | `tokens.worker` | No | No | No |
+| **Manager** | manager token | Voter | Yes (via Raft `Cluster.RootCA`) | Yes |
+| **Worker** | worker token | No | No | No |
 
-Both roles use the agent library for join, renew, and peer mTLS. Only managers may call control-plane APIs when presenting a client certificate.
+The CA private key and join secrets live on the raft-backed **`Cluster.RootCA`** object (SwarmKit-style).
+Local disk stores only this node’s leaf cert/key and the public CA cert.
 
-## Ports
+## Ports / sockets
 
-Cellar uses **two listeners** on each manager:
-
-| Flag | Default | Protocol | Audience |
-|------|---------|----------|----------|
-| `-listen` | `:7946` | HTTP CA / control-plane API | Agents, operators |
-| `-raft-addr` | `127.0.0.1:7947` | Raft peer RPC | Managers only |
-
-Do not expose the Raft port to workers or untrusted networks.
+| Listener | Default | Auth | Purpose |
+|----------|---------|------|---------|
+| Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions | `Init`, `Join`, `JoinToken`, `Status` |
+| Remote gRPC | `:7946` | Bootstrap insecure TLS + token digest; else mTLS | CA issue/renew, raft membership |
+| Raft TCP | `127.0.0.1:7947` | Manager network | Consensus / CA key replication |
 
 ## Build
 
 ```bash
-go build -o cellar ./cmd/cellar
+make build          # → bin/cellard and bin/cellar
+# or: make cellard / make cellar
 ```
 
 Requires Go 1.26+.
 
-## Quick start (single manager)
+## Quick start
 
 ```bash
-./cellar -data-dir ./data-a -listen :7946 -raft-addr 127.0.0.1:7947 -node-id a -bootstrap
+# Host A — start daemon (idle until init)
+./bin/cellard --data-dir ./data-a --socket ./cellar-a.sock \
+  --listen 127.0.0.1:7946 --raft-addr 127.0.0.1:7947
 
-curl -s -X POST http://127.0.0.1:7946/api/v1/cluster/init -d '{}' | jq
-# → cluster_id, tokens.worker, tokens.manager
+# Initialize cluster (first manager)
+./bin/cellar --socket ./cellar-a.sock init --advertise-addr 127.0.0.1:7946 \
+  --listen-addr 127.0.0.1:7946 --raft-addr 127.0.0.1:7947
+
+# Print ready-to-run join command
+./bin/cellar --socket ./cellar-a.sock join-token worker
+# → cellar join --token CLLRN-1-… 127.0.0.1:7946
+
+# Host B — worker
+./bin/cellard --data-dir ./data-b --socket ./cellar-b.sock
+./bin/cellar --socket ./cellar-b.sock join --token CLLRN-1-… 127.0.0.1:7946
 ```
 
-## Multi-manager cluster
+Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
 
-```bash
-# Manager A (bootstrap)
-./cellar -data-dir ./data-a -listen :7946 -raft-addr 10.0.0.1:7947 \
-  -node-id a -http-advertise http://10.0.0.1:7946 -bootstrap
+## Cluster CA (HA)
 
-curl -X POST http://10.0.0.1:7946/api/v1/cluster/init -d '{}'
-
-# Manager B (join Raft; receives RootCA via log/snapshot replication)
-./cellar -data-dir ./data-b -listen :7946 -raft-addr 10.0.0.2:7947 \
-  -node-id b -http-advertise http://10.0.0.2:7946 \
-  -join http://10.0.0.1:7946
-```
-
-After join, every manager has the same RootCA. Mutating APIs are leader-only; followers return `503` with `X-Cellar-Leader` pointing at the leader’s advertised HTTP URL.
-
-## Workers
-
-Workers do not run the `cellar` binary as a Raft member. Use the agent library (`pkg/agent`) with the **worker** join token:
-
-```go
-a := agent.New("http://10.0.0.1:7946", "./worker-data")
-id, err := a.Join(ctx, workerToken) // RoleWorker leaf cert + public ca.crt
-```
-
-Agent data directory layout: `node.crt`, `node.key`, `ca.crt`, `identity.json`.
-
-## CLI flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-data-dir` | `./cellar-data` | Persistent state (`raft/` under this dir) |
-| `-listen` | `:7946` | HTTP API listen address |
-| `-raft-addr` | `127.0.0.1:7947` | Raft TCP listen/advertise (`host:port`) |
-| `-node-id` | basename of `-data-dir` | Stable Raft server ID |
-| `-http-advertise` | `http://<listen>` | HTTP base URL peers use for redirects |
-| `-bootstrap` | `false` | Form a new single-voter cluster (first manager only) |
-| `-join` | empty | Leader HTTP base URL to join as an additional manager |
-
-`-bootstrap` and `-join` are mutually exclusive.
-
-## HTTP API
-
-| Method | Path | Notes |
-|--------|------|-------|
-| `POST` | `/api/v1/cluster/init` | Bootstrap CA + join tokens (leader only) |
-| `GET` | `/api/v1/ca/certificate` | Public CA cert PEM |
-| `POST` | `/api/v1/ca/issue` | Issue/renew node cert (`token` or `node_id`) |
-| `GET` | `/api/v1/ca/status/{node_id}` | Node membership / cert metadata |
-| `GET` | `/api/v1/cluster/tokens` | Current worker + manager tokens |
-| `POST` | `/api/v1/cluster/rotate-tokens` | Rotate join secrets (leader + control plane) |
-| `GET` | `/api/v1/cluster/leader` | Leadership / leader HTTP advertise |
-| `POST` | `/api/v1/cluster/managers` | `{node_id,raft_addr,http_addr}` → `AddVoter` |
-| `DELETE` | `/api/v1/cluster/managers/{node_id}` | Remove Raft voter |
-
-Control-plane routes allow plain HTTP for bootstrap; when a client TLS certificate is present, only **manager** certs are accepted.
-
-## Data layout (managers)
-
-```text
-<data-dir>/
-  raft/
-    raft.db       # BoltDB log + stable store (includes RootCA PEMs in log/snapshots)
-    snapshots/
-```
-
-Treat manager data directories as secret: they contain the cluster root private key.
+1. `cellar init` generates a RootCA in memory, issues a local manager leaf, bootstraps Raft, and proposes `CreateCluster` with `CAKey` + `CACert` + join tokens.
+2. Every manager receives the same `Cluster.RootCA` through the raft log/snapshots.
+3. Only the **leader** runs the CA signer (`UpdateRootCA` from the store). On failover, the new leader loads signing material from raft — it does not re-seed from disk.
+4. External APIs never return `CAKey` (`GetRootCACertificate` is cert-only; `Cluster.Redact()` strips the key).
 
 ## Development
 
 ```bash
-go test ./...
+make tools   # install protoc-gen-go and protoc-gen-go-grpc (needs protoc on PATH)
+make proto   # regenerate gRPC stubs under api/gen/
+make test
+make clean
 ```
-
-`internal/store.FileStore` remains available for unit tests. Production `cmd/cellar` uses `internal/raftstore`.
 
 ## License
 
-See repository license file if present.
+See repository license if present.

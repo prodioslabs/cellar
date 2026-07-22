@@ -29,17 +29,17 @@ type Config struct {
 	DataDir       string
 	NodeID        string
 	RaftAddr      string // host:port for Raft TCP transport
-	HTTPAdvertise string // e.g. http://10.0.0.1:7946 for leader redirects
+	GRPCAdvertise string // e.g. 10.0.0.1:7946 for joiners / redirects
 	Bootstrap     bool
 }
 
 // Store implements store.Store using HashiCorp Raft.
 type Store struct {
-	cfg      Config
-	fsm      *FSM
-	raft     *raft.Raft
+	cfg       Config
+	fsm       *FSM
+	raft      *raft.Raft
 	transport *raft.NetworkTransport
-	bolt     *raftboltdb.BoltStore
+	bolt      *raftboltdb.BoltStore
 }
 
 // Open starts Raft for this manager. When Bootstrap is set and there is no
@@ -137,7 +137,7 @@ func Open(cfg Config) (*Store, error) {
 		if err := s.SavePeer(context.Background(), PeerInfo{
 			NodeID:   cfg.NodeID,
 			RaftAddr: string(transport.LocalAddr()),
-			HTTPAddr: cfg.HTTPAdvertise,
+			GRPCAddr: cfg.GRPCAdvertise,
 		}); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("register bootstrap peer: %w", err)
@@ -188,7 +188,7 @@ func (s *Store) WaitForLeader(timeout time.Duration) error {
 	return fmt.Errorf("timed out waiting for raft leader")
 }
 
-// WaitInitialized blocks until RootCA/cluster state has been applied to the FSM.
+// WaitInitialized blocks until cluster state has been applied to the FSM.
 func (s *Store) WaitInitialized(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
@@ -205,20 +205,20 @@ func (s *Store) IsLeader() bool {
 	return s.raft.State() == raft.Leader
 }
 
-// LeaderHTTP returns the advertised HTTP address of the current leader, if known.
-func (s *Store) LeaderHTTP() string {
+// LeaderGRPC returns the advertised gRPC address of the current leader, if known.
+func (s *Store) LeaderGRPC() string {
 	addr, id := s.raft.LeaderWithID()
 	if id == "" {
 		return ""
 	}
-	if p, ok := s.fsm.getPeer(string(id)); ok && p.HTTPAddr != "" {
-		return p.HTTPAddr
+	if p, ok := s.fsm.getPeer(string(id)); ok && p.GRPCAddr != "" {
+		return p.GRPCAddr
 	}
-	if p, ok := s.fsm.peerByRaftAddr(string(addr)); ok && p.HTTPAddr != "" {
-		return p.HTTPAddr
+	if p, ok := s.fsm.peerByRaftAddr(string(addr)); ok && p.GRPCAddr != "" {
+		return p.GRPCAddr
 	}
 	if s.IsLeader() {
-		return s.cfg.HTTPAdvertise
+		return s.cfg.GRPCAdvertise
 	}
 	return ""
 }
@@ -229,8 +229,8 @@ func (s *Store) NodeID() string { return s.cfg.NodeID }
 // RaftAddr returns this manager's Raft bind address.
 func (s *Store) RaftAddr() string { return string(s.transport.LocalAddr()) }
 
-// HTTPAdvertise returns this manager's advertised HTTP address.
-func (s *Store) HTTPAdvertise() string { return s.cfg.HTTPAdvertise }
+// GRPCAdvertise returns this manager's advertised gRPC address.
+func (s *Store) GRPCAdvertise() string { return s.cfg.GRPCAdvertise }
 
 // AddVoter adds a manager as a Raft voter and records its peer info.
 func (s *Store) AddVoter(ctx context.Context, peer PeerInfo) error {
@@ -292,8 +292,8 @@ func (s *Store) requireLeader() error {
 	return nil
 }
 
-// InitCluster bootstraps cluster state including RootCA into the Raft log.
-func (s *Store) InitCluster(ctx context.Context, cfg store.ClusterConfig) error {
+// CreateCluster bootstraps Cluster.RootCA into the Raft log.
+func (s *Store) CreateCluster(ctx context.Context, cfg store.ClusterConfig) error {
 	_ = ctx
 	if err := s.requireLeader(); err != nil {
 		return err
@@ -308,74 +308,52 @@ func (s *Store) InitCluster(ctx context.Context, cfg store.ClusterConfig) error 
 	if validity <= 0 {
 		validity = ca.DefaultNodeValidity
 	}
-	data, err := encodeCommand(opInitCluster, initClusterPayload{
-		ClusterID:      cfg.ClusterID,
-		CertValidity:   validity,
-		JoinSecrets:    cfg.JoinSecrets,
-		CreatedAt:      time.Now().UTC(),
-		CADigestPrefix: cfg.RootCA.DigestPrefix(),
-		CertPEM:        cfg.RootCA.CertPEM,
-		KeyPEM:         cfg.RootCA.KeyPEM,
-	})
+	cluster := store.Cluster{
+		ClusterID: cfg.ClusterID,
+		RootCA: store.RootCAMaterial{
+			CAKey:       append([]byte(nil), cfg.RootCA.KeyPEM...),
+			CACert:      append([]byte(nil), cfg.RootCA.CertPEM...),
+			CACertHash:  cfg.RootCA.DigestPrefix(),
+			JoinSecrets: cfg.JoinSecrets,
+		},
+		CertValidity: validity,
+		CreatedAt:    time.Now().UTC(),
+	}
+	data, err := encodeCommand(opCreateCluster, createClusterPayload{Cluster: cluster})
 	if err != nil {
 		return err
 	}
 	return s.apply(data)
 }
 
-// IsInitialized reports whether RootCA and cluster state exist in the FSM.
+// IsInitialized reports whether cluster state exists in the FSM.
 func (s *Store) IsInitialized(ctx context.Context) (bool, error) {
 	_ = ctx
 	return s.fsm.isInitialized(), nil
 }
 
-// GetRootCA returns the replicated RootCA.
+// GetRootCA returns the replicated RootCA from Cluster.RootCA.
 func (s *Store) GetRootCA(ctx context.Context) (*ca.RootCA, error) {
 	_ = ctx
 	return s.fsm.getRootCA()
 }
 
-// SaveRootCA replicates updated RootCA material.
-func (s *Store) SaveRootCA(ctx context.Context, root *ca.RootCA) error {
-	_ = ctx
-	if err := s.requireLeader(); err != nil {
-		return err
-	}
-	if root == nil {
-		return fmt.Errorf("root CA is required")
-	}
-	data, err := encodeCommand(opSaveRootCA, saveRootCAPayload{
-		CertPEM: root.CertPEM,
-		KeyPEM:  root.KeyPEM,
-	})
-	if err != nil {
-		return err
-	}
-	return s.apply(data)
-}
-
-// GetCluster returns replicated cluster configuration.
-func (s *Store) GetCluster(ctx context.Context) (*store.ClusterState, error) {
+// GetCluster returns the replicated cluster object (includes CAKey).
+func (s *Store) GetCluster(ctx context.Context) (*store.Cluster, error) {
 	_ = ctx
 	return s.fsm.getCluster()
 }
 
-// SaveCluster replicates cluster configuration updates.
-func (s *Store) SaveCluster(ctx context.Context, state *store.ClusterState) error {
+// UpdateCluster replicates cluster configuration updates (e.g. token rotation).
+func (s *Store) UpdateCluster(ctx context.Context, cluster *store.Cluster) error {
 	_ = ctx
 	if err := s.requireLeader(); err != nil {
 		return err
 	}
-	if state == nil {
-		return fmt.Errorf("cluster state is required")
+	if cluster == nil {
+		return fmt.Errorf("cluster is required")
 	}
-	data, err := encodeCommand(opSaveCluster, saveClusterPayload{
-		ClusterID:      state.ClusterID,
-		CertValidity:   state.CertValidity,
-		JoinSecrets:    state.JoinSecrets,
-		CreatedAt:      state.CreatedAt,
-		CADigestPrefix: state.CADigestPrefix,
-	})
+	data, err := encodeCommand(opUpdateCluster, updateClusterPayload{Cluster: *cluster})
 	if err != nil {
 		return err
 	}

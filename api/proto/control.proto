@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package cellar.v1;
+
+option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
+
+// Control is served on the local unix socket only.
+service Control {
+  rpc Init(InitRequest) returns (InitResponse);
+  rpc Join(JoinRequest) returns (JoinResponse);
+  rpc JoinToken(JoinTokenRequest) returns (JoinTokenResponse);
+  rpc Status(StatusRequest) returns (StatusResponse);
+}
+
+message InitRequest {
+  string advertise_addr = 1; // host:port advertised to joiners (gRPC)
+  string listen_addr = 2;    // local gRPC listen address
+  string raft_addr = 3;      // raft TCP listen/advertise
+  int64 cert_validity_ns = 4;
+}
+
+message InitResponse {
+  string cluster_id = 1;
+  string node_id = 2;
+  string worker_token = 3;
+  string manager_token = 4;
+  string advertise_addr = 5;
+}
+
+message JoinRequest {
+  string token = 1;
+  string remote_addr = 2; // host:port of an existing manager
+  string advertise_addr = 3;
+  string listen_addr = 4;
+  string raft_addr = 5;
+}
+
+message JoinResponse {
+  string node_id = 1;
+  string role = 2;
+  string cluster_id = 3;
+}
+
+message JoinTokenRequest {
+  string role = 1; // worker | manager
+}
+
+message JoinTokenResponse {
+  string token = 1;
+  string advertise_addr = 2;
+  string join_command = 3;
+}
+
+message StatusRequest {}
+
+message StatusResponse {
+  string node_id = 1;
+  string role = 2;
+  string cluster_id = 3;
+  bool is_leader = 4;
+  string advertise_addr = 5;
+  bool initialized = 6;
+}

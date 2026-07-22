@@ -13,7 +13,7 @@ import (
 var (
 	// ErrNotInitialized indicates the cluster has not been bootstrapped.
 	ErrNotInitialized = errors.New("cluster not initialized")
-	// ErrAlreadyInitialized indicates InitCluster was called twice.
+	// ErrAlreadyInitialized indicates CreateCluster was called twice.
 	ErrAlreadyInitialized = errors.New("cluster already initialized")
 	// ErrNodeNotFound indicates a node record is missing.
 	ErrNodeNotFound = errors.New("node not found")
@@ -21,16 +21,42 @@ var (
 	ErrNotLeader = errors.New("not the raft leader")
 )
 
-// ClusterState is persisted cluster configuration (without private keys).
-type ClusterState struct {
-	ClusterID      string        `json:"cluster_id"`
-	CertValidity   time.Duration `json:"cert_validity_ns"`
-	JoinSecrets    token.Secrets `json:"join_secrets"`
-	CreatedAt      time.Time     `json:"created_at"`
-	CADigestPrefix string        `json:"ca_digest_prefix"`
+// RootCAMaterial is the raft-replicated cluster CA (SwarmKit-style Cluster.RootCA).
+type RootCAMaterial struct {
+	CAKey       []byte        `json:"ca_key"`
+	CACert      []byte        `json:"ca_cert"`
+	CACertHash  string        `json:"ca_cert_hash"`
+	JoinSecrets token.Secrets `json:"join_secrets"`
 }
 
-// ClusterConfig is the input to InitCluster.
+// Cluster is the singleton cluster object stored in Raft.
+type Cluster struct {
+	ClusterID    string         `json:"cluster_id"`
+	RootCA       RootCAMaterial `json:"root_ca"`
+	CertValidity time.Duration  `json:"cert_validity_ns"`
+	CreatedAt    time.Time      `json:"created_at"`
+}
+
+// Redact returns a deep copy of c with CAKey cleared for external APIs.
+func (c *Cluster) Redact() *Cluster {
+	if c == nil {
+		return nil
+	}
+	out := *c
+	out.RootCA.CAKey = nil
+	out.RootCA.JoinSecrets = token.Secrets{}
+	return &out
+}
+
+// LoadRootCA builds a signing RootCA from cluster material.
+func (c *Cluster) LoadRootCA() (*ca.RootCA, error) {
+	if c == nil {
+		return nil, ErrNotInitialized
+	}
+	return ca.LoadRootCA(c.RootCA.CACert, c.RootCA.CAKey)
+}
+
+// ClusterConfig is the input to CreateCluster / InitCluster.
 type ClusterConfig struct {
 	ClusterID    string
 	CertValidity time.Duration
@@ -38,14 +64,13 @@ type ClusterConfig struct {
 	JoinSecrets  token.Secrets
 }
 
-// Store abstracts persistence so FileStore can later be swapped for RaftStore.
+// Store abstracts persistence for the cluster CA and node records.
 type Store interface {
-	InitCluster(ctx context.Context, cfg ClusterConfig) error
+	CreateCluster(ctx context.Context, cfg ClusterConfig) error
 	IsInitialized(ctx context.Context) (bool, error)
+	GetCluster(ctx context.Context) (*Cluster, error)
+	UpdateCluster(ctx context.Context, cluster *Cluster) error
 	GetRootCA(ctx context.Context) (*ca.RootCA, error)
-	SaveRootCA(ctx context.Context, root *ca.RootCA) error
-	GetCluster(ctx context.Context) (*ClusterState, error)
-	SaveCluster(ctx context.Context, state *ClusterState) error
 	GetNode(ctx context.Context, nodeID string) (*node.Node, error)
 	SaveNode(ctx context.Context, n *node.Node) error
 	ListNodes(ctx context.Context) ([]*node.Node, error)

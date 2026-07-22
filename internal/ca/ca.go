@@ -213,6 +213,10 @@ func (r *RootCA) SignNodeCSR(req IssueRequest) (*IssuedCert, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
+		DNSNames:              []string{req.NodeID},
+	}
+	if req.Role == node.RoleManager {
+		tmpl.DNSNames = append(tmpl.DNSNames, "cellar-manager", "cellar-ca")
 	}
 
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, r.Cert, req.CSR.PublicKey, r.Key)

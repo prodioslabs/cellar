@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package cellar.v1;
+
+option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
+
+import "types.proto";
+
+service CA {
+  // GetRootCACertificate returns the public CA certificate (no client cert required).
+  rpc GetRootCACertificate(GetRootCACertificateRequest) returns (GetRootCACertificateResponse);
+}
+
+service NodeCA {
+  // IssueNodeCertificate issues or renews a node certificate.
+  // First join uses Token; renewals may use mTLS + node_id.
+  rpc IssueNodeCertificate(IssueNodeCertificateRequest) returns (IssueNodeCertificateResponse);
+
+  // NodeCertificateStatus returns the issued certificate for a node.
+  rpc NodeCertificateStatus(NodeCertificateStatusRequest) returns (NodeCertificateStatusResponse);
+}
+
+message GetRootCACertificateRequest {}
+
+message GetRootCACertificateResponse {
+  bytes certificate = 1;
+}
+
+message IssueNodeCertificateRequest {
+  bytes csr = 1;
+  string token = 2;
+  string node_id = 3;
+}
+
+message IssueNodeCertificateResponse {
+  string node_id = 1;
+  string role = 2;
+  string membership = 3;
+  bytes certificate = 4;
+  int64 expires_at_unix_nano = 5;
+}
+
+message NodeCertificateStatusRequest {
+  string node_id = 1;
+}
+
+message NodeCertificateStatusResponse {
+  NodeRecord node = 1;
+}
+
+service RaftMembership {
+  rpc Join(RaftJoinRequest) returns (RaftJoinResponse);
+  rpc Leave(RaftLeaveRequest) returns (RaftLeaveResponse);
+}
+
+message RaftJoinRequest {
+  string node_id = 1;
+  string raft_addr = 2;
+  string grpc_addr = 3;
+}
+
+message RaftJoinResponse {}
+
+message RaftLeaveRequest {
+  string node_id = 1;
+}
+
+message RaftLeaveResponse {}

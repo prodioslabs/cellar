@@ -12,15 +12,15 @@ import (
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/store"
+	"github.com/prodioslabs/cellar/internal/token"
 )
 
-// FSM is the in-memory Raft state machine holding RootCA, cluster config, nodes, and peers.
+// FSM is the in-memory Raft state machine holding Cluster.RootCA, nodes, and peers.
 type FSM struct {
 	mu      sync.RWMutex
-	root    *ca.RootCA
-	cluster *store.ClusterState
+	cluster *store.Cluster
 	nodes   map[string]*node.Node
-	peers   map[string]PeerInfo // keyed by node ID
+	peers   map[string]PeerInfo
 }
 
 // NewFSM creates an empty FSM.
@@ -42,12 +42,10 @@ func (f *FSM) Apply(l *raft.Log) interface{} {
 	defer f.mu.Unlock()
 
 	switch cmd.Op {
-	case opInitCluster:
-		return f.applyInitCluster(cmd.Payload)
-	case opSaveRootCA:
-		return f.applySaveRootCA(cmd.Payload)
-	case opSaveCluster:
-		return f.applySaveCluster(cmd.Payload)
+	case opCreateCluster, opInitCluster:
+		return f.applyCreateCluster(cmd.Op, cmd.Payload)
+	case opUpdateCluster, opSaveCluster, opSaveRootCA:
+		return f.applyUpdateCluster(cmd.Op, cmd.Payload)
 	case opSaveNode:
 		return f.applySaveNode(cmd.Payload)
 	case opSavePeer:
@@ -57,16 +55,26 @@ func (f *FSM) Apply(l *raft.Log) interface{} {
 	}
 }
 
-func (f *FSM) applyInitCluster(raw json.RawMessage) interface{} {
+func (f *FSM) applyCreateCluster(op string, raw json.RawMessage) interface{} {
 	if f.cluster != nil {
 		return store.ErrAlreadyInitialized
 	}
+
+	if op == opCreateCluster {
+		var p createClusterPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		cp := p.Cluster
+		cp.RootCA.CAKey = append([]byte(nil), p.Cluster.RootCA.CAKey...)
+		cp.RootCA.CACert = append([]byte(nil), p.Cluster.RootCA.CACert...)
+		f.cluster = &cp
+		return nil
+	}
+
+	// Legacy init_cluster
 	var p initClusterPayload
 	if err := json.Unmarshal(raw, &p); err != nil {
-		return err
-	}
-	root, err := ca.LoadRootCA(p.CertPEM, p.KeyPEM)
-	if err != nil {
 		return err
 	}
 	validity := p.CertValidity
@@ -77,46 +85,74 @@ func (f *FSM) applyInitCluster(raw json.RawMessage) interface{} {
 	if created.IsZero() {
 		created = time.Now().UTC()
 	}
-	f.root = root
-	f.cluster = &store.ClusterState{
-		ClusterID:      p.ClusterID,
-		CertValidity:   validity,
-		JoinSecrets:    p.JoinSecrets,
-		CreatedAt:      created,
-		CADigestPrefix: p.CADigestPrefix,
+	f.cluster = &store.Cluster{
+		ClusterID: p.ClusterID,
+		RootCA: store.RootCAMaterial{
+			CAKey:      append([]byte(nil), p.KeyPEM...),
+			CACert:     append([]byte(nil), p.CertPEM...),
+			CACertHash: p.CADigestPrefix,
+			JoinSecrets: token.Secrets{
+				Worker:  p.JoinSecrets.Worker,
+				Manager: p.JoinSecrets.Manager,
+			},
+		},
+		CertValidity: validity,
+		CreatedAt:    created,
 	}
 	return nil
 }
 
-func (f *FSM) applySaveRootCA(raw json.RawMessage) interface{} {
-	var p saveRootCAPayload
-	if err := json.Unmarshal(raw, &p); err != nil {
-		return err
+func (f *FSM) applyUpdateCluster(op string, raw json.RawMessage) interface{} {
+	switch op {
+	case opUpdateCluster:
+		var p updateClusterPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		if f.cluster == nil {
+			return store.ErrNotInitialized
+		}
+		cp := p.Cluster
+		cp.RootCA.CAKey = append([]byte(nil), p.Cluster.RootCA.CAKey...)
+		cp.RootCA.CACert = append([]byte(nil), p.Cluster.RootCA.CACert...)
+		f.cluster = &cp
+		return nil
+	case opSaveRootCA:
+		var p saveRootCAPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		if f.cluster == nil {
+			return store.ErrNotInitialized
+		}
+		f.cluster.RootCA.CACert = append([]byte(nil), p.CertPEM...)
+		f.cluster.RootCA.CAKey = append([]byte(nil), p.KeyPEM...)
+		root, err := ca.LoadRootCA(p.CertPEM, p.KeyPEM)
+		if err != nil {
+			return err
+		}
+		f.cluster.RootCA.CACertHash = root.DigestPrefix()
+		return nil
+	case opSaveCluster:
+		var p saveClusterPayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		if f.cluster == nil {
+			return store.ErrNotInitialized
+		}
+		f.cluster.ClusterID = p.ClusterID
+		f.cluster.CertValidity = p.CertValidity
+		f.cluster.CreatedAt = p.CreatedAt
+		f.cluster.RootCA.CACertHash = p.CADigestPrefix
+		f.cluster.RootCA.JoinSecrets = token.Secrets{
+			Worker:  p.JoinSecrets.Worker,
+			Manager: p.JoinSecrets.Manager,
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown update op %q", op)
 	}
-	root, err := ca.LoadRootCA(p.CertPEM, p.KeyPEM)
-	if err != nil {
-		return err
-	}
-	f.root = root
-	if f.cluster != nil {
-		f.cluster.CADigestPrefix = root.DigestPrefix()
-	}
-	return nil
-}
-
-func (f *FSM) applySaveCluster(raw json.RawMessage) interface{} {
-	var p saveClusterPayload
-	if err := json.Unmarshal(raw, &p); err != nil {
-		return err
-	}
-	f.cluster = &store.ClusterState{
-		ClusterID:      p.ClusterID,
-		CertValidity:   p.CertValidity,
-		JoinSecrets:    p.JoinSecrets,
-		CreatedAt:      p.CreatedAt,
-		CADigestPrefix: p.CADigestPrefix,
-	}
-	return nil
 }
 
 func (f *FSM) applySaveNode(raw json.RawMessage) interface{} {
@@ -153,12 +189,10 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 		nodes: make(map[string]*node.Node, len(f.nodes)),
 		peers: make(map[string]PeerInfo, len(f.peers)),
 	}
-	if f.root != nil {
-		snap.certPEM = append([]byte(nil), f.root.CertPEM...)
-		snap.keyPEM = append([]byte(nil), f.root.KeyPEM...)
-	}
 	if f.cluster != nil {
 		c := *f.cluster
+		c.RootCA.CAKey = append([]byte(nil), f.cluster.RootCA.CAKey...)
+		c.RootCA.CACert = append([]byte(nil), f.cluster.RootCA.CACert...)
 		snap.cluster = &c
 	}
 	for id, n := range f.nodes {
@@ -180,15 +214,6 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 		return fmt.Errorf("decode snapshot: %w", err)
 	}
 
-	var root *ca.RootCA
-	if len(snap.CertPEM) > 0 && len(snap.KeyPEM) > 0 {
-		var err error
-		root, err = ca.LoadRootCA(snap.CertPEM, snap.KeyPEM)
-		if err != nil {
-			return err
-		}
-	}
-
 	nodes := make(map[string]*node.Node, len(snap.Nodes))
 	for id, n := range snap.Nodes {
 		if n == nil {
@@ -202,42 +227,84 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 		peers[id] = p
 	}
 
+	var cluster *store.Cluster
+	if snap.Cluster != nil {
+		c := *snap.Cluster
+		c.RootCA.CAKey = append([]byte(nil), snap.Cluster.RootCA.CAKey...)
+		c.RootCA.CACert = append([]byte(nil), snap.Cluster.RootCA.CACert...)
+		cluster = &c
+	} else if len(snap.CertPEM) > 0 && len(snap.KeyPEM) > 0 {
+		// Legacy snapshot shape
+		root, err := ca.LoadRootCA(snap.CertPEM, snap.KeyPEM)
+		if err != nil {
+			return err
+		}
+		var secrets token.Secrets
+		var clusterID string
+		var validity time.Duration
+		var created time.Time
+		var hash string
+		if snap.LegacyCluster != nil {
+			clusterID = snap.LegacyCluster.ClusterID
+			validity = snap.LegacyCluster.CertValidity
+			created = snap.LegacyCluster.CreatedAt
+			hash = snap.LegacyCluster.CADigestPrefix
+			secrets = snap.LegacyCluster.JoinSecrets
+		}
+		if hash == "" {
+			hash = root.DigestPrefix()
+		}
+		cluster = &store.Cluster{
+			ClusterID: clusterID,
+			RootCA: store.RootCAMaterial{
+				CAKey:       append([]byte(nil), snap.KeyPEM...),
+				CACert:      append([]byte(nil), snap.CertPEM...),
+				CACertHash:  hash,
+				JoinSecrets: secrets,
+			},
+			CertValidity: validity,
+			CreatedAt:    created,
+		}
+	}
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.root = root
-	f.cluster = snap.Cluster
+	f.cluster = cluster
 	f.nodes = nodes
 	f.peers = peers
 	return nil
 }
 
 type persistedSnapshot struct {
-	CertPEM []byte                `json:"cert_pem,omitempty"`
-	KeyPEM  []byte                `json:"key_pem,omitempty"`
-	Cluster *store.ClusterState   `json:"cluster,omitempty"`
-	Nodes   map[string]*node.Node `json:"nodes,omitempty"`
-	Peers   map[string]PeerInfo   `json:"peers,omitempty"`
+	Cluster       *store.Cluster              `json:"cluster,omitempty"`
+	Nodes         map[string]*node.Node       `json:"nodes,omitempty"`
+	Peers         map[string]PeerInfo         `json:"peers,omitempty"`
+	// Legacy fields
+	CertPEM       []byte                      `json:"cert_pem,omitempty"`
+	KeyPEM        []byte                      `json:"key_pem,omitempty"`
+	LegacyCluster *legacyClusterState         `json:"legacy_cluster,omitempty"`
+}
+
+type legacyClusterState struct {
+	ClusterID      string        `json:"cluster_id"`
+	CertValidity   time.Duration `json:"cert_validity_ns"`
+	JoinSecrets    token.Secrets `json:"join_secrets"`
+	CreatedAt      time.Time     `json:"created_at"`
+	CADigestPrefix string        `json:"ca_digest_prefix"`
 }
 
 type fsmSnapshot struct {
-	certPEM []byte
-	keyPEM  []byte
-	cluster *store.ClusterState
+	cluster *store.Cluster
 	nodes   map[string]*node.Node
 	peers   map[string]PeerInfo
 }
 
 func (s *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
-	err := func() error {
-		enc := json.NewEncoder(sink)
-		return enc.Encode(persistedSnapshot{
-			CertPEM: s.certPEM,
-			KeyPEM:  s.keyPEM,
-			Cluster: s.cluster,
-			Nodes:   s.nodes,
-			Peers:   s.peers,
-		})
-	}()
+	err := json.NewEncoder(sink).Encode(persistedSnapshot{
+		Cluster: s.cluster,
+		Nodes:   s.nodes,
+		Peers:   s.peers,
+	})
 	if err != nil {
 		_ = sink.Cancel()
 		return err
@@ -247,31 +314,30 @@ func (s *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 
 func (s *fsmSnapshot) Release() {}
 
-// --- read helpers (used by RaftStore) ---
-
-func (f *FSM) getRootCA() (*ca.RootCA, error) {
+func (f *FSM) isInitialized() bool {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	if f.root == nil {
-		return nil, store.ErrNotInitialized
-	}
-	return f.root, nil
+	return f.cluster != nil
 }
 
-func (f *FSM) getCluster() (*store.ClusterState, error) {
+func (f *FSM) getCluster() (*store.Cluster, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	if f.cluster == nil {
 		return nil, store.ErrNotInitialized
 	}
 	cp := *f.cluster
+	cp.RootCA.CAKey = append([]byte(nil), f.cluster.RootCA.CAKey...)
+	cp.RootCA.CACert = append([]byte(nil), f.cluster.RootCA.CACert...)
 	return &cp, nil
 }
 
-func (f *FSM) isInitialized() bool {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	return f.cluster != nil && f.root != nil
+func (f *FSM) getRootCA() (*ca.RootCA, error) {
+	cluster, err := f.getCluster()
+	if err != nil {
+		return nil, err
+	}
+	return cluster.LoadRootCA()
 }
 
 func (f *FSM) getNode(id string) (*node.Node, error) {

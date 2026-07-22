@@ -29,14 +29,18 @@ func TestFSMInitClusterRootCA(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err := encodeCommand(opInitCluster, initClusterPayload{
-		ClusterID:      "cluster-1",
-		CertValidity:   ca.DefaultNodeValidity,
-		JoinSecrets:    secrets,
-		CreatedAt:      time.Now().UTC(),
-		CADigestPrefix: root.DigestPrefix(),
-		CertPEM:        root.CertPEM,
-		KeyPEM:         root.KeyPEM,
+	data, err := encodeCommand(opCreateCluster, createClusterPayload{
+		Cluster: store.Cluster{
+			ClusterID: "cluster-1",
+			RootCA: store.RootCAMaterial{
+				CAKey:       root.KeyPEM,
+				CACert:      root.CertPEM,
+				CACertHash:  root.DigestPrefix(),
+				JoinSecrets: secrets,
+			},
+			CertValidity: ca.DefaultNodeValidity,
+			CreatedAt:    time.Now().UTC(),
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +61,7 @@ func TestFSMInitClusterRootCA(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cluster.JoinSecrets.Worker != secrets.Worker || cluster.JoinSecrets.Manager != secrets.Manager {
+	if cluster.RootCA.JoinSecrets.Worker != secrets.Worker || cluster.RootCA.JoinSecrets.Manager != secrets.Manager {
 		t.Fatal("join secrets not preserved")
 	}
 
@@ -76,14 +80,18 @@ func TestFSMSnapshotRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := encodeCommand(opInitCluster, initClusterPayload{
-		ClusterID:      "c1",
-		CertValidity:   time.Hour,
-		JoinSecrets:    secrets,
-		CreatedAt:      time.Now().UTC(),
-		CADigestPrefix: root.DigestPrefix(),
-		CertPEM:        root.CertPEM,
-		KeyPEM:         root.KeyPEM,
+	data, err := encodeCommand(opCreateCluster, createClusterPayload{
+		Cluster: store.Cluster{
+			ClusterID: "c1",
+			RootCA: store.RootCAMaterial{
+				CAKey:       root.KeyPEM,
+				CACert:      root.CertPEM,
+				CACertHash:  root.DigestPrefix(),
+				JoinSecrets: secrets,
+			},
+			CertValidity: time.Hour,
+			CreatedAt:    time.Now().UTC(),
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -156,7 +164,7 @@ func TestRaftStoreRootCAReplication(t *testing.T) {
 		DataDir:       filepath.Join(dir, "a"),
 		NodeID:        "manager-a",
 		RaftAddr:      addrA,
-		HTTPAdvertise: "http://127.0.0.1:7946",
+		GRPCAdvertise: "127.0.0.1:7946",
 		Bootstrap:     true,
 	})
 	if err != nil {
@@ -172,7 +180,7 @@ func TestRaftStoreRootCAReplication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := a.InitCluster(context.Background(), store.ClusterConfig{
+	if err := a.CreateCluster(context.Background(), store.ClusterConfig{
 		ClusterID:    "cid",
 		CertValidity: ca.DefaultNodeValidity,
 		RootCA:       root,
@@ -185,7 +193,7 @@ func TestRaftStoreRootCAReplication(t *testing.T) {
 		DataDir:       filepath.Join(dir, "b"),
 		NodeID:        "manager-b",
 		RaftAddr:      addrB,
-		HTTPAdvertise: "http://127.0.0.1:7948",
+		GRPCAdvertise: "127.0.0.1:7948",
 		Bootstrap:     false,
 	})
 	if err != nil {
@@ -196,7 +204,7 @@ func TestRaftStoreRootCAReplication(t *testing.T) {
 	if err := a.AddVoter(context.Background(), PeerInfo{
 		NodeID:   "manager-b",
 		RaftAddr: b.RaftAddr(),
-		HTTPAddr: "http://127.0.0.1:7948",
+		GRPCAddr: "127.0.0.1:7948",
 	}); err != nil {
 		t.Fatalf("add voter: %v", err)
 	}
@@ -216,8 +224,6 @@ func TestRaftStoreRootCAReplication(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// Worker node records replicate, but workers never hold CA key via agent path;
-	// managers do via FSM. Assert worker node save replicates without exposing key over HTTP.
 	worker := &node.Node{
 		ID:         "worker-1",
 		Role:       node.RoleWorker,
@@ -276,13 +282,11 @@ func TestRaftStoreNotLeader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Follower must reject writes.
 	if b.IsLeader() {
-		// Rare: b became leader; still verify ErrNotLeader path on whoever isn't leader.
 		if !a.IsLeader() {
 			root, _ := ca.GenerateRootCA("cellar", time.Hour)
 			secrets, _ := token.GenerateSecrets()
-			err := a.InitCluster(context.Background(), store.ClusterConfig{
+			err := a.CreateCluster(context.Background(), store.ClusterConfig{
 				ClusterID: "x", RootCA: root, JoinSecrets: secrets,
 			})
 			if err != store.ErrNotLeader {
@@ -299,7 +303,7 @@ func TestRaftStoreNotLeader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = b.InitCluster(context.Background(), store.ClusterConfig{
+	err = b.CreateCluster(context.Background(), store.ClusterConfig{
 		ClusterID: "x", RootCA: root, JoinSecrets: secrets,
 	})
 	if err != store.ErrNotLeader {
@@ -325,5 +329,24 @@ func TestEncodeDecodeCommand(t *testing.T) {
 	}
 	if p.Peer.NodeID != "m1" {
 		t.Fatal(p.Peer)
+	}
+}
+
+func TestClusterRedact(t *testing.T) {
+	c := &store.Cluster{
+		ClusterID: "c",
+		RootCA: store.RootCAMaterial{
+			CAKey:      []byte("secret"),
+			CACert:     []byte("cert"),
+			CACertHash: "hash",
+			JoinSecrets: token.Secrets{Worker: "w", Manager: "m"},
+		},
+	}
+	r := c.Redact()
+	if len(r.RootCA.CAKey) != 0 {
+		t.Fatal("CAKey not redacted")
+	}
+	if len(c.RootCA.CAKey) == 0 {
+		t.Fatal("original mutated")
 	}
 }

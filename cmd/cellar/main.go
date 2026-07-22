@@ -1,150 +1,196 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"flag"
+	"context"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
-	"os/signal"
-	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/prodioslabs/cellar/internal/api"
-	"github.com/prodioslabs/cellar/internal/raftstore"
+	"github.com/spf13/cobra"
+
+	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/internal/daemon"
+)
+
+var (
+	socketPath    string
+	advertiseAddr string
+	listenAddr    string
+	raftAddr      string
+	joinToken     string
 )
 
 func main() {
-	dataDir := flag.String("data-dir", "./cellar-data", "directory for CA and cluster state")
-	listen := flag.String("listen", ":7946", "HTTP listen address")
-	raftAddr := flag.String("raft-addr", "127.0.0.1:7947", "Raft TCP listen/advertise address (host:port)")
-	nodeID := flag.String("node-id", "", "stable Raft server ID (default: basename of data-dir)")
-	httpAdvertise := flag.String("http-advertise", "", "HTTP base URL advertised to peers (default: http://<listen>)")
-	bootstrap := flag.Bool("bootstrap", false, "bootstrap a new single-manager Raft cluster")
-	join := flag.String("join", "", "leader HTTP base URL to join as an additional manager")
-	flag.Parse()
-
-	id := *nodeID
-	if id == "" {
-		id = filepath.Base(*dataDir)
-	}
-
-	advertise := *httpAdvertise
-	if advertise == "" {
-		advertise = defaultHTTPAdvertise(*listen)
-	}
-
-	if *bootstrap && *join != "" {
-		log.Fatal("cannot set both -bootstrap and -join")
-	}
-
-	rs, err := raftstore.Open(raftstore.Config{
-		DataDir:       *dataDir,
-		NodeID:        id,
-		RaftAddr:      *raftAddr,
-		HTTPAdvertise: advertise,
-		Bootstrap:     *bootstrap,
-	})
-	if err != nil {
-		log.Fatalf("raft: %v", err)
-	}
-	defer rs.Close()
-
-	if *join != "" {
-		if err := joinLeader(*join, raftstore.PeerInfo{
-			NodeID:   id,
-			RaftAddr: rs.RaftAddr(),
-			HTTPAddr: advertise,
-		}); err != nil {
-			log.Fatalf("join: %v", err)
-		}
-		if err := rs.WaitForLeader(30 * time.Second); err != nil {
-			log.Fatalf("wait leader: %v", err)
-		}
-	}
-
-	srv := api.NewWithRaft(rs, rs)
-	log.Printf("cellar manager listening on %s (raft=%s node-id=%s data-dir=%s bootstrap=%v)",
-		*listen, rs.RaftAddr(), id, *dataDir, *bootstrap)
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- srv.ListenAndServe(*listen)
-	}()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			log.Fatalf("server: %v", err)
-		}
-	case sig := <-sigCh:
-		fmt.Fprintf(os.Stderr, "received %s, shutting down\n", sig)
+	root := newRootCmd()
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
-func defaultHTTPAdvertise(listen string) string {
-	host := listen
-	if strings.HasPrefix(host, ":") {
-		host = "127.0.0.1" + host
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:   "cellar",
+		Short: "Cellar CLI — manage a local cellard daemon",
+		Long: `cellar talks to a local cellard over a unix socket.
+
+Start cellard first, then use init / join / join-token / status.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
-	return "http://" + host
+	root.PersistentFlags().StringVar(&socketPath, "socket", daemon.DefaultSocket, "path to cellard control socket")
+
+	root.AddCommand(newInitCmd())
+	root.AddCommand(newJoinCmd())
+	root.AddCommand(newJoinTokenCmd())
+	root.AddCommand(newStatusCmd())
+	return root
 }
 
-func joinLeader(leaderURL string, peer raftstore.PeerInfo) error {
-	leaderURL = strings.TrimRight(leaderURL, "/")
-	body, err := json.Marshal(map[string]string{
-		"node_id":   peer.NodeID,
-		"raft_addr": peer.RaftAddr,
-		"http_addr": peer.HTTPAddr,
-	})
+func dial() (cellarv1.ControlClient, func(), error) {
+	conn, err := daemon.DialLocal(socketPath)
 	if err != nil {
-		return err
+		return nil, nil, fmt.Errorf("dial cellard: %w", err)
 	}
+	return cellarv1.NewControlClient(conn), func() { _ = conn.Close() }, nil
+}
 
-	var lastErr error
-	for i := 0; i < 30; i++ {
-		req, err := http.NewRequest(http.MethodPost, leaderURL+"/api/v1/cluster/managers", bytes.NewReader(body))
-		if err != nil {
-			return err
-		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			lastErr = err
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-		if resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
-			return nil
-		}
-		var errBody struct {
-			Error string `json:"error"`
-		}
-		_ = json.NewDecoder(resp.Body).Decode(&errBody)
-		resp.Body.Close()
-		if resp.StatusCode == http.StatusServiceUnavailable {
-			if loc := resp.Header.Get("X-Cellar-Leader"); loc != "" {
-				leaderURL = strings.TrimRight(loc, "/")
+func newInitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize a new cluster on this node (first manager)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
 			}
-			lastErr = fmt.Errorf("leader unavailable (status %d)", resp.StatusCode)
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-		if errBody.Error != "" {
-			return fmt.Errorf("join failed: %s", errBody.Error)
-		}
-		return fmt.Errorf("join failed: status %d", resp.StatusCode)
+			defer closeFn()
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
+			defer cancel()
+
+			resp, err := client.Init(ctx, &cellarv1.InitRequest{
+				AdvertiseAddr: advertiseAddr,
+				ListenAddr:    listenAddr,
+				RaftAddr:      raftAddr,
+			})
+			if err != nil {
+				return fmt.Errorf("init: %w", err)
+			}
+
+			fmt.Printf("Cluster initialized: %s (node %s)\n\n", resp.ClusterId, resp.NodeId)
+			fmt.Printf("To add a worker to this cluster, run the following command:\n\n")
+			fmt.Printf("    cellar join --token %s %s\n\n", resp.WorkerToken, resp.AdvertiseAddr)
+			fmt.Printf("To add a manager to this cluster, run the following command:\n\n")
+			fmt.Printf("    cellar join --token %s %s\n", resp.ManagerToken, resp.AdvertiseAddr)
+			return nil
+		},
 	}
-	if lastErr != nil {
-		return lastErr
+	cmd.Flags().StringVar(&advertiseAddr, "advertise-addr", "", "address advertised to joining nodes (host:port)")
+	cmd.Flags().StringVar(&listenAddr, "listen-addr", "", "remote gRPC listen address")
+	cmd.Flags().StringVar(&raftAddr, "raft-addr", "", "raft TCP listen/advertise address")
+	return cmd
+}
+
+func newJoinCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "join --token <token> <host:port>",
+		Short: "Join this node to an existing cluster",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if joinToken == "" {
+				return fmt.Errorf("--token is required")
+			}
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
+			defer cancel()
+
+			resp, err := client.Join(ctx, &cellarv1.JoinRequest{
+				Token:         joinToken,
+				RemoteAddr:    args[0],
+				AdvertiseAddr: advertiseAddr,
+				ListenAddr:    listenAddr,
+				RaftAddr:      raftAddr,
+			})
+			if err != nil {
+				return fmt.Errorf("join: %w", err)
+			}
+			fmt.Printf("This node joined as a %s (%s).\n", resp.Role, resp.NodeId)
+			return nil
+		},
 	}
-	return fmt.Errorf("join failed after retries")
+	cmd.Flags().StringVar(&joinToken, "token", "", "cluster join token")
+	cmd.Flags().StringVar(&advertiseAddr, "advertise-addr", "", "address this node advertises (managers)")
+	cmd.Flags().StringVar(&listenAddr, "listen-addr", "", "remote gRPC listen address (managers)")
+	cmd.Flags().StringVar(&raftAddr, "raft-addr", "", "raft TCP address (managers)")
+	_ = cmd.MarkFlagRequired("token")
+	return cmd
+}
+
+func newJoinTokenCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:       "join-token {worker|manager}",
+		Short:     "Print a ready-to-run join command for the given role",
+		Args:      cobra.ExactArgs(1),
+		ValidArgs: []string{"worker", "manager"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			role := strings.ToLower(args[0])
+			if role != "worker" && role != "manager" {
+				return fmt.Errorf("role must be worker or manager")
+			}
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
+			defer cancel()
+
+			resp, err := client.JoinToken(ctx, &cellarv1.JoinTokenRequest{Role: role})
+			if err != nil {
+				return fmt.Errorf("join-token: %w", err)
+			}
+
+			fmt.Printf("To add a %s to this cluster, run the following command:\n\n", role)
+			fmt.Printf("    %s\n", resp.JoinCommand)
+			return nil
+		},
+	}
+}
+
+func newStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show local node cluster status",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
+			defer cancel()
+
+			resp, err := client.Status(ctx, &cellarv1.StatusRequest{})
+			if err != nil {
+				return fmt.Errorf("status: %w", err)
+			}
+			fmt.Printf("initialized: %v\n", resp.Initialized)
+			fmt.Printf("node_id:     %s\n", resp.NodeId)
+			fmt.Printf("role:        %s\n", resp.Role)
+			fmt.Printf("cluster_id:  %s\n", resp.ClusterId)
+			fmt.Printf("is_leader:   %v\n", resp.IsLeader)
+			fmt.Printf("advertise:   %s\n", resp.AdvertiseAddr)
+			return nil
+		},
+	}
 }

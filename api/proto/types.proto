@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package cellar.v1;
+
+option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
+
+// JoinTokens holds the full formatted join tokens (or secrets) for the cluster.
+message JoinTokens {
+  string worker = 1;
+  string manager = 2;
+}
+
+// RootCA is the raft-replicated cluster CA material (SwarmKit-style).
+// CAKey must never be returned to external clients.
+message RootCA {
+  bytes ca_key = 1;
+  bytes ca_cert = 2;
+  string ca_cert_hash = 3;
+  JoinTokens join_tokens = 4;
+}
+
+// Cluster is the singleton cluster object stored in Raft.
+message Cluster {
+  string cluster_id = 1;
+  RootCA root_ca = 2;
+  int64 cert_validity_ns = 3;
+  int64 created_at_unix_nano = 4;
+}
+
+message NodeRecord {
+  string node_id = 1;
+  string role = 2;
+  string membership = 3;
+  string pub_key_fingerprint = 4;
+  int64 issued_at_unix_nano = 5;
+  int64 expires_at_unix_nano = 6;
+  bytes certificate = 7;
+}
