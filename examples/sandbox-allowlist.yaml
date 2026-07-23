@@ -1,0 +1,11 @@
+# Allowlisted egress for HTTPS to example.com.
+# Usage: cellar sandbox create -f examples/sandbox-allowlist.yaml
+id: demo-curl
+image: curlimages/curl
+command: ["sleep", "infinity"]
+network:
+  mode: allowlist
+  allow_hosts:
+    - example.com
+  allow_ports:
+    - 443

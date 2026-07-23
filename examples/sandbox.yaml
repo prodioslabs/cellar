@@ -1,0 +1,7 @@
+# Isolated alpine sandbox (no external network).
+# Usage: cellar sandbox create -f examples/sandbox.yaml
+id: demo-alpine
+image: alpine
+command: ["sleep", "infinity"]
+network:
+  mode: none

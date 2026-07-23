@@ -64,16 +64,26 @@ Managers join the same way with the **manager** token (and should pass `--advert
 
 ## Sandboxes
 
-Requires Docker with the gVisor `runsc` runtime registered (`sudo runsc install && sudo systemctl restart docker`).
+Requires Docker with the gVisor [`runsc`](https://gvisor.dev/docs/user_guide/install/) runtime registered (`sudo runsc install && sudo systemctl restart docker`).
+
+On Arch Linux–based systems:
+
+```bash
+yay -Sy gvisor-bin
+sudo runsc install && sudo systemctl restart docker
+```
 
 ```bash
 # Create an isolated sandbox (no external network)
 cellar sandbox create --image alpine --entrypoint sleep --entrypoint infinity
+# or from YAML:
+cellar sandbox create -f examples/sandbox.yaml
 
 # Allowlisted egress (enforced by cellard's userspace proxy + iptables REDIRECT)
 cellar sandbox create --image curlimages/curl --network allowlist \
   --allow-host example.com --allow-port 443 \
   --entrypoint sleep --entrypoint infinity
+# or: cellar sandbox create -f examples/sandbox-allowlist.yaml
 
 cellar sandbox ls
 cellar sandbox inspect <id>
