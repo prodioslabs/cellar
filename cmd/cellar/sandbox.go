@@ -202,7 +202,7 @@ func newSandboxGetCmd() *cobra.Command {
 			fmt.Printf("desired:  %s\n", sb.DesiredState)
 			fmt.Printf("phase:    %s\n", sb.Status.GetPhase())
 			fmt.Printf("image:    %s\n", sb.Spec.GetImage())
-			fmt.Printf("container:%s\n", sb.Status.GetContainerId())
+			fmt.Printf("container: %s\n", sb.Status.GetContainerId())
 			if sb.Status.GetMessage() != "" {
 				fmt.Printf("message:  %s\n", sb.Status.Message)
 			}
@@ -228,14 +228,19 @@ func newSandboxListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%-36s %-12s %-10s %-10s %s\n", "ID", "NODE", "DESIRED", "PHASE", "IMAGE")
+			fmt.Printf("%-36s %-12s %-12s %-10s %-10s %s\n",
+				"ID", "NODE", "CONTAINER", "DESIRED", "PHASE", "IMAGE")
 			for _, sb := range resp.Sandboxes {
 				node := sb.NodeId
 				if len(node) > 12 {
 					node = node[:12]
 				}
-				fmt.Printf("%-36s %-12s %-10s %-10s %s\n",
-					sb.Id, node, sb.DesiredState, sb.Status.GetPhase(), sb.Spec.GetImage())
+				cid := sb.Status.GetContainerId()
+				if len(cid) > 12 {
+					cid = cid[:12]
+				}
+				fmt.Printf("%-36s %-12s %-12s %-10s %-10s %s\n",
+					sb.Id, node, cid, sb.DesiredState, sb.Status.GetPhase(), sb.Spec.GetImage())
 			}
 			return nil
 		},
