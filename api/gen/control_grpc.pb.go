@@ -19,10 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Control_Init_FullMethodName      = "/cellar.v1.Control/Init"
-	Control_Join_FullMethodName      = "/cellar.v1.Control/Join"
-	Control_JoinToken_FullMethodName = "/cellar.v1.Control/JoinToken"
-	Control_Status_FullMethodName    = "/cellar.v1.Control/Status"
+	Control_Init_FullMethodName          = "/cellar.v1.Control/Init"
+	Control_Join_FullMethodName          = "/cellar.v1.Control/Join"
+	Control_JoinToken_FullMethodName     = "/cellar.v1.Control/JoinToken"
+	Control_Status_FullMethodName        = "/cellar.v1.Control/Status"
+	Control_SandboxCreate_FullMethodName = "/cellar.v1.Control/SandboxCreate"
+	Control_SandboxStop_FullMethodName   = "/cellar.v1.Control/SandboxStop"
+	Control_SandboxRemove_FullMethodName = "/cellar.v1.Control/SandboxRemove"
+	Control_SandboxGet_FullMethodName    = "/cellar.v1.Control/SandboxGet"
+	Control_SandboxList_FullMethodName   = "/cellar.v1.Control/SandboxList"
+	Control_SandboxLogs_FullMethodName   = "/cellar.v1.Control/SandboxLogs"
+	Control_SandboxExec_FullMethodName   = "/cellar.v1.Control/SandboxExec"
 )
 
 // ControlClient is the client API for Control service.
@@ -35,6 +42,14 @@ type ControlClient interface {
 	Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error)
 	JoinToken(ctx context.Context, in *JoinTokenRequest, opts ...grpc.CallOption) (*JoinTokenResponse, error)
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	// Sandbox ops (forwarded to a manager / leader when needed).
+	SandboxCreate(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error)
+	SandboxStop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error)
+	SandboxRemove(ctx context.Context, in *SandboxRemoveRequest, opts ...grpc.CallOption) (*SandboxRemoveResponse, error)
+	SandboxGet(ctx context.Context, in *SandboxGetRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
+	SandboxList(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
+	SandboxLogs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
+	SandboxExec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
 }
 
 type controlClient struct {
@@ -85,6 +100,88 @@ func (c *controlClient) Status(ctx context.Context, in *StatusRequest, opts ...g
 	return out, nil
 }
 
+func (c *controlClient) SandboxCreate(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxCreateResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxCreate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxStop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxStopResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxStop_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxRemove(ctx context.Context, in *SandboxRemoveRequest, opts ...grpc.CallOption) (*SandboxRemoveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxRemoveResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxRemove_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxGet(ctx context.Context, in *SandboxGetRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxGetResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxGet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxList(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxListResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxLogs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Control_ServiceDesc.Streams[0], Control_SandboxLogs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SandboxLogsRequest, SandboxLogsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
+
+func (c *controlClient) SandboxExec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Control_ServiceDesc.Streams[1], Control_SandboxExec_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SandboxExecMessage, SandboxExecMessage]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -95,6 +192,14 @@ type ControlServer interface {
 	Join(context.Context, *JoinRequest) (*JoinResponse, error)
 	JoinToken(context.Context, *JoinTokenRequest) (*JoinTokenResponse, error)
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
+	// Sandbox ops (forwarded to a manager / leader when needed).
+	SandboxCreate(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error)
+	SandboxStop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error)
+	SandboxRemove(context.Context, *SandboxRemoveRequest) (*SandboxRemoveResponse, error)
+	SandboxGet(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error)
+	SandboxList(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
+	SandboxLogs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
+	SandboxExec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -116,6 +221,27 @@ func (UnimplementedControlServer) JoinToken(context.Context, *JoinTokenRequest) 
 }
 func (UnimplementedControlServer) Status(context.Context, *StatusRequest) (*StatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
+}
+func (UnimplementedControlServer) SandboxCreate(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxCreate not implemented")
+}
+func (UnimplementedControlServer) SandboxStop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxStop not implemented")
+}
+func (UnimplementedControlServer) SandboxRemove(context.Context, *SandboxRemoveRequest) (*SandboxRemoveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxRemove not implemented")
+}
+func (UnimplementedControlServer) SandboxGet(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxGet not implemented")
+}
+func (UnimplementedControlServer) SandboxList(context.Context, *SandboxListRequest) (*SandboxListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxList not implemented")
+}
+func (UnimplementedControlServer) SandboxLogs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
+	return status.Error(codes.Unimplemented, "method SandboxLogs not implemented")
+}
+func (UnimplementedControlServer) SandboxExec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
+	return status.Error(codes.Unimplemented, "method SandboxExec not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -210,6 +336,114 @@ func _Control_Status_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_SandboxCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxCreate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxCreate(ctx, req.(*SandboxCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxStopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxStop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxStop_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxStop(ctx, req.(*SandboxStopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxRemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxRemove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxRemove_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxRemove(ctx, req.(*SandboxRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxGet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxGet(ctx, req.(*SandboxGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxList(ctx, req.(*SandboxListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SandboxLogsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ControlServer).SandboxLogs(m, &grpc.GenericServerStream[SandboxLogsRequest, SandboxLogsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
+
+func _Control_SandboxExec_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServer).SandboxExec(&grpc.GenericServerStream[SandboxExecMessage, SandboxExecMessage]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -233,7 +467,39 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Status",
 			Handler:    _Control_Status_Handler,
 		},
+		{
+			MethodName: "SandboxCreate",
+			Handler:    _Control_SandboxCreate_Handler,
+		},
+		{
+			MethodName: "SandboxStop",
+			Handler:    _Control_SandboxStop_Handler,
+		},
+		{
+			MethodName: "SandboxRemove",
+			Handler:    _Control_SandboxRemove_Handler,
+		},
+		{
+			MethodName: "SandboxGet",
+			Handler:    _Control_SandboxGet_Handler,
+		},
+		{
+			MethodName: "SandboxList",
+			Handler:    _Control_SandboxList_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "SandboxLogs",
+			Handler:       _Control_SandboxLogs_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SandboxExec",
+			Handler:       _Control_SandboxExec_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "control.proto",
 }

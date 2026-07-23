@@ -4,12 +4,23 @@ package cellar.v1;
 
 option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
 
+import "sandbox.proto";
+
 // Control is served on the local unix socket only.
 service Control {
   rpc Init(InitRequest) returns (InitResponse);
   rpc Join(JoinRequest) returns (JoinResponse);
   rpc JoinToken(JoinTokenRequest) returns (JoinTokenResponse);
   rpc Status(StatusRequest) returns (StatusResponse);
+
+  // Sandbox ops (forwarded to a manager / leader when needed).
+  rpc SandboxCreate(SandboxCreateRequest) returns (SandboxCreateResponse);
+  rpc SandboxStop(SandboxStopRequest) returns (SandboxStopResponse);
+  rpc SandboxRemove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
+  rpc SandboxGet(SandboxGetRequest) returns (SandboxGetResponse);
+  rpc SandboxList(SandboxListRequest) returns (SandboxListResponse);
+  rpc SandboxLogs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
+  rpc SandboxExec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
 }
 
 message InitRequest {

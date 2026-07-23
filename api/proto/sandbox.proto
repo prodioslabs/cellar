@@ -1,0 +1,186 @@
+syntax = "proto3";
+
+package cellar.v1;
+
+option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
+
+// SandboxControl is served on managers (mTLS). Leader applies Raft writes.
+service SandboxControl {
+  rpc Create(SandboxCreateRequest) returns (SandboxCreateResponse);
+  rpc Stop(SandboxStopRequest) returns (SandboxStopResponse);
+  rpc Remove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
+  rpc Get(SandboxGetRequest) returns (SandboxGetResponse);
+  rpc List(SandboxListRequest) returns (SandboxListResponse);
+}
+
+// RuntimeAgent is served on managers. Nodes report heartbeats and status.
+service RuntimeAgent {
+  rpc Heartbeat(RuntimeHeartbeatRequest) returns (RuntimeHeartbeatResponse);
+  rpc UpdateSandboxStatus(UpdateSandboxStatusRequest) returns (UpdateSandboxStatusResponse);
+  rpc ListNodeSandboxes(ListNodeSandboxesRequest) returns (ListNodeSandboxesResponse);
+}
+
+// SandboxRuntime is served on every node for logs/exec against local containers.
+service SandboxRuntime {
+  rpc Logs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
+  rpc Exec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
+}
+
+message Mount {
+  string source = 1;
+  string target = 2;
+  bool read_only = 3;
+}
+
+message Resources {
+  int64 cpu_nano_cores = 1;
+  int64 memory_bytes = 2;
+}
+
+message NetworkRule {
+  repeated string hosts = 1;
+  repeated uint32 ports = 2;
+  repeated string protocols = 3;
+}
+
+message DNSPolicy {
+  string mode = 1; // none | allowlist | denylist
+  repeated string names = 2;
+}
+
+message NetworkPolicy {
+  string mode = 1; // none | allowlist | denylist
+  DNSPolicy dns = 2;
+  repeated NetworkRule rules = 3;
+}
+
+message SandboxSpec {
+  string image = 1;
+  repeated string command = 2;
+  repeated string args = 3;
+  repeated string env = 4;
+  string working_dir = 5;
+  repeated Mount mounts = 6;
+  Resources resources = 7;
+  NetworkPolicy network = 8;
+  string runtime = 9;
+}
+
+message SandboxStatus {
+  string phase = 1;
+  string container_id = 2;
+  int32 exit_code = 3;
+  string message = 4;
+  int64 started_at_unix_nano = 5;
+  int64 finished_at_unix_nano = 6;
+  int64 updated_at_unix_nano = 7;
+}
+
+message Sandbox {
+  string id = 1;
+  SandboxSpec spec = 2;
+  string node_id = 3;
+  string desired_state = 4;
+  SandboxStatus status = 5;
+  int64 created_at_unix_nano = 6;
+  int64 updated_at_unix_nano = 7;
+}
+
+message SandboxCreateRequest {
+  SandboxSpec spec = 1;
+  string sandbox_id = 2; // optional; generated if empty
+}
+
+message SandboxCreateResponse {
+  Sandbox sandbox = 1;
+}
+
+message SandboxStopRequest {
+  string sandbox_id = 1;
+}
+
+message SandboxStopResponse {
+  Sandbox sandbox = 1;
+}
+
+message SandboxRemoveRequest {
+  string sandbox_id = 1;
+}
+
+message SandboxRemoveResponse {}
+
+message SandboxGetRequest {
+  string sandbox_id = 1;
+}
+
+message SandboxGetResponse {
+  Sandbox sandbox = 1;
+}
+
+message SandboxListRequest {}
+
+message SandboxListResponse {
+  repeated Sandbox sandboxes = 1;
+}
+
+message RuntimeHeartbeatRequest {
+  string node_id = 1;
+  string grpc_addr = 2;
+  int32 sandbox_count = 3;
+}
+
+message RuntimeHeartbeatResponse {
+  repeated Sandbox assigned = 1; // sandboxes currently assigned to this node
+}
+
+message UpdateSandboxStatusRequest {
+  string sandbox_id = 1;
+  SandboxStatus status = 2;
+  string container_id = 3;
+}
+
+message UpdateSandboxStatusResponse {}
+
+message ListNodeSandboxesRequest {
+  string node_id = 1;
+}
+
+message ListNodeSandboxesResponse {
+  repeated Sandbox sandboxes = 1;
+}
+
+message SandboxLogsRequest {
+  string sandbox_id = 1;
+  bool follow = 2;
+  int64 tail = 3; // lines; 0 = all
+  bool timestamps = 4;
+}
+
+message SandboxLogsChunk {
+  bytes data = 1;
+}
+
+// Bidirectional exec: first client message must set start; then stdin chunks.
+// Server sends stdout/stderr/exit.
+message SandboxExecMessage {
+  oneof payload {
+    SandboxExecStart start = 1;
+    bytes stdin = 2;
+    bytes stdout = 3;
+    bytes stderr = 4;
+    SandboxExecExit exit = 5;
+    bool stdin_closed = 6;
+  }
+}
+
+message SandboxExecStart {
+  string sandbox_id = 1;
+  repeated string command = 2;
+  bool tty = 3;
+  bool stdin = 4;
+}
+
+message SandboxExecExit {
+  int32 exit_code = 1;
+  string error = 2;
+}
