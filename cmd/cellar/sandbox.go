@@ -30,6 +30,7 @@ func newSandboxCmd() *cobra.Command {
 
 func newSandboxCreateCmd() *cobra.Command {
 	var (
+		file       string
 		image      string
 		name       string
 		network    string
@@ -43,59 +44,62 @@ func newSandboxCreateCmd() *cobra.Command {
 		allowPorts []int
 	)
 	cmd := &cobra.Command{
-		Use:   "create --image <image>",
+		Use:   "create (--image <image> | -f <file>)",
 		Short: "Create and schedule a sandbox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if image == "" {
-				return fmt.Errorf("--image is required")
+			var req *cellarv1.SandboxCreateRequest
+			if file != "" {
+				if err := rejectCreateFlagsWithFile(cmd); err != nil {
+					return err
+				}
+				var err error
+				req, err = loadSandboxCreateFile(file)
+				if err != nil {
+					return err
+				}
+			} else {
+				if image == "" {
+					return fmt.Errorf("--image is required (or use -f <file>)")
+				}
+				ports := make([]uint32, 0, len(allowPorts))
+				for _, p := range allowPorts {
+					ports = append(ports, uint32(p))
+				}
+				spec := &cellarv1.SandboxSpec{
+					Image:      image,
+					Env:        env,
+					WorkingDir: workdir,
+					Command:    command,
+					Resources: &cellarv1.Resources{
+						MemoryBytes:  memory,
+						CpuNanoCores: int64(cpus * 1e9),
+					},
+					Network: networkPolicyFromAllow(network, allowHosts, ports),
+				}
+				for _, m := range mounts {
+					parts := strings.SplitN(m, ":", 3)
+					if len(parts) < 2 {
+						return fmt.Errorf("invalid mount %q (want src:dst[:ro])", m)
+					}
+					ro := len(parts) == 3 && parts[2] == "ro"
+					spec.Mounts = append(spec.Mounts, &cellarv1.Mount{
+						Source:   parts[0],
+						Target:   parts[1],
+						ReadOnly: ro,
+					})
+				}
+				req = &cellarv1.SandboxCreateRequest{Spec: spec, SandboxId: name}
 			}
+
 			client, closeFn, err := dial()
 			if err != nil {
 				return err
 			}
 			defer closeFn()
 
-			spec := &cellarv1.SandboxSpec{
-				Image:      image,
-				Env:        env,
-				WorkingDir: workdir,
-				Command:    command,
-				Resources: &cellarv1.Resources{
-					MemoryBytes:  memory,
-					CpuNanoCores: int64(cpus * 1e9),
-				},
-				Network: &cellarv1.NetworkPolicy{
-					Mode: network,
-				},
-			}
-			for _, m := range mounts {
-				parts := strings.SplitN(m, ":", 3)
-				if len(parts) < 2 {
-					return fmt.Errorf("invalid mount %q (want src:dst[:ro])", m)
-				}
-				ro := len(parts) == 3 && parts[2] == "ro"
-				spec.Mounts = append(spec.Mounts, &cellarv1.Mount{
-					Source:   parts[0],
-					Target:   parts[1],
-					ReadOnly: ro,
-				})
-			}
-			if network == "allowlist" || network == "denylist" {
-				ports := make([]uint32, 0, len(allowPorts))
-				for _, p := range allowPorts {
-					ports = append(ports, uint32(p))
-				}
-				rule := &cellarv1.NetworkRule{Hosts: allowHosts, Ports: ports, Protocols: []string{"tcp"}}
-				spec.Network.Rules = []*cellarv1.NetworkRule{rule}
-				spec.Network.Dns = &cellarv1.DNSPolicy{Mode: network, Names: allowHosts}
-			}
-
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
 			defer cancel()
-			resp, err := client.SandboxCreate(ctx, &cellarv1.SandboxCreateRequest{
-				Spec:      spec,
-				SandboxId: name,
-			})
+			resp, err := client.SandboxCreate(ctx, req)
 			if err != nil {
 				return err
 			}
@@ -104,6 +108,7 @@ func newSandboxCreateCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&file, "file", "f", "", "YAML file with sandbox create config")
 	cmd.Flags().StringVar(&image, "image", "", "container image")
 	cmd.Flags().StringVar(&name, "id", "", "optional sandbox id")
 	cmd.Flags().StringVar(&network, "network", "none", "none|allowlist|denylist")
@@ -115,8 +120,25 @@ func newSandboxCreateCmd() *cobra.Command {
 	cmd.Flags().Float64Var(&cpus, "cpus", 0, "CPU limit (e.g. 0.5)")
 	cmd.Flags().StringArrayVar(&allowHosts, "allow-host", nil, "host/CIDR for network policy")
 	cmd.Flags().IntSliceVar(&allowPorts, "allow-port", nil, "ports for network policy")
-	_ = cmd.MarkFlagRequired("image")
 	return cmd
+}
+
+// rejectCreateFlagsWithFile errors if any create flag other than --file was set.
+func rejectCreateFlagsWithFile(cmd *cobra.Command) error {
+	exclusive := []string{
+		"image", "id", "network", "env", "mount", "entrypoint",
+		"workdir", "memory", "cpus", "allow-host", "allow-port",
+	}
+	var set []string
+	for _, name := range exclusive {
+		if cmd.Flags().Changed(name) {
+			set = append(set, "--"+name)
+		}
+	}
+	if len(set) > 0 {
+		return fmt.Errorf("cannot combine --file with %s", strings.Join(set, ", "))
+	}
+	return nil
 }
 
 func newSandboxStopCmd() *cobra.Command {
