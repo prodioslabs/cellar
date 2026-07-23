@@ -65,6 +65,11 @@ type Node struct {
 	IssuedAt          time.Time  `json:"issued_at"`
 	ExpiresAt         time.Time  `json:"expires_at"`
 	CertificatePEM    string     `json:"certificate,omitempty"`
+
+	// Runtime heartbeat (managers and workers that run sandboxes).
+	RuntimeGRPCAddr    string    `json:"runtime_grpc_addr,omitempty"`
+	RuntimeHeartbeatAt time.Time `json:"runtime_heartbeat_at,omitempty"`
+	RuntimeSandboxCount int      `json:"runtime_sandbox_count,omitempty"`
 }
 
 // NewID generates a 32-byte hex node ID (64 hex characters).

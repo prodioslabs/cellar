@@ -11,23 +11,26 @@ import (
 
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 	"github.com/prodioslabs/cellar/internal/store"
 	"github.com/prodioslabs/cellar/internal/token"
 )
 
 // FSM is the in-memory Raft state machine holding Cluster.RootCA, nodes, and peers.
 type FSM struct {
-	mu      sync.RWMutex
-	cluster *store.Cluster
-	nodes   map[string]*node.Node
-	peers   map[string]PeerInfo
+	mu        sync.RWMutex
+	cluster   *store.Cluster
+	nodes     map[string]*node.Node
+	peers     map[string]PeerInfo
+	sandboxes map[string]*sandbox.Sandbox
 }
 
 // NewFSM creates an empty FSM.
 func NewFSM() *FSM {
 	return &FSM{
-		nodes: make(map[string]*node.Node),
-		peers: make(map[string]PeerInfo),
+		nodes:     make(map[string]*node.Node),
+		peers:     make(map[string]PeerInfo),
+		sandboxes: make(map[string]*sandbox.Sandbox),
 	}
 }
 
@@ -50,6 +53,10 @@ func (f *FSM) Apply(l *raft.Log) interface{} {
 		return f.applySaveNode(cmd.Payload)
 	case opSavePeer:
 		return f.applySavePeer(cmd.Payload)
+	case opSaveSandbox:
+		return f.applySaveSandbox(cmd.Payload)
+	case opDeleteSandbox:
+		return f.applyDeleteSandbox(cmd.Payload)
 	default:
 		return fmt.Errorf("unknown raft op %q", cmd.Op)
 	}
@@ -180,14 +187,42 @@ func (f *FSM) applySavePeer(raw json.RawMessage) interface{} {
 	return nil
 }
 
+func (f *FSM) applySaveSandbox(raw json.RawMessage) interface{} {
+	var p saveSandboxPayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.Sandbox == nil || p.Sandbox.ID == "" {
+		return fmt.Errorf("sandbox is required")
+	}
+	f.sandboxes[p.Sandbox.ID] = sandbox.Clone(p.Sandbox)
+	return nil
+}
+
+func (f *FSM) applyDeleteSandbox(raw json.RawMessage) interface{} {
+	var p deleteSandboxPayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.ID == "" {
+		return fmt.Errorf("sandbox id is required")
+	}
+	if _, ok := f.sandboxes[p.ID]; !ok {
+		return store.ErrSandboxNotFound
+	}
+	delete(f.sandboxes, p.ID)
+	return nil
+}
+
 // Snapshot returns a point-in-time FSM snapshot.
 func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	snap := &fsmSnapshot{
-		nodes: make(map[string]*node.Node, len(f.nodes)),
-		peers: make(map[string]PeerInfo, len(f.peers)),
+		nodes:     make(map[string]*node.Node, len(f.nodes)),
+		peers:     make(map[string]PeerInfo, len(f.peers)),
+		sandboxes: make(map[string]*sandbox.Sandbox, len(f.sandboxes)),
 	}
 	if f.cluster != nil {
 		c := *f.cluster
@@ -201,6 +236,9 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	}
 	for id, p := range f.peers {
 		snap.peers[id] = p
+	}
+	for id, sb := range f.sandboxes {
+		snap.sandboxes[id] = sandbox.Clone(sb)
 	}
 	return snap, nil
 }
@@ -225,6 +263,13 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	peers := make(map[string]PeerInfo, len(snap.Peers))
 	for id, p := range snap.Peers {
 		peers[id] = p
+	}
+	sandboxes := make(map[string]*sandbox.Sandbox, len(snap.Sandboxes))
+	for id, sb := range snap.Sandboxes {
+		if sb == nil {
+			continue
+		}
+		sandboxes[id] = sandbox.Clone(sb)
 	}
 
 	var cluster *store.Cluster
@@ -272,17 +317,19 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	f.cluster = cluster
 	f.nodes = nodes
 	f.peers = peers
+	f.sandboxes = sandboxes
 	return nil
 }
 
 type persistedSnapshot struct {
-	Cluster       *store.Cluster              `json:"cluster,omitempty"`
-	Nodes         map[string]*node.Node       `json:"nodes,omitempty"`
-	Peers         map[string]PeerInfo         `json:"peers,omitempty"`
+	Cluster   *store.Cluster                `json:"cluster,omitempty"`
+	Nodes     map[string]*node.Node         `json:"nodes,omitempty"`
+	Peers     map[string]PeerInfo           `json:"peers,omitempty"`
+	Sandboxes map[string]*sandbox.Sandbox   `json:"sandboxes,omitempty"`
 	// Legacy fields
-	CertPEM       []byte                      `json:"cert_pem,omitempty"`
-	KeyPEM        []byte                      `json:"key_pem,omitempty"`
-	LegacyCluster *legacyClusterState         `json:"legacy_cluster,omitempty"`
+	CertPEM       []byte              `json:"cert_pem,omitempty"`
+	KeyPEM        []byte              `json:"key_pem,omitempty"`
+	LegacyCluster *legacyClusterState `json:"legacy_cluster,omitempty"`
 }
 
 type legacyClusterState struct {
@@ -294,16 +341,18 @@ type legacyClusterState struct {
 }
 
 type fsmSnapshot struct {
-	cluster *store.Cluster
-	nodes   map[string]*node.Node
-	peers   map[string]PeerInfo
+	cluster   *store.Cluster
+	nodes     map[string]*node.Node
+	peers     map[string]PeerInfo
+	sandboxes map[string]*sandbox.Sandbox
 }
 
 func (s *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	err := json.NewEncoder(sink).Encode(persistedSnapshot{
-		Cluster: s.cluster,
-		Nodes:   s.nodes,
-		Peers:   s.peers,
+		Cluster:   s.cluster,
+		Nodes:     s.nodes,
+		Peers:     s.peers,
+		Sandboxes: s.sandboxes,
 	})
 	if err != nil {
 		_ = sink.Cancel()
@@ -386,6 +435,38 @@ func (f *FSM) listPeers() []PeerInfo {
 	out := make([]PeerInfo, 0, len(f.peers))
 	for _, p := range f.peers {
 		out = append(out, p)
+	}
+	return out
+}
+
+func (f *FSM) getSandbox(id string) (*sandbox.Sandbox, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	sb, ok := f.sandboxes[id]
+	if !ok {
+		return nil, store.ErrSandboxNotFound
+	}
+	return sandbox.Clone(sb), nil
+}
+
+func (f *FSM) listSandboxes() []*sandbox.Sandbox {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	out := make([]*sandbox.Sandbox, 0, len(f.sandboxes))
+	for _, sb := range f.sandboxes {
+		out = append(out, sandbox.Clone(sb))
+	}
+	return out
+}
+
+func (f *FSM) listSandboxesByNode(nodeID string) []*sandbox.Sandbox {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	out := make([]*sandbox.Sandbox, 0)
+	for _, sb := range f.sandboxes {
+		if sb.NodeID == nodeID {
+			out = append(out, sandbox.Clone(sb))
+		}
 	}
 	return out
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 	"github.com/prodioslabs/cellar/internal/token"
 )
 
@@ -17,6 +18,8 @@ var (
 	ErrAlreadyInitialized = errors.New("cluster already initialized")
 	// ErrNodeNotFound indicates a node record is missing.
 	ErrNodeNotFound = errors.New("node not found")
+	// ErrSandboxNotFound indicates a sandbox record is missing.
+	ErrSandboxNotFound = errors.New("sandbox not found")
 	// ErrNotLeader indicates the node is not the Raft leader.
 	ErrNotLeader = errors.New("not the raft leader")
 )
@@ -74,4 +77,10 @@ type Store interface {
 	GetNode(ctx context.Context, nodeID string) (*node.Node, error)
 	SaveNode(ctx context.Context, n *node.Node) error
 	ListNodes(ctx context.Context) ([]*node.Node, error)
+
+	SaveSandbox(ctx context.Context, sb *sandbox.Sandbox) error
+	DeleteSandbox(ctx context.Context, id string) error
+	GetSandbox(ctx context.Context, id string) (*sandbox.Sandbox, error)
+	ListSandboxes(ctx context.Context) ([]*sandbox.Sandbox, error)
+	ListSandboxesByNode(ctx context.Context, nodeID string) ([]*sandbox.Sandbox, error)
 }

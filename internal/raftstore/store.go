@@ -13,6 +13,7 @@ import (
 
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 	"github.com/prodioslabs/cellar/internal/store"
 )
 
@@ -386,6 +387,56 @@ func (s *Store) SaveNode(ctx context.Context, n *node.Node) error {
 func (s *Store) ListNodes(ctx context.Context) ([]*node.Node, error) {
 	_ = ctx
 	return s.fsm.listNodes(), nil
+}
+
+// SaveSandbox replicates a sandbox object.
+func (s *Store) SaveSandbox(ctx context.Context, sb *sandbox.Sandbox) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if sb == nil || sb.ID == "" {
+		return fmt.Errorf("sandbox is required")
+	}
+	data, err := encodeCommand(opSaveSandbox, saveSandboxPayload{Sandbox: sb})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// DeleteSandbox removes a sandbox from the FSM.
+func (s *Store) DeleteSandbox(ctx context.Context, id string) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if id == "" {
+		return fmt.Errorf("sandbox id is required")
+	}
+	data, err := encodeCommand(opDeleteSandbox, deleteSandboxPayload{ID: id})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// GetSandbox returns a sandbox from the FSM.
+func (s *Store) GetSandbox(ctx context.Context, id string) (*sandbox.Sandbox, error) {
+	_ = ctx
+	return s.fsm.getSandbox(id)
+}
+
+// ListSandboxes returns all sandboxes.
+func (s *Store) ListSandboxes(ctx context.Context) ([]*sandbox.Sandbox, error) {
+	_ = ctx
+	return s.fsm.listSandboxes(), nil
+}
+
+// ListSandboxesByNode returns sandboxes assigned to nodeID.
+func (s *Store) ListSandboxesByNode(ctx context.Context, nodeID string) ([]*sandbox.Sandbox, error) {
+	_ = ctx
+	return s.fsm.listSandboxesByNode(nodeID), nil
 }
 
 // ListPeers returns known manager peer metadata.

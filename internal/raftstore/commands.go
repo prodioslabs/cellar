@@ -6,15 +6,18 @@ import (
 	"time"
 
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 	"github.com/prodioslabs/cellar/internal/store"
 	"github.com/prodioslabs/cellar/internal/token"
 )
 
 const (
-	opCreateCluster = "create_cluster"
-	opUpdateCluster = "update_cluster"
-	opSaveNode      = "save_node"
-	opSavePeer      = "save_peer"
+	opCreateCluster  = "create_cluster"
+	opUpdateCluster  = "update_cluster"
+	opSaveNode       = "save_node"
+	opSavePeer       = "save_peer"
+	opSaveSandbox    = "save_sandbox"
+	opDeleteSandbox  = "delete_sandbox"
 
 	// Legacy ops still decoded for older log entries / tests.
 	opInitCluster = "init_cluster"
@@ -48,6 +51,14 @@ type PeerInfo struct {
 
 type savePeerPayload struct {
 	Peer PeerInfo `json:"peer"`
+}
+
+type saveSandboxPayload struct {
+	Sandbox *sandbox.Sandbox `json:"sandbox"`
+}
+
+type deleteSandboxPayload struct {
+	ID string `json:"id"`
 }
 
 type initClusterPayload struct {
