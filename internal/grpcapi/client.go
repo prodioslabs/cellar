@@ -23,6 +23,9 @@ import (
 
 const TLSServerName = "cellar-manager"
 
+// TLSRuntimeServerName is the SNI / verify name for SandboxRuntime on any node.
+const TLSRuntimeServerName = "cellar-runtime"
+
 // DownloadRootCA fetches the public CA cert and verifies it against the join token digest.
 func DownloadRootCA(ctx context.Context, remoteAddr, joinToken string) ([]byte, error) {
 	parsed, err := token.Parse(joinToken)

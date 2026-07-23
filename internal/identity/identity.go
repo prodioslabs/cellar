@@ -42,6 +42,7 @@ type DaemonState struct {
 	AdvertiseAddr  string    `json:"advertise_addr"`
 	ListenAddr     string    `json:"listen_addr"`
 	RaftAddr       string    `json:"raft_addr"`
+	ManagerAddr    string    `json:"manager_addr,omitempty"` // join target / renew / control dial
 	Initialized    bool      `json:"initialized"`
 }
 

@@ -266,10 +266,13 @@ func (s *CAServer) Leave(ctx context.Context, req *cellarv1.RaftLeaveRequest) (*
 	return &cellarv1.RaftLeaveResponse{}, nil
 }
 
-func RegisterRemote(s *grpc.Server, ca *CAServer) {
+func RegisterRemote(s *grpc.Server, ca *CAServer, sb *SandboxServer) {
 	cellarv1.RegisterCAServer(s, ca)
 	cellarv1.RegisterNodeCAServer(s, ca)
 	cellarv1.RegisterRaftMembershipServer(s, ca)
+	if sb != nil {
+		RegisterSandboxServices(s, sb)
+	}
 }
 
 func mapStoreErr(err error) error {
@@ -281,6 +284,8 @@ func mapStoreErr(err error) error {
 	case errors.Is(err, store.ErrNotInitialized):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, store.ErrNodeNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, store.ErrSandboxNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())

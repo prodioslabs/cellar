@@ -19,11 +19,14 @@ import (
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/ca"
+	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/identity"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/raftstore"
 	"github.com/prodioslabs/cellar/internal/renew"
+	"github.com/prodioslabs/cellar/internal/runtime"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 	"github.com/prodioslabs/cellar/internal/store"
 	"github.com/prodioslabs/cellar/internal/token"
 )
@@ -50,6 +53,14 @@ type Daemon struct {
 	idStore  *identity.Store
 	raft     *raftstore.Store
 	caServer *grpcapi.CAServer
+
+	sandboxServer *grpcapi.SandboxServer
+	runtimeSrv    *grpcapi.RuntimeServer
+	driver        *runtime.Driver
+	proxy         *egress.Proxy
+	redirect      *egress.RedirectManager
+	agent         *runtime.Agent
+	lastAssigned  []*sandbox.Sandbox
 
 	localLis   net.Listener
 	localGRPC  *grpc.Server
@@ -131,6 +142,15 @@ func (d *Daemon) shutdown() {
 	if d.raft != nil {
 		_ = d.raft.Close()
 	}
+	if d.redirect != nil {
+		_ = d.redirect.Close()
+	}
+	if d.proxy != nil {
+		_ = d.proxy.Close()
+	}
+	if d.driver != nil {
+		_ = d.driver.Close()
+	}
 	if d.cancel != nil {
 		d.cancel()
 	}
@@ -183,7 +203,10 @@ func (d *Daemon) startRemoteGRPC(listenAddr string) error {
 	}
 	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsCfg)))
 	if d.caServer != nil {
-		grpcapi.RegisterRemote(s, d.caServer)
+		grpcapi.RegisterRemote(s, d.caServer, d.sandboxServer)
+	}
+	if d.runtimeSrv != nil {
+		grpcapi.RegisterRuntime(s, d.runtimeSrv)
 	}
 	d.remoteLis = lis
 	d.remoteGRPC = s
@@ -224,6 +247,7 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	}
 	d.raft = rs
 	d.caServer = grpcapi.NewCAServer(rs, rs)
+	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
 	if err := rs.WaitForLeader(30 * time.Second); err != nil {
 		log.Printf("wait leader: %v", err)
 	}
@@ -240,17 +264,31 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 		defer d.wg.Done()
 		_ = d.renewLoop(ctx, advertise)
 	}()
+	if err := d.startRuntimeLocked(ctx); err != nil {
+		log.Printf("runtime: %v", err)
+	}
 	return d.startRemoteGRPC(listen)
 }
 
 func (d *Daemon) resumeWorker(ctx context.Context, state identity.DaemonState) error {
 	advertise := state.AdvertiseAddr
+	listen := state.ListenAddr
+	if listen == "" {
+		listen = d.cfg.ListenAddr
+	}
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
-		_ = d.renewLoop(ctx, advertise)
+		mgr := state.ManagerAddr
+		if mgr == "" {
+			mgr = advertise
+		}
+		_ = d.renewLoop(ctx, mgr)
 	}()
-	return nil
+	if err := d.startRuntimeLocked(ctx); err != nil {
+		log.Printf("runtime: %v", err)
+	}
+	return d.startRemoteGRPC(listen)
 }
 
 func (d *Daemon) watchLeadership(ctx context.Context) {
@@ -360,6 +398,7 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 	}
 	d.raft = rs
 	d.caServer = grpcapi.NewCAServer(rs, rs)
+	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
 
 	if err := rs.CreateCluster(ctx, store.ClusterConfig{
 		ClusterID:    clusterID,
@@ -396,6 +435,10 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 		_ = d.renewLoop(d.runCtx, advertise)
 	}()
 
+	if err := d.startRuntimeLocked(d.runCtx); err != nil {
+		log.Printf("runtime: %v", err)
+	}
+
 	// startRemoteGRPC needs lock; release and re-acquire carefully — we're holding d.mu
 	if err := d.startRemoteGRPCLocked(listen); err != nil {
 		return nil, err
@@ -428,7 +471,10 @@ func (d *Daemon) startRemoteGRPCLocked(listenAddr string) error {
 	}
 	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsCfg)))
 	if d.caServer != nil {
-		grpcapi.RegisterRemote(s, d.caServer)
+		grpcapi.RegisterRemote(s, d.caServer, d.sandboxServer)
+	}
+	if d.runtimeSrv != nil {
+		grpcapi.RegisterRuntime(s, d.runtimeSrv)
 	}
 	d.remoteLis = lis
 	d.remoteGRPC = s
@@ -503,6 +549,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		AdvertiseAddr: advertise,
 		ListenAddr:    listen,
 		RaftAddr:      raftAddr,
+		ManagerAddr:   req.RemoteAddr,
 		Initialized:   true,
 	}
 
@@ -544,6 +591,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		}
 		d.raft = rs
 		d.caServer = grpcapi.NewCAServer(rs, rs)
+		d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
 		_ = d.caServer.UpdateRootCA(ctx)
 		d.wg.Add(1)
 		go func() {
@@ -555,6 +603,9 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 			defer d.wg.Done()
 			_ = d.renewLoop(d.runCtx, req.RemoteAddr)
 		}()
+		if err := d.startRuntimeLocked(d.runCtx); err != nil {
+			log.Printf("runtime: %v", err)
+		}
 		if err := d.startRemoteGRPCLocked(listen); err != nil {
 			return nil, err
 		}
@@ -567,6 +618,12 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 			defer d.wg.Done()
 			_ = d.renewLoop(d.runCtx, req.RemoteAddr)
 		}()
+		if err := d.startRuntimeLocked(d.runCtx); err != nil {
+			log.Printf("runtime: %v", err)
+		}
+		if err := d.startRemoteGRPCLocked(listen); err != nil {
+			return nil, err
+		}
 	}
 
 	return &cellarv1.JoinResponse{
@@ -713,6 +770,27 @@ func (c *controlServer) JoinToken(ctx context.Context, req *cellarv1.JoinTokenRe
 }
 func (c *controlServer) Status(ctx context.Context, req *cellarv1.StatusRequest) (*cellarv1.StatusResponse, error) {
 	return c.d.Status(ctx, req)
+}
+func (c *controlServer) SandboxCreate(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
+	return c.d.SandboxCreate(ctx, req)
+}
+func (c *controlServer) SandboxStop(ctx context.Context, req *cellarv1.SandboxStopRequest) (*cellarv1.SandboxStopResponse, error) {
+	return c.d.SandboxStop(ctx, req)
+}
+func (c *controlServer) SandboxRemove(ctx context.Context, req *cellarv1.SandboxRemoveRequest) (*cellarv1.SandboxRemoveResponse, error) {
+	return c.d.SandboxRemove(ctx, req)
+}
+func (c *controlServer) SandboxGet(ctx context.Context, req *cellarv1.SandboxGetRequest) (*cellarv1.SandboxGetResponse, error) {
+	return c.d.SandboxGet(ctx, req)
+}
+func (c *controlServer) SandboxList(ctx context.Context, req *cellarv1.SandboxListRequest) (*cellarv1.SandboxListResponse, error) {
+	return c.d.SandboxList(ctx, req)
+}
+func (c *controlServer) SandboxLogs(req *cellarv1.SandboxLogsRequest, stream cellarv1.Control_SandboxLogsServer) error {
+	return c.d.SandboxLogs(req, stream)
+}
+func (c *controlServer) SandboxExec(stream cellarv1.Control_SandboxExecServer) error {
+	return c.d.SandboxExec(stream)
 }
 
 func defaultAdvertise(listen string) string {
