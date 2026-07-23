@@ -45,6 +45,7 @@ Start cellard first, then use init / join / join-token / status.`,
 	root.AddCommand(newJoinCmd())
 	root.AddCommand(newJoinTokenCmd())
 	root.AddCommand(newStatusCmd())
+	root.AddCommand(newSandboxCmd())
 	return root
 }
 

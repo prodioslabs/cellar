@@ -1,15 +1,15 @@
 # Cellar
 
 Cellar is a Docker Swarm–style container orchestrator control plane for isolated sandboxes.
-This repository currently implements the **cluster identity layer**: an always-on daemon (`cellard`),
-a CLI (`cellar`), mTLS gRPC between nodes, and a HashiCorp Raft–replicated cluster CA.
+This repository implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
+**sandbox lifecycle** (desired state in Raft, Docker + gVisor `runsc` on every node, userspace egress policy).
 
 ## Binaries
 
 | Binary | Role |
 |--------|------|
-| **`cellard`** | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. |
-| **`cellar`** | CLI client (`init`, `join`, `join-token`, `status`) talking to local `cellard`. |
+| **`cellard`** | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
+| **`cellar`** | CLI client (`init`, `join`, `join-token`, `status`, `sandbox …`) talking to local `cellard`. |
 
 ## Roles
 
@@ -61,6 +61,29 @@ Requires Go 1.26+.
 ```
 
 Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
+
+## Sandboxes
+
+Requires Docker with the gVisor `runsc` runtime registered (`sudo runsc install && sudo systemctl restart docker`).
+
+```bash
+# Create an isolated sandbox (no external network)
+cellar sandbox create --image alpine --entrypoint sleep --entrypoint infinity
+
+# Allowlisted egress (enforced by cellard's userspace proxy + iptables REDIRECT)
+cellar sandbox create --image curlimages/curl --network allowlist \
+  --allow-host example.com --allow-port 443 \
+  --entrypoint sleep --entrypoint infinity
+
+cellar sandbox ls
+cellar sandbox inspect <id>
+cellar sandbox logs -f <id>
+cellar sandbox exec <id> -- uname -a
+cellar sandbox stop <id>
+cellar sandbox rm <id>
+```
+
+Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node.
 
 ## Cluster CA (HA)
 
