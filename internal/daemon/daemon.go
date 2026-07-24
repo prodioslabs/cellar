@@ -33,6 +33,7 @@ import (
 
 const (
 	DefaultSocket     = "/var/run/cellar/cellar.sock"
+	DefaultDataDir    = "/var/lib/cellar"
 	DefaultListenAddr = ":17946"
 	DefaultRaftAddr   = "127.0.0.1:17947"
 )
@@ -74,7 +75,7 @@ type Daemon struct {
 
 func New(cfg Config) *Daemon {
 	if cfg.DataDir == "" {
-		cfg.DataDir = "./cellar-data"
+		cfg.DataDir = DefaultDataDir
 	}
 	// Docker bind mounts require absolute host paths; resolve once so identity,
 	// raft, and sandbox dirs all share the same absolute data-dir.

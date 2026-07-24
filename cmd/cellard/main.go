@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	dataDir := flag.String("data-dir", "./cellar-data", "directory for node identity and raft state")
+	dataDir := flag.String("data-dir", daemon.DefaultDataDir, "directory for node identity and raft state")
 	socket := flag.String("socket", daemon.DefaultSocket, "unix socket for local control API")
 	listen := flag.String("listen", daemon.DefaultListenAddr, "default remote gRPC listen address")
 	raftAddr := flag.String("raft-addr", daemon.DefaultRaftAddr, "default raft TCP address")
