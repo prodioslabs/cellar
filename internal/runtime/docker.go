@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -15,6 +16,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 
 	"github.com/prodioslabs/cellar/internal/sandbox"
+	"github.com/prodioslabs/cellar/internal/sandboxagent"
 )
 
 const (
@@ -72,28 +74,48 @@ func (d *Driver) FindBySandboxID(ctx context.Context, sandboxID string) (string,
 	return list[0].ID, nil
 }
 
-// CreateAndStart creates and starts a runsc container for the sandbox.
-func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox) (containerID string, err error) {
+// CreateOpts configures cellar-agent injection for a sandbox container.
+type CreateOpts struct {
+	DataDir     string
+	AgentBinary string
+}
+
+// CreateAndStart creates and starts a runsc container with cellar-agent as PID 1.
+func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts CreateOpts) (containerID string, err error) {
 	runtimeName := sb.Spec.Runtime
 	if runtimeName == "" {
 		runtimeName = sandbox.DefaultRuntime
 	}
 
+	if opts.DataDir == "" {
+		return "", fmt.Errorf("data dir required for sandbox agent")
+	}
+	agentBin, err := ResolveAgentBinary(opts.AgentBinary)
+	if err != nil {
+		return "", err
+	}
+	token, err := PrepareSandboxDir(opts.DataDir, sb.ID)
+	if err != nil {
+		return "", err
+	}
+	hostSandboxDir := SandboxHostDir(opts.DataDir, sb.ID)
+
 	if err := d.pullIfMissing(ctx, sb.Spec.Image); err != nil {
+		_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 		return "", err
 	}
 
 	cfg := &container.Config{
-		Image:      sb.Spec.Image,
-		Env:        append([]string(nil), sb.Spec.Env...),
+		Image: sb.Spec.Image,
+		Env: append(append([]string(nil), sb.Spec.Env...),
+			sandboxagent.EnvSandboxID+"="+sb.ID,
+			sandboxagent.EnvAgentSock+"="+guestAgentSock,
+			sandboxagent.EnvTokenFile+"="+guestRunCellar+"/"+agentTokenName,
+		),
 		WorkingDir: sb.Spec.WorkingDir,
 		Labels:     map[string]string{labelSandboxID: sb.ID},
-	}
-	if len(sb.Spec.Command) > 0 {
-		cfg.Entrypoint = append([]string(nil), sb.Spec.Command...)
-	}
-	if len(sb.Spec.Args) > 0 {
-		cfg.Cmd = append([]string(nil), sb.Spec.Args...)
+		Entrypoint: []string{guestAgentBin},
+		Cmd:        nil,
 	}
 
 	host := &container.HostConfig{
@@ -102,15 +124,27 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox) (conta
 			NanoCPUs: sb.Spec.Resources.CPUNanoCores,
 			Memory:   sb.Spec.Resources.MemoryBytes,
 		},
+		Mounts: []mount.Mount{
+			{
+				Type:     mount.TypeBind,
+				Source:   agentBin,
+				Target:   guestAgentBin,
+				ReadOnly: true,
+			},
+			{
+				Type:   mount.TypeBind,
+				Source: hostSandboxDir,
+				Target: guestRunCellar,
+			},
+		},
 	}
 	for _, m := range sb.Spec.Mounts {
-		mt := mount.Mount{
+		host.Mounts = append(host.Mounts, mount.Mount{
 			Type:     mount.TypeBind,
 			Source:   m.Source,
 			Target:   m.Target,
 			ReadOnly: m.ReadOnly,
-		}
-		host.Mounts = append(host.Mounts, mt)
+		})
 	}
 
 	var netCfg *network.NetworkingConfig
@@ -119,6 +153,7 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox) (conta
 		host.NetworkMode = "none"
 	default:
 		if err := d.EnsureBridge(ctx); err != nil {
+			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 			return "", fmt.Errorf("ensure bridge: %w", err)
 		}
 		netCfg = &network.NetworkingConfig{
@@ -130,11 +165,21 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox) (conta
 
 	resp, err := d.cli.ContainerCreate(ctx, cfg, host, netCfg, nil, "cellar-sb-"+sb.ID)
 	if err != nil {
+		_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 		return "", err
 	}
 	if err := d.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		_ = d.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 		return "", err
+	}
+
+	sock := AgentSockPath(opts.DataDir, sb.ID)
+	if err := WaitAgentHealthy(ctx, sock, token, sb.ID, 30*time.Second); err != nil {
+		_ = d.cli.ContainerStop(ctx, resp.ID, container.StopOptions{})
+		_ = d.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		_ = CleanupSandboxDir(opts.DataDir, sb.ID)
+		return "", fmt.Errorf("agent not ready: %w", err)
 	}
 	return resp.ID, nil
 }

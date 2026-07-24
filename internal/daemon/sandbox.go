@@ -53,7 +53,7 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 	if mat == nil {
 		return fmt.Errorf("no identity for runtime agent")
 	}
-	agent := runtime.NewAgent(mat.NodeID, drv, proxy, redir, &heartbeatSource{d: d}, &statusReporter{d: d})
+	agent := runtime.NewAgent(mat.NodeID, drv, proxy, redir, &heartbeatSource{d: d}, &statusReporter{d: d}, d.cfg.DataDir, "")
 	d.driver = drv
 	d.proxy = proxy
 	d.redirect = redir

@@ -25,29 +25,33 @@ type AssignmentSource interface {
 
 // Agent reconciles local Docker containers with assigned sandboxes.
 type Agent struct {
-	NodeID   string
-	Driver   *Driver
-	Proxy    *egress.Proxy
-	Redirect *egress.RedirectManager
-	Source   AssignmentSource
-	Report   StatusReporter
+	NodeID      string
+	Driver      *Driver
+	Proxy       *egress.Proxy
+	Redirect    *egress.RedirectManager
+	Source      AssignmentSource
+	Report      StatusReporter
+	DataDir     string
+	AgentBinary string
 
-	mu      sync.Mutex
-	local   map[string]string // sandboxID -> containerID
+	mu       sync.Mutex
+	local    map[string]string // sandboxID -> containerID
 	interval time.Duration
 }
 
 // NewAgent constructs a runtime agent.
-func NewAgent(nodeID string, drv *Driver, proxy *egress.Proxy, redir *egress.RedirectManager, src AssignmentSource, rep StatusReporter) *Agent {
+func NewAgent(nodeID string, drv *Driver, proxy *egress.Proxy, redir *egress.RedirectManager, src AssignmentSource, rep StatusReporter, dataDir, agentBinary string) *Agent {
 	return &Agent{
-		NodeID:   nodeID,
-		Driver:   drv,
-		Proxy:    proxy,
-		Redirect: redir,
-		Source:   src,
-		Report:   rep,
-		local:    make(map[string]string),
-		interval: 3 * time.Second,
+		NodeID:      nodeID,
+		Driver:      drv,
+		Proxy:       proxy,
+		Redirect:    redir,
+		Source:      src,
+		Report:      rep,
+		DataDir:     dataDir,
+		AgentBinary: agentBinary,
+		local:       make(map[string]string),
+		interval:    3 * time.Second,
 	}
 }
 
@@ -101,6 +105,7 @@ func (a *Agent) reconcile(ctx context.Context) error {
 		}
 		_ = a.Driver.Stop(ctx, cid, 10)
 		_ = a.Driver.Remove(ctx, cid)
+		_ = CleanupSandboxDir(a.DataDir, id)
 		if a.Redirect != nil {
 			_ = a.Redirect.RemoveSandbox(id)
 		}
@@ -131,6 +136,7 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 			_ = a.Driver.Stop(ctx, cid, 10)
 			if sb.DesiredState == sandbox.DesiredRemoved {
 				_ = a.Driver.Remove(ctx, cid)
+				_ = CleanupSandboxDir(a.DataDir, sb.ID)
 				delete(a.local, sb.ID)
 				if a.Redirect != nil {
 					_ = a.Redirect.RemoveSandbox(sb.ID)
@@ -164,7 +170,10 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 				Phase:     sandbox.PhaseStarting,
 				UpdatedAt: time.Now().UTC(),
 			})
-			newID, err := a.Driver.CreateAndStart(ctx, sb)
+			newID, err := a.Driver.CreateAndStart(ctx, sb, CreateOpts{
+				DataDir:     a.DataDir,
+				AgentBinary: a.AgentBinary,
+			})
 			if err != nil {
 				return err
 			}

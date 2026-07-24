@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -72,6 +74,17 @@ func (d *Driver) ExecSession(ctx context.Context, containerID string, cmd []stri
 
 // AgentExec implements LocalRuntime.Exec for the agent.
 func (a *Agent) Exec(ctx context.Context, sandboxID string, cmd []string, tty, stdin bool) (ExecSession, error) {
+	sock := AgentSockPath(a.DataDir, sandboxID)
+	token, err := ReadAgentToken(a.DataDir, sandboxID)
+	if err == nil {
+		sess, aerr := ExecViaAgent(ctx, sock, strings.TrimSpace(token), cmd, tty, stdin)
+		if aerr == nil {
+			return sess, nil
+		}
+		// Fall back to docker exec if the agent socket is unavailable.
+		log.Printf("sandbox %s agent exec: %v; falling back to docker exec", sandboxID, aerr)
+	}
+
 	cid := a.LocalContainerID(sandboxID)
 	if cid == "" {
 		var err error
