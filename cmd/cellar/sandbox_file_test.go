@@ -9,7 +9,6 @@ func TestParseSandboxCreateFileNone(t *testing.T) {
 	const yamlDoc = `
 id: demo-alpine
 image: alpine
-command: ["sleep", "infinity"]
 network:
   mode: none
 `
@@ -23,7 +22,7 @@ network:
 	if req.Spec.Image != "alpine" {
 		t.Fatalf("image: got %q", req.Spec.Image)
 	}
-	if len(req.Spec.Command) != 2 || req.Spec.Command[0] != "sleep" || req.Spec.Command[1] != "infinity" {
+	if len(req.Spec.Command) != 0 {
 		t.Fatalf("command: got %#v", req.Spec.Command)
 	}
 	if req.Spec.Network.Mode != "none" {
@@ -38,7 +37,6 @@ func TestParseSandboxCreateFileAllowlist(t *testing.T) {
 	const yamlDoc = `
 id: demo-curl
 image: curlimages/curl
-command: ["sleep", "infinity"]
 resources:
   memory_bytes: 268435456
   cpus: 0.5

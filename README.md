@@ -74,15 +74,15 @@ sudo runsc install && sudo systemctl restart docker
 ```
 
 ```bash
-# Create an isolated sandbox (no external network)
-cellar sandbox create --image alpine --entrypoint sleep --entrypoint infinity
+# Create an isolated sandbox (no external network).
+# cellard injects cellar-agent as PID 1; the sandbox stays up until stop/rm.
+cellar sandbox create --image alpine
 # or from YAML:
 cellar sandbox create -f examples/sandbox.yaml
 
 # Allowlisted egress (enforced by cellard's userspace proxy + iptables REDIRECT)
 cellar sandbox create --image curlimages/curl --network allowlist \
-  --allow-host example.com --allow-port 443 \
-  --entrypoint sleep --entrypoint infinity
+  --allow-host example.com --allow-port 443
 # or: cellar sandbox create -f examples/sandbox-allowlist.yaml
 
 cellar sandbox ls
@@ -92,6 +92,8 @@ cellar sandbox exec <id> -- uname -a
 cellar sandbox stop <id>
 cellar sandbox rm <id>
 ```
+
+Build `cellar-agent` alongside the other binaries (`make build`). `cellard` bind-mounts it into each sandbox and authenticates exec over a per-sandbox Unix socket with a bearer token.
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node.
 
