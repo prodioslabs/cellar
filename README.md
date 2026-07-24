@@ -10,6 +10,7 @@ This repository implements the **cluster identity layer** (mTLS gRPC, Raft-repli
 |--------|------|
 | **`cellard`** | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
 | **`cellar`** | CLI client (`init`, `join`, `join-token`, `status`, `sandbox …`) talking to local `cellard`. |
+| **`cellar-agent`** | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket. |
 
 ## Roles
 
@@ -34,11 +35,11 @@ Defaults avoid Docker Swarm’s control-plane ports (`7946` gossip, `2377` manag
 ## Build
 
 ```bash
-make build          # → bin/cellard and bin/cellar
-# or: make cellard / make cellar
+make build          # → bin/cellard, bin/cellar, bin/cellar-agent
+# or: make cellard / make cellar / make cellar-agent
 ```
 
-Requires Go 1.26+.
+Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. Keep it next to `cellard` (or set `CELLAR_AGENT_BINARY`) so the daemon can bind-mount it into sandboxes.
 
 ## Quick start
 
@@ -73,9 +74,10 @@ yay -Sy gvisor-bin
 sudo runsc install && sudo systemctl restart docker
 ```
 
+Each sandbox runs with **`cellar-agent` as the container entrypoint** (PID 1). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec`, which talks to the agent over a bind-mounted Unix socket authenticated with a per-sandbox bearer token.
+
 ```bash
-# Create an isolated sandbox (no external network).
-# cellard injects cellar-agent as PID 1; the sandbox stays up until stop/rm.
+# Create an isolated sandbox (no external network)
 cellar sandbox create --image alpine
 # or from YAML:
 cellar sandbox create -f examples/sandbox.yaml
@@ -92,8 +94,6 @@ cellar sandbox exec <id> -- uname -a
 cellar sandbox stop <id>
 cellar sandbox rm <id>
 ```
-
-Build `cellar-agent` alongside the other binaries (`make build`). `cellard` bind-mounts it into each sandbox and authenticates exec over a per-sandbox Unix socket with a bearer token.
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node.
 
