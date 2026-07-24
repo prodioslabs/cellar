@@ -114,8 +114,8 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 		),
 		WorkingDir: sb.Spec.WorkingDir,
 		Labels:     map[string]string{labelSandboxID: sb.ID},
+		// Always cellar-agent; Spec.Command/Args are ignored (use sandbox exec).
 		Entrypoint: []string{guestAgentBin},
-		Cmd:        nil,
 	}
 
 	host := &container.HostConfig{

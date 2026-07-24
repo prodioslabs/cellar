@@ -14,8 +14,6 @@ import (
 type sandboxCreateFile struct {
 	ID         string                 `yaml:"id"`
 	Image      string                 `yaml:"image"`
-	Command    []string               `yaml:"command"`
-	Args       []string               `yaml:"args"`
 	Env        []string               `yaml:"env"`
 	WorkingDir string                 `yaml:"working_dir"`
 	Mounts     []sandboxCreateMount   `yaml:"mounts"`
@@ -65,8 +63,6 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 
 	spec := &cellarv1.SandboxSpec{
 		Image:      doc.Image,
-		Command:    doc.Command,
-		Args:       doc.Args,
 		Env:        doc.Env,
 		WorkingDir: doc.WorkingDir,
 		Runtime:    doc.Runtime,

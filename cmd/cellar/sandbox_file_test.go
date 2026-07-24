@@ -22,9 +22,6 @@ network:
 	if req.Spec.Image != "alpine" {
 		t.Fatalf("image: got %q", req.Spec.Image)
 	}
-	if len(req.Spec.Command) != 0 {
-		t.Fatalf("command: got %#v", req.Spec.Command)
-	}
 	if req.Spec.Network.Mode != "none" {
 		t.Fatalf("network mode: got %q", req.Spec.Network.Mode)
 	}

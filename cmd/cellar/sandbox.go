@@ -36,7 +36,6 @@ func newSandboxCreateCmd() *cobra.Command {
 		network    string
 		env        []string
 		mounts     []string
-		command    []string
 		workdir    string
 		memory     int64
 		cpus       float64
@@ -69,7 +68,6 @@ func newSandboxCreateCmd() *cobra.Command {
 					Image:      image,
 					Env:        env,
 					WorkingDir: workdir,
-					Command:    command,
 					Resources: &cellarv1.Resources{
 						MemoryBytes:  memory,
 						CpuNanoCores: int64(cpus * 1e9),
@@ -114,7 +112,6 @@ func newSandboxCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&network, "network", "none", "none|allowlist|denylist")
 	cmd.Flags().StringArrayVar(&env, "env", nil, "KEY=VALUE")
 	cmd.Flags().StringArrayVar(&mounts, "mount", nil, "src:dst[:ro]")
-	cmd.Flags().StringArrayVar(&command, "entrypoint", nil, "entrypoint override")
 	cmd.Flags().StringVar(&workdir, "workdir", "", "working directory")
 	cmd.Flags().Int64Var(&memory, "memory", 0, "memory bytes")
 	cmd.Flags().Float64Var(&cpus, "cpus", 0, "CPU limit (e.g. 0.5)")
@@ -126,7 +123,7 @@ func newSandboxCreateCmd() *cobra.Command {
 // rejectCreateFlagsWithFile errors if any create flag other than --file was set.
 func rejectCreateFlagsWithFile(cmd *cobra.Command) error {
 	exclusive := []string{
-		"image", "id", "network", "env", "mount", "entrypoint",
+		"image", "id", "network", "env", "mount",
 		"workdir", "memory", "cpus", "allow-host", "allow-port",
 	}
 	var set []string
