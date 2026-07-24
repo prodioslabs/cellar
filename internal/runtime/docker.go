@@ -82,9 +82,8 @@ type CreateOpts struct {
 
 // CreateAndStart creates and starts a runsc container with cellar-agent as PID 1.
 func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts CreateOpts) (containerID string, err error) {
-	runtimeName := sb.Spec.Runtime
-	if runtimeName == "" {
-		runtimeName = sandbox.DefaultRuntime
+	if err := d.DefaultOCIRuntimeAvailable(ctx); err != nil {
+		return "", err
 	}
 
 	if opts.DataDir == "" {
@@ -119,7 +118,7 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 	}
 
 	host := &container.HostConfig{
-		Runtime: runtimeName,
+		Runtime: sandbox.DefaultOCIRuntime,
 		Resources: container.Resources{
 			NanoCPUs: sb.Spec.Resources.CPUNanoCores,
 			Memory:   sb.Spec.Resources.MemoryBytes,
@@ -302,15 +301,13 @@ func (d *Driver) Ping(ctx context.Context) error {
 	return err
 }
 
-// RuntimeAvailable checks whether the named runtime is registered.
-func (d *Driver) RuntimeAvailable(ctx context.Context, name string) error {
+// DefaultOCIRuntimeAvailable checks whether gVisor runsc is registered with Docker.
+func (d *Driver) DefaultOCIRuntimeAvailable(ctx context.Context) error {
 	info, err := d.cli.Info(ctx)
 	if err != nil {
 		return err
 	}
-	if name == "" {
-		name = sandbox.DefaultRuntime
-	}
+	name := sandbox.DefaultOCIRuntime
 	if _, ok := info.Runtimes[name]; !ok {
 		var names []string
 		for n := range info.Runtimes {

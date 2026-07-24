@@ -90,7 +90,7 @@ type Spec struct {
 	Mounts     []Mount       `json:"mounts,omitempty"`
 	Resources  Resources     `json:"resources"`
 	Network    NetworkPolicy `json:"network"`
-	Runtime    string        `json:"runtime,omitempty"` // default runsc
+	Runtime    string        `json:"runtime,omitempty"` // language preset (node-26, …); XOR with custom Image
 }
 
 // Status is observed runtime state.
@@ -124,13 +124,27 @@ func NewID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// DefaultRuntime is the OCI runtime name Docker must have registered.
-const DefaultRuntime = "runsc"
+// DefaultOCIRuntime is the OCI runtime name Docker must have registered (gVisor).
+const DefaultOCIRuntime = "runsc"
 
-// ValidateSpec checks Spec fields.
+// DefaultRuntime is kept as an alias for callers that still refer to the OCI runtime.
+const DefaultRuntime = DefaultOCIRuntime
+
+// ValidateSpec checks Spec fields. Exactly one of Image or Runtime must select a
+// container image (Runtime may already be resolved to Image by NormalizeSpec).
 func ValidateSpec(spec Spec) error {
-	if strings.TrimSpace(spec.Image) == "" {
-		return fmt.Errorf("image is required")
+	image := strings.TrimSpace(spec.Image)
+	runtime := strings.TrimSpace(spec.Runtime)
+	if runtime != "" {
+		expected, err := ResolveImage(runtime)
+		if err != nil {
+			return err
+		}
+		if image != "" && image != expected {
+			return fmt.Errorf("specify image or runtime, not both (runtime %q → %q)", runtime, expected)
+		}
+	} else if image == "" {
+		return fmt.Errorf("image or runtime is required")
 	}
 	switch spec.Network.Mode {
 	case "", NetworkNone, NetworkAllowlist, NetworkDenylist:
@@ -190,10 +204,14 @@ func validateHostOrCIDR(h string) error {
 	return nil
 }
 
-// NormalizeSpec fills defaults.
+// NormalizeSpec fills defaults and resolves language runtimes to images.
 func NormalizeSpec(spec Spec) Spec {
-	if spec.Runtime == "" {
-		spec.Runtime = DefaultRuntime
+	// Legacy: Runtime previously meant the OCI runtime (always runsc).
+	if spec.Runtime == DefaultOCIRuntime || spec.Runtime == "runc" {
+		spec.Runtime = ""
+	}
+	if img, err := ResolveImage(spec.Runtime); err == nil && strings.TrimSpace(spec.Image) == "" {
+		spec.Image = img
 	}
 	if spec.Network.Mode == "" {
 		spec.Network.Mode = NetworkNone

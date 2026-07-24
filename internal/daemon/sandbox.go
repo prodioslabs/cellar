@@ -44,6 +44,11 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 		log.Printf("docker runtime unavailable: %v (sandbox create will fail on this node)", err)
 		return nil
 	}
+	if err := drv.DefaultOCIRuntimeAvailable(ctx); err != nil {
+		_ = drv.Close()
+		log.Printf("oci runtime unavailable: %v (sandbox create will fail on this node)", err)
+		return nil
+	}
 	proxy := egress.NewProxy()
 	if err := proxy.Start(ctx); err != nil {
 		log.Printf("egress proxy: %v", err)

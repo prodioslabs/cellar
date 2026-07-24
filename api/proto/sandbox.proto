@@ -55,7 +55,7 @@ message NetworkPolicy {
 }
 
 message SandboxSpec {
-  string image = 1;
+  string image = 1; // custom image; XOR with runtime
   repeated string command = 2;
   repeated string args = 3;
   repeated string env = 4;
@@ -63,7 +63,7 @@ message SandboxSpec {
   repeated Mount mounts = 6;
   Resources resources = 7;
   NetworkPolicy network = 8;
-  string runtime = 9;
+  string runtime = 9; // language preset (node-26, bun-1.3, python-3.13, go-1.26)
 }
 
 message SandboxStatus {
