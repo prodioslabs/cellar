@@ -159,7 +159,10 @@ func ListenAndServe(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("listen %s: %w", cfg.SockPath, err)
 	}
 	defer lis.Close()
-	if err := os.Chmod(cfg.SockPath, 0o600); err != nil {
+	// Under gVisor (--host-uds), the gofer creates the host socket as root.
+	// cellard typically runs as a non-root user, so 0600 would deny dial.
+	// Access is still gated by the host sandbox dir (0700) + bearer token.
+	if err := os.Chmod(cfg.SockPath, 0o666); err != nil {
 		return fmt.Errorf("chmod socket: %w", err)
 	}
 

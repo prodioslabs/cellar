@@ -65,13 +65,28 @@ Managers join the same way with the **manager** token (and should pass `--advert
 
 ## Sandboxes
 
-Requires Docker with the gVisor [`runsc`](https://gvisor.dev/docs/user_guide/install/) runtime registered (`sudo runsc install && sudo systemctl restart docker`).
+Requires Docker with the gVisor [`runsc`](https://gvisor.dev/docs/user_guide/install/) runtime registered. After `sudo runsc install`, enable host Unix-domain sockets so `cellar-agent` can expose its control socket on the bind-mounted sandbox dir (gVisor blocks this by default):
+
+```json
+{
+  "runtimes": {
+    "runsc": {
+      "path": "/usr/bin/runsc",
+      "runtimeArgs": ["--host-uds=all"]
+    }
+  }
+}
+```
+
+Put that in `/etc/docker/daemon.json` (merge with any existing config), then `sudo systemctl restart docker`. Adjust `"path"` if `runsc` lives elsewhere (`which runsc`).
 
 On Arch Linux–based systems:
 
 ```bash
 yay -Sy gvisor-bin
-sudo runsc install && sudo systemctl restart docker
+sudo runsc install
+# then add runtimeArgs as above and restart docker
+sudo systemctl restart docker
 ```
 
 Each sandbox runs with **`cellar-agent` as the container entrypoint** (PID 1). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec`, which talks to the agent over a bind-mounted Unix socket authenticated with a per-sandbox bearer token.
