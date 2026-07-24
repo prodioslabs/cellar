@@ -76,8 +76,16 @@ func New(cfg Config) *Daemon {
 	if cfg.DataDir == "" {
 		cfg.DataDir = "./cellar-data"
 	}
+	// Docker bind mounts require absolute host paths; resolve once so identity,
+	// raft, and sandbox dirs all share the same absolute data-dir.
+	if abs, err := filepath.Abs(cfg.DataDir); err == nil {
+		cfg.DataDir = abs
+	}
 	if cfg.SocketPath == "" {
 		cfg.SocketPath = DefaultSocket
+	}
+	if abs, err := filepath.Abs(cfg.SocketPath); err == nil {
+		cfg.SocketPath = abs
 	}
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = DefaultListenAddr
