@@ -52,8 +52,11 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("parse yaml: %w", err)
 	}
-	if strings.TrimSpace(doc.Image) == "" {
-		return nil, fmt.Errorf("image is required")
+	if strings.TrimSpace(doc.Image) == "" && strings.TrimSpace(doc.Runtime) == "" {
+		return nil, fmt.Errorf("image or runtime is required")
+	}
+	if strings.TrimSpace(doc.Image) != "" && strings.TrimSpace(doc.Runtime) != "" {
+		return nil, fmt.Errorf("specify image or runtime, not both")
 	}
 
 	mode := doc.Network.Mode

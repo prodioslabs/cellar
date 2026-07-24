@@ -80,8 +80,34 @@ network:
 
 func TestParseSandboxCreateFileMissingImage(t *testing.T) {
 	_, err := parseSandboxCreateFile([]byte("network:\n  mode: none\n"))
-	if err == nil || !strings.Contains(err.Error(), "image is required") {
-		t.Fatalf("expected image required error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "image or runtime is required") {
+		t.Fatalf("expected image or runtime required error, got %v", err)
+	}
+}
+
+func TestParseSandboxCreateFileRuntime(t *testing.T) {
+	const yamlDoc = `
+id: demo-node
+runtime: node-26
+network:
+  mode: none
+`
+	req, err := parseSandboxCreateFile([]byte(yamlDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Spec.Runtime != "node-26" {
+		t.Fatalf("runtime: got %q", req.Spec.Runtime)
+	}
+	if req.Spec.Image != "" {
+		t.Fatalf("image should be empty pre-resolve, got %q", req.Spec.Image)
+	}
+}
+
+func TestParseSandboxCreateFileBothImageAndRuntime(t *testing.T) {
+	_, err := parseSandboxCreateFile([]byte("image: alpine\nruntime: node-26\n"))
+	if err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Fatalf("expected not both error, got %v", err)
 	}
 }
 

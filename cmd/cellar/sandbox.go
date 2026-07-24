@@ -32,6 +32,7 @@ func newSandboxCreateCmd() *cobra.Command {
 	var (
 		file       string
 		image      string
+		runtime    string
 		name       string
 		network    string
 		env        []string
@@ -43,7 +44,7 @@ func newSandboxCreateCmd() *cobra.Command {
 		allowPorts []int
 	)
 	cmd := &cobra.Command{
-		Use:   "create (--image <image> | -f <file>)",
+		Use:   "create (--image <image> | --runtime <runtime> | -f <file>)",
 		Short: "Create and schedule a sandbox",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var req *cellarv1.SandboxCreateRequest
@@ -57,8 +58,11 @@ func newSandboxCreateCmd() *cobra.Command {
 					return err
 				}
 			} else {
-				if image == "" {
-					return fmt.Errorf("--image is required (or use -f <file>)")
+				if image == "" && runtime == "" {
+					return fmt.Errorf("--image or --runtime is required (or use -f <file>)")
+				}
+				if image != "" && runtime != "" {
+					return fmt.Errorf("specify --image or --runtime, not both")
 				}
 				ports := make([]uint32, 0, len(allowPorts))
 				for _, p := range allowPorts {
@@ -66,6 +70,7 @@ func newSandboxCreateCmd() *cobra.Command {
 				}
 				spec := &cellarv1.SandboxSpec{
 					Image:      image,
+					Runtime:    runtime,
 					Env:        env,
 					WorkingDir: workdir,
 					Resources: &cellarv1.Resources{
@@ -108,6 +113,7 @@ func newSandboxCreateCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "YAML file with sandbox create config")
 	cmd.Flags().StringVar(&image, "image", "", "container image")
+	cmd.Flags().StringVar(&runtime, "runtime", "", "language runtime preset (node-26, bun-1.3, python-3.13, go-1.26)")
 	cmd.Flags().StringVar(&name, "id", "", "optional sandbox id")
 	cmd.Flags().StringVar(&network, "network", "none", "none|allowlist|denylist")
 	cmd.Flags().StringArrayVar(&env, "env", nil, "KEY=VALUE")
@@ -123,7 +129,7 @@ func newSandboxCreateCmd() *cobra.Command {
 // rejectCreateFlagsWithFile errors if any create flag other than --file was set.
 func rejectCreateFlagsWithFile(cmd *cobra.Command) error {
 	exclusive := []string{
-		"image", "id", "network", "env", "mount",
+		"image", "runtime", "id", "network", "env", "mount",
 		"workdir", "memory", "cpus", "allow-host", "allow-port",
 	}
 	var set []string
@@ -199,6 +205,9 @@ func newSandboxGetCmd() *cobra.Command {
 			fmt.Printf("desired:  %s\n", sb.DesiredState)
 			fmt.Printf("phase:    %s\n", sb.Status.GetPhase())
 			fmt.Printf("image:    %s\n", sb.Spec.GetImage())
+			if sb.Spec.GetRuntime() != "" {
+				fmt.Printf("runtime:  %s\n", sb.Spec.GetRuntime())
+			}
 			fmt.Printf("container: %s\n", sb.Status.GetContainerId())
 			if sb.Status.GetMessage() != "" {
 				fmt.Printf("message:  %s\n", sb.Status.Message)
