@@ -79,6 +79,8 @@ Each sandbox runs with **`cellar-agent` as the container entrypoint** (PID 1). T
 ```bash
 # Create an isolated sandbox (no external network)
 cellar sandbox create --image alpine
+# or a language runtime preset (resolves to an Alpine image):
+cellar sandbox create --runtime node-26
 # or from YAML:
 cellar sandbox create -f examples/sandbox.yaml
 
@@ -94,6 +96,15 @@ cellar sandbox exec <id> -- uname -a
 cellar sandbox stop <id>
 cellar sandbox rm <id>
 ```
+
+Runtime presets and their images:
+
+| Runtime | Image |
+|---------|-------|
+| `node-26` | `node:26-alpine` |
+| `bun-1.3` | `oven/bun:1.3-alpine` |
+| `python-3.13` | `astral/uv:python3.13-alpine` |
+| `go-1.26` | `golang:1.26-alpine` |
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node.
 

@@ -1,0 +1,6 @@
+# Language runtime preset (resolves to node:26-alpine).
+# Usage: cellar sandbox create -f examples/sandbox-runtime.yaml
+id: demo-node
+runtime: node-26
+network:
+  mode: none
