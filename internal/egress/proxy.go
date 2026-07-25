@@ -15,19 +15,30 @@ import (
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
+const resolvedIPTTL = 5 * time.Minute
+
+type resolvedIPEntry struct {
+	name    string
+	expires time.Time
+}
+
 // Proxy is a per-node transparent TCP (+ DNS UDP) egress proxy.
 type Proxy struct {
-	mu       sync.RWMutex
-	policies map[string]*Evaluator
-	tcpLis   net.Listener
-	udpConn  *net.UDPConn
-	TCPPort  int
-	UDPPort  int
+	mu         sync.RWMutex
+	policies   map[string]*Evaluator
+	resolvedIP map[string]resolvedIPEntry // IP string -> hostname from DNS answers
+	tcpLis     net.Listener
+	udpConn    *net.UDPConn
+	TCPPort    int
+	UDPPort    int
 }
 
 // NewProxy creates an unstarted proxy.
 func NewProxy() *Proxy {
-	return &Proxy{policies: make(map[string]*Evaluator)}
+	return &Proxy{
+		policies:   make(map[string]*Evaluator),
+		resolvedIP: make(map[string]resolvedIPEntry),
+	}
 }
 
 // SetPolicy registers or replaces policy for a sandbox.
@@ -50,6 +61,34 @@ func (p *Proxy) HasPolicy(sandboxID string) bool {
 	defer p.mu.RUnlock()
 	_, ok := p.policies[sandboxID]
 	return ok
+}
+
+// rememberResolved records that ip was returned for name (for TCP allow checks).
+func (p *Proxy) rememberResolved(name string, ip net.IP) {
+	v4 := ip.To4()
+	if v4 == nil || name == "" {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.resolvedIP[v4.String()] = resolvedIPEntry{
+		name:    name,
+		expires: time.Now().Add(resolvedIPTTL),
+	}
+}
+
+// resolvedName returns the hostname associated with a recently answered DNS A record.
+func (p *Proxy) resolvedName(ip string) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	e, ok := p.resolvedIP[ip]
+	if !ok {
+		return "", false
+	}
+	if time.Now().After(e.expires) {
+		return "", false
+	}
+	return e.name, true
 }
 
 // Start listens on ephemeral TCP/UDP ports for redirected traffic.
@@ -139,13 +178,22 @@ func (p *Proxy) allowAny(host string, port uint32) bool {
 	if len(p.policies) == 0 {
 		return false
 	}
+	// SO_ORIGINAL_DST is an IP; map recent DNS answers back to hostnames so
+	// allowlist rules that name hosts (e.g. example.com) still match.
+	hosts := []string{host}
+	if e, ok := p.resolvedIP[host]; ok && !time.Now().After(e.expires) && e.name != "" && e.name != host {
+		hosts = append(hosts, e.name)
+	}
 	hasAllowlist := false
 	anyAllow := false
 	for _, ev := range p.policies {
 		if ev.policy.Mode == sandbox.NetworkAllowlist {
 			hasAllowlist = true
-			if ev.AllowConnect(host, port) == Allow {
-				anyAllow = true
+			for _, h := range hosts {
+				if ev.AllowConnect(h, port) == Allow {
+					anyAllow = true
+					break
+				}
 			}
 		}
 	}
@@ -153,8 +201,10 @@ func (p *Proxy) allowAny(host string, port uint32) bool {
 		return anyAllow
 	}
 	for _, ev := range p.policies {
-		if ev.AllowConnect(host, port) == Deny {
-			return false
+		for _, h := range hosts {
+			if ev.AllowConnect(h, port) == Deny {
+				return false
+			}
 		}
 	}
 	return true
@@ -273,5 +323,6 @@ func (p *Proxy) handleDNS(pkt []byte, client *net.UDPAddr) {
 	if err != nil {
 		return
 	}
+	p.rememberResolved(name, a)
 	_, _ = p.udpConn.WriteToUDP(out, client)
 }

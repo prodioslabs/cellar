@@ -23,6 +23,16 @@ import (
 const (
 	labelSandboxID = "cellar.sandbox.id"
 	bridgeName     = "cellar-sandboxes"
+
+	// egressDNSBait is the nameserver written into the bind-mounted resolv.conf.
+	// It is not a real resolver: iptables REDIRECTs udp/53 from the sandbox to
+	// cellard's egress proxy before the packet leaves the host. Any non-loopback
+	// IP works; use TEST-NET-3 (RFC 5737) so we do not imply Google/Cloudflare DNS.
+	// HostConfig.DNS cannot deliver this on its own: on user-defined networks
+	// Docker still writes nameserver 127.0.0.11 and treats DNS as the stub's
+	// upstream, and the stub's forwarding does not surface as src=<containerIP>
+	// udp/53 on the bridge (least of all under runsc).
+	egressDNSBait = "203.0.113.53"
 )
 
 // Driver talks to the host Docker Engine using the runsc runtime.
@@ -159,6 +169,21 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 			return "", fmt.Errorf("ensure bridge: %w", err)
 		}
+		// Mounting over /etc/resolv.conf is what actually bypasses Docker's
+		// embedded stub, so UDP/53 leaves the netns as a real packet that
+		// cellard's iptables REDIRECT can hand to the egress DNS proxy.
+		resolvPath, err := WriteEgressResolvConf(opts.DataDir, sb.ID, egressDNSBait)
+		if err != nil {
+			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
+			return "", err
+		}
+		host.Mounts = append(host.Mounts, mount.Mount{
+			Type:     mount.TypeBind,
+			Source:   resolvPath,
+			Target:   guestResolvConf,
+			ReadOnly: true,
+		})
+		host.DNS = []string{egressDNSBait}
 		netCfg = &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				bridgeName: {},

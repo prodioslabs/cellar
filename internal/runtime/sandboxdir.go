@@ -12,9 +12,11 @@ const (
 	sandboxDirName   = "sandboxes"
 	agentSockName    = "agent.sock"
 	agentTokenName   = "agent.token"
+	resolvConfName   = "resolv.conf"
 	guestAgentSock   = "/run/cellar/agent.sock"
 	guestAgentBin    = "/usr/local/bin/cellar-agent"
 	guestRunCellar   = "/run/cellar"
+	guestResolvConf  = "/etc/resolv.conf"
 	defaultAgentPath = "/usr/lib/cellar/cellar-agent"
 )
 
@@ -31,6 +33,24 @@ func AgentSockPath(dataDir, sandboxID string) string {
 // AgentTokenPath is the host path of the agent bearer token file.
 func AgentTokenPath(dataDir, sandboxID string) string {
 	return filepath.Join(SandboxHostDir(dataDir, sandboxID), agentTokenName)
+}
+
+// ResolvConfPath is the host path of the sandbox's generated resolv.conf.
+func ResolvConfPath(dataDir, sandboxID string) string {
+	return filepath.Join(SandboxHostDir(dataDir, sandboxID), resolvConfName)
+}
+
+// WriteEgressResolvConf writes the resolv.conf bind-mounted over the guest's own.
+// Docker skips resolv.conf management when the path is mounted over, which is the
+// only way to avoid the embedded 127.0.0.11 stub on user-defined networks.
+// ndots:0 keeps search-domain expansion from flooding the egress resolver.
+func WriteEgressResolvConf(dataDir, sandboxID, nameserver string) (string, error) {
+	path := ResolvConfPath(dataDir, sandboxID)
+	content := "nameserver " + nameserver + "\noptions ndots:0\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("write resolv.conf: %w", err)
+	}
+	return path, nil
 }
 
 // PrepareSandboxDir creates the sandbox host dir and writes a fresh agent token.

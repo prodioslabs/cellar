@@ -37,6 +37,35 @@ func TestPrepareSandboxDir(t *testing.T) {
 	}
 }
 
+func TestWriteEgressResolvConf(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := PrepareSandboxDir(dir, "abc123"); err != nil {
+		t.Fatal(err)
+	}
+	path, err := WriteEgressResolvConf(dir, "abc123", "203.0.113.53")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != ResolvConfPath(dir, "abc123") {
+		t.Fatalf("path: got %q want %q", path, ResolvConfPath(dir, "abc123"))
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "nameserver 203.0.113.53\noptions ndots:0\n"
+	if string(b) != want {
+		t.Fatalf("contents: got %q want %q", string(b), want)
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o644 {
+		t.Fatalf("resolv.conf perms: %o", st.Mode().Perm())
+	}
+}
+
 func TestResolveAgentBinary(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "cellar-agent")
