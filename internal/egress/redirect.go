@@ -43,6 +43,22 @@ func (m *RedirectManager) EnsureSandbox(sandboxID, containerIP string) error {
 	return nil
 }
 
+// SeedSandbox records a sandbox IP without installing iptables rules.
+// Used by unit tests that exercise RemoveSandbox / TeardownLocal.
+func (m *RedirectManager) SeedSandbox(sandboxID, containerIP string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.rules[sandboxID] = containerIP
+}
+
+// HasSandbox reports whether REDIRECT rules are tracked for a sandbox.
+func (m *RedirectManager) HasSandbox(sandboxID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.rules[sandboxID]
+	return ok
+}
+
 // RemoveSandbox deletes REDIRECT rules for a sandbox.
 func (m *RedirectManager) RemoveSandbox(sandboxID string) error {
 	m.mu.Lock()

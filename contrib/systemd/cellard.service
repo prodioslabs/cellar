@@ -19,6 +19,7 @@ ExecStart=/usr/local/bin/cellard
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGTERM
+TimeoutStopSec=45
 
 # Hardening (compatible with Docker + CAP_NET_ADMIN)
 NoNewPrivileges=true

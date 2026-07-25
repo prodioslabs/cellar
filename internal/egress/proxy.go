@@ -44,6 +44,14 @@ func (p *Proxy) RemovePolicy(sandboxID string) {
 	delete(p.policies, sandboxID)
 }
 
+// HasPolicy reports whether a sandbox policy is registered.
+func (p *Proxy) HasPolicy(sandboxID string) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	_, ok := p.policies[sandboxID]
+	return ok
+}
+
 // Start listens on ephemeral TCP/UDP ports for redirected traffic.
 func (p *Proxy) Start(ctx context.Context) error {
 	tcpLis, err := net.Listen("tcp", "0.0.0.0:0")

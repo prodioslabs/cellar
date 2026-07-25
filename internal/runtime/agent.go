@@ -37,6 +37,15 @@ type Agent struct {
 	mu       sync.Mutex
 	local    map[string]string // sandboxID -> containerID
 	interval time.Duration
+
+	// stopRemove overrides Driver for Stop/Remove when non-nil (unit tests).
+	stopRemove stopRemover
+}
+
+// stopRemover is the Stop/Remove surface used by TeardownLocal and unassign.
+type stopRemover interface {
+	Stop(ctx context.Context, containerID string, timeoutSec int) error
+	Remove(ctx context.Context, containerID string) error
 }
 
 // NewAgent constructs a runtime agent.
@@ -55,6 +64,16 @@ func NewAgent(nodeID string, drv *Driver, proxy *egress.Proxy, redir *egress.Red
 	}
 }
 
+func (a *Agent) stopper() stopRemover {
+	if a.stopRemove != nil {
+		return a.stopRemove
+	}
+	if a.Driver != nil {
+		return a.Driver
+	}
+	return nil
+}
+
 // Run loops until ctx is done.
 func (a *Agent) Run(ctx context.Context) {
 	ticker := time.NewTicker(a.interval)
@@ -68,6 +87,52 @@ func (a *Agent) Run(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
+	}
+}
+
+// TeardownLocal stops and removes every container this node manages.
+// Cluster desired state is untouched; a later start recreates them via reconcile.
+func (a *Agent) TeardownLocal(ctx context.Context) {
+	a.mu.Lock()
+	locals := make(map[string]string, len(a.local))
+	for id, cid := range a.local {
+		locals[id] = cid
+	}
+	a.local = make(map[string]string)
+	a.mu.Unlock()
+
+	if len(locals) == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	for id, cid := range locals {
+		wg.Add(1)
+		go func(id, cid string) {
+			defer wg.Done()
+			if s := a.stopper(); s != nil {
+				_ = s.Stop(ctx, cid, 5)
+				_ = s.Remove(ctx, cid)
+			}
+			_ = CleanupSandboxDir(a.DataDir, id)
+			if a.Redirect != nil {
+				_ = a.Redirect.RemoveSandbox(id)
+			}
+			if a.Proxy != nil {
+				a.Proxy.RemovePolicy(id)
+			}
+		}(id, cid)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		log.Printf("runtime agent: TeardownLocal timed out: %v", ctx.Err())
 	}
 }
 
@@ -103,8 +168,10 @@ func (a *Agent) reconcile(ctx context.Context) error {
 		if _, ok := want[id]; ok {
 			continue
 		}
-		_ = a.Driver.Stop(ctx, cid, 10)
-		_ = a.Driver.Remove(ctx, cid)
+		if s := a.stopper(); s != nil {
+			_ = s.Stop(ctx, cid, 10)
+			_ = s.Remove(ctx, cid)
+		}
 		_ = CleanupSandboxDir(a.DataDir, id)
 		if a.Redirect != nil {
 			_ = a.Redirect.RemoveSandbox(id)
@@ -133,9 +200,13 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 	switch sb.DesiredState {
 	case sandbox.DesiredRemoved, sandbox.DesiredStopped:
 		if cid != "" {
-			_ = a.Driver.Stop(ctx, cid, 10)
+			if s := a.stopper(); s != nil {
+				_ = s.Stop(ctx, cid, 10)
+				if sb.DesiredState == sandbox.DesiredRemoved {
+					_ = s.Remove(ctx, cid)
+				}
+			}
 			if sb.DesiredState == sandbox.DesiredRemoved {
-				_ = a.Driver.Remove(ctx, cid)
 				_ = CleanupSandboxDir(a.DataDir, sb.ID)
 				delete(a.local, sb.ID)
 				if a.Redirect != nil {

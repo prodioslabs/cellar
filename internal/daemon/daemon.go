@@ -36,6 +36,10 @@ const (
 	DefaultDataDir    = "/var/lib/cellar"
 	DefaultListenAddr = ":17946"
 	DefaultRaftAddr   = "127.0.0.1:17947"
+
+	gracefulStopTimeout = 5 * time.Second
+	wgWaitTimeout       = 5 * time.Second
+	teardownTimeout     = 20 * time.Second
 )
 
 // Config configures the always-on cellard process.
@@ -134,36 +138,98 @@ func (d *Daemon) Run(ctx context.Context) error {
 }
 
 func (d *Daemon) shutdown() {
+	// Snapshot under the lock, then release it before GracefulStop. Holding
+	// d.mu across GracefulStop deadlocks with admitted RPCs (Status, etc.)
+	// that also need the mutex.
 	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.remoteGRPC != nil {
-		d.remoteGRPC.GracefulStop()
+	remoteGRPC := d.remoteGRPC
+	remoteLis := d.remoteLis
+	localGRPC := d.localGRPC
+	localLis := d.localLis
+	raft := d.raft
+	redirect := d.redirect
+	proxy := d.proxy
+	driver := d.driver
+	agent := d.agent
+	cancel := d.cancel
+	d.remoteGRPC = nil
+	d.remoteLis = nil
+	d.localGRPC = nil
+	d.localLis = nil
+	d.raft = nil
+	d.redirect = nil
+	d.proxy = nil
+	d.driver = nil
+	d.agent = nil
+	d.cancel = nil
+	d.mu.Unlock()
+
+	gracefulStop(remoteGRPC, gracefulStopTimeout)
+	if remoteLis != nil {
+		_ = remoteLis.Close()
 	}
-	if d.remoteLis != nil {
-		_ = d.remoteLis.Close()
+	gracefulStop(localGRPC, gracefulStopTimeout)
+	if localLis != nil {
+		_ = localLis.Close()
 	}
-	if d.localGRPC != nil {
-		d.localGRPC.GracefulStop()
+
+	// Cancel run context so agent / renew / heartbeat loops exit, then wait
+	// briefly so TeardownLocal does not race a concurrent reconcile that
+	// would recreate containers.
+	if cancel != nil {
+		cancel()
 	}
-	if d.localLis != nil {
-		_ = d.localLis.Close()
+	waitWG(&d.wg, wgWaitTimeout)
+
+	if agent != nil {
+		tctx, tcancel := context.WithTimeout(context.Background(), teardownTimeout)
+		agent.TeardownLocal(tctx)
+		tcancel()
 	}
-	if d.raft != nil {
-		_ = d.raft.Close()
+
+	if raft != nil {
+		_ = raft.Close()
 	}
-	if d.redirect != nil {
-		_ = d.redirect.Close()
+	if redirect != nil {
+		_ = redirect.Close()
 	}
-	if d.proxy != nil {
-		_ = d.proxy.Close()
+	if proxy != nil {
+		_ = proxy.Close()
 	}
-	if d.driver != nil {
-		_ = d.driver.Close()
+	if driver != nil {
+		_ = driver.Close()
 	}
-	if d.cancel != nil {
-		d.cancel()
+}
+
+// gracefulStop waits for GracefulStop up to timeout, then Force Stop.
+func gracefulStop(s *grpc.Server, timeout time.Duration) {
+	if s == nil {
+		return
 	}
-	d.wg.Wait()
+	done := make(chan struct{})
+	go func() {
+		s.GracefulStop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		s.Stop()
+		<-done
+	}
+}
+
+func waitWG(wg *sync.WaitGroup, timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		log.Printf("cellard: shutdown waiting for goroutines timed out after %s", timeout)
+	}
 }
 
 func (d *Daemon) startLocalControl() error {
