@@ -79,6 +79,27 @@ func SandboxListRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM 
 	return cellarv1.NewSandboxControlClient(conn).List(ctx, &cellarv1.SandboxListRequest{})
 }
 
+// SandboxUpdateNetworkRemote replaces a sandbox network policy via the leader.
+func SandboxUpdateNetworkRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
+	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).UpdateNetwork(ctx, req)
+}
+
+// ApplyNetworkPolicyRemote pushes a committed policy to the node running the sandbox.
+func ApplyNetworkPolicyRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.ApplyNetworkPolicyRequest) error {
+	conn, err := DialRuntime(addr, certPEM, keyPEM, caPEM)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_, err = cellarv1.NewSandboxRuntimeClient(conn).ApplyNetworkPolicy(ctx, req)
+	return err
+}
+
 // RuntimeHeartbeatRemote sends a heartbeat and receives assignments.
 func RuntimeHeartbeatRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.RuntimeHeartbeatRequest) (*cellarv1.RuntimeHeartbeatResponse, error) {
 	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)

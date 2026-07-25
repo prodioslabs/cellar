@@ -35,26 +35,53 @@ func SpecFromProto(p *cellarv1.SandboxSpec) Spec {
 			ReadOnly: m.ReadOnly,
 		})
 	}
-	if p.Network != nil {
-		spec.Network.Mode = NetworkMode(p.Network.Mode)
-		if p.Network.Dns != nil {
-			spec.Network.DNS = DNSPolicy{
-				Mode:  DNSMode(p.Network.Dns.Mode),
-				Names: append([]string(nil), p.Network.Dns.Names...),
-			}
-		}
-		for _, r := range p.Network.Rules {
-			if r == nil {
-				continue
-			}
-			spec.Network.Rules = append(spec.Network.Rules, NetworkRule{
-				Hosts:     append([]string(nil), r.Hosts...),
-				Ports:     append([]uint32(nil), r.Ports...),
-				Protocols: append([]string(nil), r.Protocols...),
-			})
+	spec.Network = NetworkPolicyFromProto(p.Network)
+	return NormalizeSpec(spec)
+}
+
+// NetworkPolicyFromProto converts a proto network policy.
+func NetworkPolicyFromProto(p *cellarv1.NetworkPolicy) NetworkPolicy {
+	var out NetworkPolicy
+	if p == nil {
+		return out
+	}
+	out.Mode = NetworkMode(p.Mode)
+	if p.Dns != nil {
+		out.DNS = DNSPolicy{
+			Mode:  DNSMode(p.Dns.Mode),
+			Names: append([]string(nil), p.Dns.Names...),
 		}
 	}
-	return NormalizeSpec(spec)
+	for _, r := range p.Rules {
+		if r == nil {
+			continue
+		}
+		out.Rules = append(out.Rules, NetworkRule{
+			Hosts:     append([]string(nil), r.Hosts...),
+			Ports:     append([]uint32(nil), r.Ports...),
+			Protocols: append([]string(nil), r.Protocols...),
+		})
+	}
+	return out
+}
+
+// NetworkPolicyToProto converts a network policy.
+func NetworkPolicyToProto(np NetworkPolicy) *cellarv1.NetworkPolicy {
+	out := &cellarv1.NetworkPolicy{
+		Mode: string(np.Mode),
+		Dns: &cellarv1.DNSPolicy{
+			Mode:  string(np.DNS.Mode),
+			Names: append([]string(nil), np.DNS.Names...),
+		},
+	}
+	for _, r := range np.Rules {
+		out.Rules = append(out.Rules, &cellarv1.NetworkRule{
+			Hosts:     append([]string(nil), r.Hosts...),
+			Ports:     append([]uint32(nil), r.Ports...),
+			Protocols: append([]string(nil), r.Protocols...),
+		})
+	}
+	return out
 }
 
 // SpecToProto converts a Go spec.
@@ -70,26 +97,13 @@ func SpecToProto(spec Spec) *cellarv1.SandboxSpec {
 			CpuNanoCores: spec.Resources.CPUNanoCores,
 			MemoryBytes:  spec.Resources.MemoryBytes,
 		},
-		Network: &cellarv1.NetworkPolicy{
-			Mode: string(spec.Network.Mode),
-			Dns: &cellarv1.DNSPolicy{
-				Mode:  string(spec.Network.DNS.Mode),
-				Names: append([]string(nil), spec.Network.DNS.Names...),
-			},
-		},
+		Network: NetworkPolicyToProto(spec.Network),
 	}
 	for _, m := range spec.Mounts {
 		out.Mounts = append(out.Mounts, &cellarv1.Mount{
 			Source:   m.Source,
 			Target:   m.Target,
 			ReadOnly: m.ReadOnly,
-		})
-	}
-	for _, r := range spec.Network.Rules {
-		out.Network.Rules = append(out.Network.Rules, &cellarv1.NetworkRule{
-			Hosts:     append([]string(nil), r.Hosts...),
-			Ports:     append([]uint32(nil), r.Ports...),
-			Protocols: append([]string(nil), r.Protocols...),
 		})
 	}
 	return out

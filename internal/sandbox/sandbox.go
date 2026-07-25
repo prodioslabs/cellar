@@ -146,25 +146,31 @@ func ValidateSpec(spec Spec) error {
 	} else if image == "" {
 		return fmt.Errorf("image or runtime is required")
 	}
-	switch spec.Network.Mode {
-	case "", NetworkNone, NetworkAllowlist, NetworkDenylist:
-	default:
-		return fmt.Errorf("invalid network mode %q", spec.Network.Mode)
-	}
-	if spec.Network.Mode == "" {
-		// ok; Normalize fills none
-	}
-	switch spec.Network.DNS.Mode {
-	case "", DNSNone, DNSAllowlist, DNSDenylist:
-	default:
-		return fmt.Errorf("invalid dns mode %q", spec.Network.DNS.Mode)
+	if err := ValidateNetworkPolicy(spec.Network); err != nil {
+		return err
 	}
 	for i, m := range spec.Mounts {
 		if m.Source == "" || m.Target == "" {
 			return fmt.Errorf("mount[%d]: source and target are required", i)
 		}
 	}
-	for i, r := range spec.Network.Rules {
+	return nil
+}
+
+// ValidateNetworkPolicy checks a network policy in isolation. An empty mode is
+// accepted; NormalizeSpec fills in none.
+func ValidateNetworkPolicy(np NetworkPolicy) error {
+	switch np.Mode {
+	case "", NetworkNone, NetworkAllowlist, NetworkDenylist:
+	default:
+		return fmt.Errorf("invalid network mode %q", np.Mode)
+	}
+	switch np.DNS.Mode {
+	case "", DNSNone, DNSAllowlist, DNSDenylist:
+	default:
+		return fmt.Errorf("invalid dns mode %q", np.DNS.Mode)
+	}
+	for i, r := range np.Rules {
 		if len(r.Hosts) == 0 {
 			return fmt.Errorf("network rule[%d]: hosts required", i)
 		}
@@ -175,6 +181,21 @@ func ValidateSpec(spec Spec) error {
 		}
 	}
 	return nil
+}
+
+// NormalizeNetworkPolicy fills mode defaults the same way NormalizeSpec does.
+func NormalizeNetworkPolicy(np NetworkPolicy) NetworkPolicy {
+	if np.Mode == "" {
+		np.Mode = NetworkNone
+	}
+	if np.DNS.Mode == "" {
+		if np.Mode == NetworkNone {
+			np.DNS.Mode = DNSNone
+		} else {
+			np.DNS.Mode = np.Mode.asDNS()
+		}
+	}
+	return np
 }
 
 func validateHostOrCIDR(h string) error {
@@ -213,16 +234,7 @@ func NormalizeSpec(spec Spec) Spec {
 	if img, err := ResolveImage(spec.Runtime); err == nil && strings.TrimSpace(spec.Image) == "" {
 		spec.Image = img
 	}
-	if spec.Network.Mode == "" {
-		spec.Network.Mode = NetworkNone
-	}
-	if spec.Network.DNS.Mode == "" {
-		if spec.Network.Mode == NetworkNone {
-			spec.Network.DNS.Mode = DNSNone
-		} else {
-			spec.Network.DNS.Mode = spec.Network.Mode.asDNS()
-		}
-	}
+	spec.Network = NormalizeNetworkPolicy(spec.Network)
 	return spec
 }
 

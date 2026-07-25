@@ -130,6 +130,39 @@ func (s *SandboxServer) List(ctx context.Context, _ *cellarv1.SandboxListRequest
 	return out, nil
 }
 
+// UpdateNetwork replaces the network policy of an existing sandbox. The write
+// is the source of truth; pushing it to the owning node is the caller's job.
+func (s *SandboxServer) UpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
+	if err := s.requireLeader(); err != nil {
+		return nil, err
+	}
+	if req.SandboxId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sandbox_id required")
+	}
+	np := sandbox.NormalizeNetworkPolicy(sandbox.NetworkPolicyFromProto(req.Network))
+	if err := sandbox.ValidateNetworkPolicy(np); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	sb, err := s.store.GetSandbox(ctx, req.SandboxId)
+	if err != nil {
+		return nil, mapStoreErr(err)
+	}
+	// Mode none is decided when the container is created: no bridge, no
+	// resolv.conf mount, no REDIRECT rules. Neither direction can be toggled
+	// on a live container.
+	if (sb.Spec.Network.Mode == sandbox.NetworkNone) != (np.Mode == sandbox.NetworkNone) {
+		return nil, status.Errorf(codes.FailedPrecondition,
+			"cannot change network mode %q -> %q on a running sandbox; recreate it instead",
+			sb.Spec.Network.Mode, np.Mode)
+	}
+	sb.Spec.Network = np
+	sb.UpdatedAt = time.Now().UTC()
+	if err := s.store.SaveSandbox(ctx, sb); err != nil {
+		return nil, mapStoreErr(err)
+	}
+	return &cellarv1.SandboxUpdateNetworkResponse{Sandbox: sandbox.ToProto(sb)}, nil
+}
+
 func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHeartbeatRequest) (*cellarv1.RuntimeHeartbeatResponse, error) {
 	if err := s.requireLeader(); err != nil {
 		return nil, err

@@ -22,6 +22,7 @@ func newSandboxCmd() *cobra.Command {
 	cmd.AddCommand(newSandboxStopCmd())
 	cmd.AddCommand(newSandboxRemoveCmd())
 	cmd.AddCommand(newSandboxGetCmd())
+	cmd.AddCommand(newSandboxNetworkCmd())
 	cmd.AddCommand(newSandboxListCmd())
 	cmd.AddCommand(newSandboxLogsCmd())
 	cmd.AddCommand(newSandboxExecCmd())
@@ -181,6 +182,55 @@ func newSandboxRemoveCmd() *cobra.Command {
 			return err
 		},
 	}
+}
+
+func newSandboxNetworkCmd() *cobra.Command {
+	var (
+		mode       string
+		allowHosts []string
+		allowPorts []int
+	)
+	cmd := &cobra.Command{
+		Use:   "network <sandbox-id> --mode <allowlist|denylist> [--allow-host h] [--allow-port p]",
+		Short: "Replace the network policy of a running sandbox",
+		Long: "Replace the network policy of a running sandbox. Takes effect immediately, " +
+			"closing established connections the new policy no longer allows.\n\n" +
+			"Switching to or from mode none is rejected: that is fixed when the container is created.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if mode != "allowlist" && mode != "denylist" {
+				return fmt.Errorf("--mode must be allowlist or denylist")
+			}
+			ports := make([]uint32, 0, len(allowPorts))
+			for _, p := range allowPorts {
+				ports = append(ports, uint32(p))
+			}
+			warnUnmatchableHostRules(cmd.ErrOrStderr(), allowHosts, ports)
+
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+			defer cancel()
+			resp, err := client.SandboxUpdateNetwork(ctx, &cellarv1.SandboxUpdateNetworkRequest{
+				SandboxId: args[0],
+				Network:   networkPolicyFromAllow(mode, allowHosts, ports),
+			})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("sandbox %s network policy updated (mode=%s)\n",
+				resp.Sandbox.Id, resp.Sandbox.Spec.GetNetwork().GetMode())
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mode, "mode", "", "allowlist|denylist")
+	cmd.Flags().StringArrayVar(&allowHosts, "allow-host", nil, "host/CIDR for network policy")
+	cmd.Flags().IntSliceVar(&allowPorts, "allow-port", nil, "ports for network policy")
+	_ = cmd.MarkFlagRequired("mode")
+	return cmd
 }
 
 func newSandboxGetCmd() *cobra.Command {

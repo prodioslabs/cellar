@@ -570,7 +570,7 @@ const file_control_proto_rawDesc = "" +
 	"cluster_id\x18\x03 \x01(\tR\tclusterId\x12\x1b\n" +
 	"\tis_leader\x18\x04 \x01(\bR\bisLeader\x12%\n" +
 	"\x0eadvertise_addr\x18\x05 \x01(\tR\radvertiseAddr\x12 \n" +
-	"\vinitialized\x18\x06 \x01(\bR\vinitialized2\xaf\x06\n" +
+	"\vinitialized\x18\x06 \x01(\bR\vinitialized2\x98\a\n" +
 	"\aControl\x127\n" +
 	"\x04Init\x12\x16.cellar.v1.InitRequest\x1a\x17.cellar.v1.InitResponse\x127\n" +
 	"\x04Join\x12\x16.cellar.v1.JoinRequest\x1a\x17.cellar.v1.JoinResponse\x12F\n" +
@@ -580,7 +580,8 @@ const file_control_proto_rawDesc = "" +
 	"\vSandboxStop\x12\x1d.cellar.v1.SandboxStopRequest\x1a\x1e.cellar.v1.SandboxStopResponse\x12R\n" +
 	"\rSandboxRemove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12I\n" +
 	"\n" +
-	"SandboxGet\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12L\n" +
+	"SandboxGet\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12g\n" +
+	"\x14SandboxUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse\x12L\n" +
 	"\vSandboxList\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12K\n" +
 	"\vSandboxLogs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12O\n" +
 	"\vSandboxExec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01B0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
@@ -599,27 +600,29 @@ func file_control_proto_rawDescGZIP() []byte {
 
 var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_control_proto_goTypes = []any{
-	(*InitRequest)(nil),           // 0: cellar.v1.InitRequest
-	(*InitResponse)(nil),          // 1: cellar.v1.InitResponse
-	(*JoinRequest)(nil),           // 2: cellar.v1.JoinRequest
-	(*JoinResponse)(nil),          // 3: cellar.v1.JoinResponse
-	(*JoinTokenRequest)(nil),      // 4: cellar.v1.JoinTokenRequest
-	(*JoinTokenResponse)(nil),     // 5: cellar.v1.JoinTokenResponse
-	(*StatusRequest)(nil),         // 6: cellar.v1.StatusRequest
-	(*StatusResponse)(nil),        // 7: cellar.v1.StatusResponse
-	(*SandboxCreateRequest)(nil),  // 8: cellar.v1.SandboxCreateRequest
-	(*SandboxStopRequest)(nil),    // 9: cellar.v1.SandboxStopRequest
-	(*SandboxRemoveRequest)(nil),  // 10: cellar.v1.SandboxRemoveRequest
-	(*SandboxGetRequest)(nil),     // 11: cellar.v1.SandboxGetRequest
-	(*SandboxListRequest)(nil),    // 12: cellar.v1.SandboxListRequest
-	(*SandboxLogsRequest)(nil),    // 13: cellar.v1.SandboxLogsRequest
-	(*SandboxExecMessage)(nil),    // 14: cellar.v1.SandboxExecMessage
-	(*SandboxCreateResponse)(nil), // 15: cellar.v1.SandboxCreateResponse
-	(*SandboxStopResponse)(nil),   // 16: cellar.v1.SandboxStopResponse
-	(*SandboxRemoveResponse)(nil), // 17: cellar.v1.SandboxRemoveResponse
-	(*SandboxGetResponse)(nil),    // 18: cellar.v1.SandboxGetResponse
-	(*SandboxListResponse)(nil),   // 19: cellar.v1.SandboxListResponse
-	(*SandboxLogsChunk)(nil),      // 20: cellar.v1.SandboxLogsChunk
+	(*InitRequest)(nil),                  // 0: cellar.v1.InitRequest
+	(*InitResponse)(nil),                 // 1: cellar.v1.InitResponse
+	(*JoinRequest)(nil),                  // 2: cellar.v1.JoinRequest
+	(*JoinResponse)(nil),                 // 3: cellar.v1.JoinResponse
+	(*JoinTokenRequest)(nil),             // 4: cellar.v1.JoinTokenRequest
+	(*JoinTokenResponse)(nil),            // 5: cellar.v1.JoinTokenResponse
+	(*StatusRequest)(nil),                // 6: cellar.v1.StatusRequest
+	(*StatusResponse)(nil),               // 7: cellar.v1.StatusResponse
+	(*SandboxCreateRequest)(nil),         // 8: cellar.v1.SandboxCreateRequest
+	(*SandboxStopRequest)(nil),           // 9: cellar.v1.SandboxStopRequest
+	(*SandboxRemoveRequest)(nil),         // 10: cellar.v1.SandboxRemoveRequest
+	(*SandboxGetRequest)(nil),            // 11: cellar.v1.SandboxGetRequest
+	(*SandboxUpdateNetworkRequest)(nil),  // 12: cellar.v1.SandboxUpdateNetworkRequest
+	(*SandboxListRequest)(nil),           // 13: cellar.v1.SandboxListRequest
+	(*SandboxLogsRequest)(nil),           // 14: cellar.v1.SandboxLogsRequest
+	(*SandboxExecMessage)(nil),           // 15: cellar.v1.SandboxExecMessage
+	(*SandboxCreateResponse)(nil),        // 16: cellar.v1.SandboxCreateResponse
+	(*SandboxStopResponse)(nil),          // 17: cellar.v1.SandboxStopResponse
+	(*SandboxRemoveResponse)(nil),        // 18: cellar.v1.SandboxRemoveResponse
+	(*SandboxGetResponse)(nil),           // 19: cellar.v1.SandboxGetResponse
+	(*SandboxUpdateNetworkResponse)(nil), // 20: cellar.v1.SandboxUpdateNetworkResponse
+	(*SandboxListResponse)(nil),          // 21: cellar.v1.SandboxListResponse
+	(*SandboxLogsChunk)(nil),             // 22: cellar.v1.SandboxLogsChunk
 }
 var file_control_proto_depIdxs = []int32{
 	0,  // 0: cellar.v1.Control.Init:input_type -> cellar.v1.InitRequest
@@ -630,22 +633,24 @@ var file_control_proto_depIdxs = []int32{
 	9,  // 5: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
 	10, // 6: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
 	11, // 7: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
-	12, // 8: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
-	13, // 9: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
-	14, // 10: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
-	1,  // 11: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
-	3,  // 12: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
-	5,  // 13: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
-	7,  // 14: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
-	15, // 15: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
-	16, // 16: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
-	17, // 17: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
-	18, // 18: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
-	19, // 19: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
-	20, // 20: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
-	14, // 21: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
-	11, // [11:22] is the sub-list for method output_type
-	0,  // [0:11] is the sub-list for method input_type
+	12, // 8: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	13, // 9: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
+	14, // 10: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
+	15, // 11: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
+	1,  // 12: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
+	3,  // 13: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
+	5,  // 14: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
+	7,  // 15: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
+	16, // 16: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
+	17, // 17: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
+	18, // 18: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
+	19, // 19: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
+	20, // 20: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	21, // 21: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
+	22, // 22: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
+	15, // 23: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
+	12, // [12:24] is the sub-list for method output_type
+	0,  // [0:12] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name

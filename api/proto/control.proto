@@ -18,6 +18,7 @@ service Control {
   rpc SandboxStop(SandboxStopRequest) returns (SandboxStopResponse);
   rpc SandboxRemove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
   rpc SandboxGet(SandboxGetRequest) returns (SandboxGetResponse);
+  rpc SandboxUpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
   rpc SandboxList(SandboxListRequest) returns (SandboxListResponse);
   rpc SandboxLogs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
   rpc SandboxExec(stream SandboxExecMessage) returns (stream SandboxExecMessage);

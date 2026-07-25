@@ -11,12 +11,14 @@ import (
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/runtime"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
 // LocalRuntime resolves a sandbox to a local container and streams logs/exec.
 type LocalRuntime interface {
 	StreamLogs(ctx context.Context, sandboxID string, follow bool, tail int64, w io.Writer) error
 	Exec(ctx context.Context, sandboxID string, cmd []string, tty, stdin bool) (runtime.ExecSession, error)
+	ApplyNetworkPolicy(ctx context.Context, sandboxID string, policy sandbox.NetworkPolicy) error
 }
 
 // RuntimeServer implements SandboxRuntime on every node.
@@ -66,6 +68,19 @@ func (r *RuntimeServer) Logs(req *cellarv1.SandboxLogsRequest, stream cellarv1.S
 		return status.Error(codes.Internal, err.Error())
 	}
 	return nil
+}
+
+func (r *RuntimeServer) ApplyNetworkPolicy(ctx context.Context, req *cellarv1.ApplyNetworkPolicyRequest) (*cellarv1.ApplyNetworkPolicyResponse, error) {
+	if r.local == nil {
+		return nil, status.Error(codes.Unavailable, "runtime not ready")
+	}
+	if req.SandboxId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sandbox_id required")
+	}
+	if err := r.local.ApplyNetworkPolicy(ctx, req.SandboxId, sandbox.NetworkPolicyFromProto(req.Network)); err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	return &cellarv1.ApplyNetworkPolicyResponse{}, nil
 }
 
 func (r *RuntimeServer) Exec(stream cellarv1.SandboxRuntime_ExecServer) error {

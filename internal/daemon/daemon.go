@@ -861,6 +861,9 @@ func (c *controlServer) SandboxRemove(ctx context.Context, req *cellarv1.Sandbox
 func (c *controlServer) SandboxGet(ctx context.Context, req *cellarv1.SandboxGetRequest) (*cellarv1.SandboxGetResponse, error) {
 	return c.d.SandboxGet(ctx, req)
 }
+func (c *controlServer) SandboxUpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
+	return c.d.SandboxUpdateNetwork(ctx, req)
+}
 func (c *controlServer) SandboxList(ctx context.Context, req *cellarv1.SandboxListRequest) (*cellarv1.SandboxListResponse, error) {
 	return c.d.SandboxList(ctx, req)
 }

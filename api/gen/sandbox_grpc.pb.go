@@ -19,11 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SandboxControl_Create_FullMethodName = "/cellar.v1.SandboxControl/Create"
-	SandboxControl_Stop_FullMethodName   = "/cellar.v1.SandboxControl/Stop"
-	SandboxControl_Remove_FullMethodName = "/cellar.v1.SandboxControl/Remove"
-	SandboxControl_Get_FullMethodName    = "/cellar.v1.SandboxControl/Get"
-	SandboxControl_List_FullMethodName   = "/cellar.v1.SandboxControl/List"
+	SandboxControl_Create_FullMethodName        = "/cellar.v1.SandboxControl/Create"
+	SandboxControl_Stop_FullMethodName          = "/cellar.v1.SandboxControl/Stop"
+	SandboxControl_Remove_FullMethodName        = "/cellar.v1.SandboxControl/Remove"
+	SandboxControl_Get_FullMethodName           = "/cellar.v1.SandboxControl/Get"
+	SandboxControl_List_FullMethodName          = "/cellar.v1.SandboxControl/List"
+	SandboxControl_UpdateNetwork_FullMethodName = "/cellar.v1.SandboxControl/UpdateNetwork"
 )
 
 // SandboxControlClient is the client API for SandboxControl service.
@@ -37,6 +38,7 @@ type SandboxControlClient interface {
 	Remove(ctx context.Context, in *SandboxRemoveRequest, opts ...grpc.CallOption) (*SandboxRemoveResponse, error)
 	Get(ctx context.Context, in *SandboxGetRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
 	List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
+	UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error)
 }
 
 type sandboxControlClient struct {
@@ -97,6 +99,16 @@ func (c *sandboxControlClient) List(ctx context.Context, in *SandboxListRequest,
 	return out, nil
 }
 
+func (c *sandboxControlClient) UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxUpdateNetworkResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_UpdateNetwork_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SandboxControlServer is the server API for SandboxControl service.
 // All implementations must embed UnimplementedSandboxControlServer
 // for forward compatibility.
@@ -108,6 +120,7 @@ type SandboxControlServer interface {
 	Remove(context.Context, *SandboxRemoveRequest) (*SandboxRemoveResponse, error)
 	Get(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error)
 	List(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
+	UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error)
 	mustEmbedUnimplementedSandboxControlServer()
 }
 
@@ -132,6 +145,9 @@ func (UnimplementedSandboxControlServer) Get(context.Context, *SandboxGetRequest
 }
 func (UnimplementedSandboxControlServer) List(context.Context, *SandboxListRequest) (*SandboxListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method List not implemented")
+}
+func (UnimplementedSandboxControlServer) UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateNetwork not implemented")
 }
 func (UnimplementedSandboxControlServer) mustEmbedUnimplementedSandboxControlServer() {}
 func (UnimplementedSandboxControlServer) testEmbeddedByValue()                        {}
@@ -244,6 +260,24 @@ func _SandboxControl_List_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SandboxControl_UpdateNetwork_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxUpdateNetworkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxControlServer).UpdateNetwork(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxControl_UpdateNetwork_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxControlServer).UpdateNetwork(ctx, req.(*SandboxUpdateNetworkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SandboxControl_ServiceDesc is the grpc.ServiceDesc for SandboxControl service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -270,6 +304,10 @@ var SandboxControl_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "List",
 			Handler:    _SandboxControl_List_Handler,
+		},
+		{
+			MethodName: "UpdateNetwork",
+			Handler:    _SandboxControl_UpdateNetwork_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -459,8 +497,9 @@ var RuntimeAgent_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	SandboxRuntime_Logs_FullMethodName = "/cellar.v1.SandboxRuntime/Logs"
-	SandboxRuntime_Exec_FullMethodName = "/cellar.v1.SandboxRuntime/Exec"
+	SandboxRuntime_Logs_FullMethodName               = "/cellar.v1.SandboxRuntime/Logs"
+	SandboxRuntime_Exec_FullMethodName               = "/cellar.v1.SandboxRuntime/Exec"
+	SandboxRuntime_ApplyNetworkPolicy_FullMethodName = "/cellar.v1.SandboxRuntime/ApplyNetworkPolicy"
 )
 
 // SandboxRuntimeClient is the client API for SandboxRuntime service.
@@ -471,6 +510,9 @@ const (
 type SandboxRuntimeClient interface {
 	Logs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
 	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
+	// Applies a committed network policy to a running sandbox immediately,
+	// instead of waiting for the next reconcile tick.
+	ApplyNetworkPolicy(ctx context.Context, in *ApplyNetworkPolicyRequest, opts ...grpc.CallOption) (*ApplyNetworkPolicyResponse, error)
 }
 
 type sandboxRuntimeClient struct {
@@ -513,6 +555,16 @@ func (c *sandboxRuntimeClient) Exec(ctx context.Context, opts ...grpc.CallOption
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxRuntime_ExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
 
+func (c *sandboxRuntimeClient) ApplyNetworkPolicy(ctx context.Context, in *ApplyNetworkPolicyRequest, opts ...grpc.CallOption) (*ApplyNetworkPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApplyNetworkPolicyResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_ApplyNetworkPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SandboxRuntimeServer is the server API for SandboxRuntime service.
 // All implementations must embed UnimplementedSandboxRuntimeServer
 // for forward compatibility.
@@ -521,6 +573,9 @@ type SandboxRuntime_ExecClient = grpc.BidiStreamingClient[SandboxExecMessage, Sa
 type SandboxRuntimeServer interface {
 	Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
 	Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
+	// Applies a committed network policy to a running sandbox immediately,
+	// instead of waiting for the next reconcile tick.
+	ApplyNetworkPolicy(context.Context, *ApplyNetworkPolicyRequest) (*ApplyNetworkPolicyResponse, error)
 	mustEmbedUnimplementedSandboxRuntimeServer()
 }
 
@@ -536,6 +591,9 @@ func (UnimplementedSandboxRuntimeServer) Logs(*SandboxLogsRequest, grpc.ServerSt
 }
 func (UnimplementedSandboxRuntimeServer) Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
 	return status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) ApplyNetworkPolicy(context.Context, *ApplyNetworkPolicyRequest) (*ApplyNetworkPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApplyNetworkPolicy not implemented")
 }
 func (UnimplementedSandboxRuntimeServer) mustEmbedUnimplementedSandboxRuntimeServer() {}
 func (UnimplementedSandboxRuntimeServer) testEmbeddedByValue()                        {}
@@ -576,13 +634,36 @@ func _SandboxRuntime_Exec_Handler(srv interface{}, stream grpc.ServerStream) err
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxRuntime_ExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
 
+func _SandboxRuntime_ApplyNetworkPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyNetworkPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).ApplyNetworkPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_ApplyNetworkPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).ApplyNetworkPolicy(ctx, req.(*ApplyNetworkPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SandboxRuntime_ServiceDesc is the grpc.ServiceDesc for SandboxRuntime service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var SandboxRuntime_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "cellar.v1.SandboxRuntime",
 	HandlerType: (*SandboxRuntimeServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ApplyNetworkPolicy",
+			Handler:    _SandboxRuntime_ApplyNetworkPolicy_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Logs",

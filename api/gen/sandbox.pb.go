@@ -307,7 +307,7 @@ func (x *NetworkPolicy) GetRules() []*NetworkRule {
 
 type SandboxSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Image         string                 `protobuf:"bytes,1,opt,name=image,proto3" json:"image,omitempty"`
+	Image         string                 `protobuf:"bytes,1,opt,name=image,proto3" json:"image,omitempty"` // custom image; XOR with runtime
 	Command       []string               `protobuf:"bytes,2,rep,name=command,proto3" json:"command,omitempty"`
 	Args          []string               `protobuf:"bytes,3,rep,name=args,proto3" json:"args,omitempty"`
 	Env           []string               `protobuf:"bytes,4,rep,name=env,proto3" json:"env,omitempty"`
@@ -315,7 +315,7 @@ type SandboxSpec struct {
 	Mounts        []*Mount               `protobuf:"bytes,6,rep,name=mounts,proto3" json:"mounts,omitempty"`
 	Resources     *Resources             `protobuf:"bytes,7,opt,name=resources,proto3" json:"resources,omitempty"`
 	Network       *NetworkPolicy         `protobuf:"bytes,8,opt,name=network,proto3" json:"network,omitempty"`
-	Runtime       string                 `protobuf:"bytes,9,opt,name=runtime,proto3" json:"runtime,omitempty"`
+	Runtime       string                 `protobuf:"bytes,9,opt,name=runtime,proto3" json:"runtime,omitempty"` // language preset (node-26, bun-1.3, python-3.13, go-1.26)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -949,6 +949,190 @@ func (x *SandboxGetResponse) GetSandbox() *Sandbox {
 	return nil
 }
 
+type SandboxUpdateNetworkRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Network       *NetworkPolicy         `protobuf:"bytes,2,opt,name=network,proto3" json:"network,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SandboxUpdateNetworkRequest) Reset() {
+	*x = SandboxUpdateNetworkRequest{}
+	mi := &file_sandbox_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SandboxUpdateNetworkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SandboxUpdateNetworkRequest) ProtoMessage() {}
+
+func (x *SandboxUpdateNetworkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SandboxUpdateNetworkRequest.ProtoReflect.Descriptor instead.
+func (*SandboxUpdateNetworkRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SandboxUpdateNetworkRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *SandboxUpdateNetworkRequest) GetNetwork() *NetworkPolicy {
+	if x != nil {
+		return x.Network
+	}
+	return nil
+}
+
+type SandboxUpdateNetworkResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sandbox       *Sandbox               `protobuf:"bytes,1,opt,name=sandbox,proto3" json:"sandbox,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SandboxUpdateNetworkResponse) Reset() {
+	*x = SandboxUpdateNetworkResponse{}
+	mi := &file_sandbox_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SandboxUpdateNetworkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SandboxUpdateNetworkResponse) ProtoMessage() {}
+
+func (x *SandboxUpdateNetworkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SandboxUpdateNetworkResponse.ProtoReflect.Descriptor instead.
+func (*SandboxUpdateNetworkResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *SandboxUpdateNetworkResponse) GetSandbox() *Sandbox {
+	if x != nil {
+		return x.Sandbox
+	}
+	return nil
+}
+
+type ApplyNetworkPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Network       *NetworkPolicy         `protobuf:"bytes,2,opt,name=network,proto3" json:"network,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplyNetworkPolicyRequest) Reset() {
+	*x = ApplyNetworkPolicyRequest{}
+	mi := &file_sandbox_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyNetworkPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyNetworkPolicyRequest) ProtoMessage() {}
+
+func (x *ApplyNetworkPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyNetworkPolicyRequest.ProtoReflect.Descriptor instead.
+func (*ApplyNetworkPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ApplyNetworkPolicyRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *ApplyNetworkPolicyRequest) GetNetwork() *NetworkPolicy {
+	if x != nil {
+		return x.Network
+	}
+	return nil
+}
+
+type ApplyNetworkPolicyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApplyNetworkPolicyResponse) Reset() {
+	*x = ApplyNetworkPolicyResponse{}
+	mi := &file_sandbox_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApplyNetworkPolicyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApplyNetworkPolicyResponse) ProtoMessage() {}
+
+func (x *ApplyNetworkPolicyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApplyNetworkPolicyResponse.ProtoReflect.Descriptor instead.
+func (*ApplyNetworkPolicyResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{19}
+}
+
 type SandboxListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -957,7 +1141,7 @@ type SandboxListRequest struct {
 
 func (x *SandboxListRequest) Reset() {
 	*x = SandboxListRequest{}
-	mi := &file_sandbox_proto_msgTypes[16]
+	mi := &file_sandbox_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -969,7 +1153,7 @@ func (x *SandboxListRequest) String() string {
 func (*SandboxListRequest) ProtoMessage() {}
 
 func (x *SandboxListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[16]
+	mi := &file_sandbox_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -982,7 +1166,7 @@ func (x *SandboxListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxListRequest.ProtoReflect.Descriptor instead.
 func (*SandboxListRequest) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{16}
+	return file_sandbox_proto_rawDescGZIP(), []int{20}
 }
 
 type SandboxListResponse struct {
@@ -994,7 +1178,7 @@ type SandboxListResponse struct {
 
 func (x *SandboxListResponse) Reset() {
 	*x = SandboxListResponse{}
-	mi := &file_sandbox_proto_msgTypes[17]
+	mi := &file_sandbox_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1006,7 +1190,7 @@ func (x *SandboxListResponse) String() string {
 func (*SandboxListResponse) ProtoMessage() {}
 
 func (x *SandboxListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[17]
+	mi := &file_sandbox_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1019,7 +1203,7 @@ func (x *SandboxListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxListResponse.ProtoReflect.Descriptor instead.
 func (*SandboxListResponse) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{17}
+	return file_sandbox_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SandboxListResponse) GetSandboxes() []*Sandbox {
@@ -1040,7 +1224,7 @@ type RuntimeHeartbeatRequest struct {
 
 func (x *RuntimeHeartbeatRequest) Reset() {
 	*x = RuntimeHeartbeatRequest{}
-	mi := &file_sandbox_proto_msgTypes[18]
+	mi := &file_sandbox_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1052,7 +1236,7 @@ func (x *RuntimeHeartbeatRequest) String() string {
 func (*RuntimeHeartbeatRequest) ProtoMessage() {}
 
 func (x *RuntimeHeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[18]
+	mi := &file_sandbox_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1065,7 +1249,7 @@ func (x *RuntimeHeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeHeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*RuntimeHeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{18}
+	return file_sandbox_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *RuntimeHeartbeatRequest) GetNodeId() string {
@@ -1098,7 +1282,7 @@ type RuntimeHeartbeatResponse struct {
 
 func (x *RuntimeHeartbeatResponse) Reset() {
 	*x = RuntimeHeartbeatResponse{}
-	mi := &file_sandbox_proto_msgTypes[19]
+	mi := &file_sandbox_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1294,7 @@ func (x *RuntimeHeartbeatResponse) String() string {
 func (*RuntimeHeartbeatResponse) ProtoMessage() {}
 
 func (x *RuntimeHeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[19]
+	mi := &file_sandbox_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1307,7 @@ func (x *RuntimeHeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimeHeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*RuntimeHeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{19}
+	return file_sandbox_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RuntimeHeartbeatResponse) GetAssigned() []*Sandbox {
@@ -1144,7 +1328,7 @@ type UpdateSandboxStatusRequest struct {
 
 func (x *UpdateSandboxStatusRequest) Reset() {
 	*x = UpdateSandboxStatusRequest{}
-	mi := &file_sandbox_proto_msgTypes[20]
+	mi := &file_sandbox_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1156,7 +1340,7 @@ func (x *UpdateSandboxStatusRequest) String() string {
 func (*UpdateSandboxStatusRequest) ProtoMessage() {}
 
 func (x *UpdateSandboxStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[20]
+	mi := &file_sandbox_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1169,7 +1353,7 @@ func (x *UpdateSandboxStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSandboxStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSandboxStatusRequest) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{20}
+	return file_sandbox_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UpdateSandboxStatusRequest) GetSandboxId() string {
@@ -1201,7 +1385,7 @@ type UpdateSandboxStatusResponse struct {
 
 func (x *UpdateSandboxStatusResponse) Reset() {
 	*x = UpdateSandboxStatusResponse{}
-	mi := &file_sandbox_proto_msgTypes[21]
+	mi := &file_sandbox_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1213,7 +1397,7 @@ func (x *UpdateSandboxStatusResponse) String() string {
 func (*UpdateSandboxStatusResponse) ProtoMessage() {}
 
 func (x *UpdateSandboxStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[21]
+	mi := &file_sandbox_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1226,7 +1410,7 @@ func (x *UpdateSandboxStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSandboxStatusResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSandboxStatusResponse) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{21}
+	return file_sandbox_proto_rawDescGZIP(), []int{25}
 }
 
 type ListNodeSandboxesRequest struct {
@@ -1238,7 +1422,7 @@ type ListNodeSandboxesRequest struct {
 
 func (x *ListNodeSandboxesRequest) Reset() {
 	*x = ListNodeSandboxesRequest{}
-	mi := &file_sandbox_proto_msgTypes[22]
+	mi := &file_sandbox_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1250,7 +1434,7 @@ func (x *ListNodeSandboxesRequest) String() string {
 func (*ListNodeSandboxesRequest) ProtoMessage() {}
 
 func (x *ListNodeSandboxesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[22]
+	mi := &file_sandbox_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,7 +1447,7 @@ func (x *ListNodeSandboxesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodeSandboxesRequest.ProtoReflect.Descriptor instead.
 func (*ListNodeSandboxesRequest) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{22}
+	return file_sandbox_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListNodeSandboxesRequest) GetNodeId() string {
@@ -1282,7 +1466,7 @@ type ListNodeSandboxesResponse struct {
 
 func (x *ListNodeSandboxesResponse) Reset() {
 	*x = ListNodeSandboxesResponse{}
-	mi := &file_sandbox_proto_msgTypes[23]
+	mi := &file_sandbox_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1294,7 +1478,7 @@ func (x *ListNodeSandboxesResponse) String() string {
 func (*ListNodeSandboxesResponse) ProtoMessage() {}
 
 func (x *ListNodeSandboxesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[23]
+	mi := &file_sandbox_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1307,7 +1491,7 @@ func (x *ListNodeSandboxesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodeSandboxesResponse.ProtoReflect.Descriptor instead.
 func (*ListNodeSandboxesResponse) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{23}
+	return file_sandbox_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListNodeSandboxesResponse) GetSandboxes() []*Sandbox {
@@ -1329,7 +1513,7 @@ type SandboxLogsRequest struct {
 
 func (x *SandboxLogsRequest) Reset() {
 	*x = SandboxLogsRequest{}
-	mi := &file_sandbox_proto_msgTypes[24]
+	mi := &file_sandbox_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1341,7 +1525,7 @@ func (x *SandboxLogsRequest) String() string {
 func (*SandboxLogsRequest) ProtoMessage() {}
 
 func (x *SandboxLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[24]
+	mi := &file_sandbox_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1354,7 +1538,7 @@ func (x *SandboxLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxLogsRequest.ProtoReflect.Descriptor instead.
 func (*SandboxLogsRequest) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{24}
+	return file_sandbox_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *SandboxLogsRequest) GetSandboxId() string {
@@ -1394,7 +1578,7 @@ type SandboxLogsChunk struct {
 
 func (x *SandboxLogsChunk) Reset() {
 	*x = SandboxLogsChunk{}
-	mi := &file_sandbox_proto_msgTypes[25]
+	mi := &file_sandbox_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1406,7 +1590,7 @@ func (x *SandboxLogsChunk) String() string {
 func (*SandboxLogsChunk) ProtoMessage() {}
 
 func (x *SandboxLogsChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[25]
+	mi := &file_sandbox_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1419,7 +1603,7 @@ func (x *SandboxLogsChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxLogsChunk.ProtoReflect.Descriptor instead.
 func (*SandboxLogsChunk) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{25}
+	return file_sandbox_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *SandboxLogsChunk) GetData() []byte {
@@ -1448,7 +1632,7 @@ type SandboxExecMessage struct {
 
 func (x *SandboxExecMessage) Reset() {
 	*x = SandboxExecMessage{}
-	mi := &file_sandbox_proto_msgTypes[26]
+	mi := &file_sandbox_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1460,7 +1644,7 @@ func (x *SandboxExecMessage) String() string {
 func (*SandboxExecMessage) ProtoMessage() {}
 
 func (x *SandboxExecMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[26]
+	mi := &file_sandbox_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1473,7 +1657,7 @@ func (x *SandboxExecMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxExecMessage.ProtoReflect.Descriptor instead.
 func (*SandboxExecMessage) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{26}
+	return file_sandbox_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SandboxExecMessage) GetPayload() isSandboxExecMessage_Payload {
@@ -1589,7 +1773,7 @@ type SandboxExecStart struct {
 
 func (x *SandboxExecStart) Reset() {
 	*x = SandboxExecStart{}
-	mi := &file_sandbox_proto_msgTypes[27]
+	mi := &file_sandbox_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1601,7 +1785,7 @@ func (x *SandboxExecStart) String() string {
 func (*SandboxExecStart) ProtoMessage() {}
 
 func (x *SandboxExecStart) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[27]
+	mi := &file_sandbox_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1614,7 +1798,7 @@ func (x *SandboxExecStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxExecStart.ProtoReflect.Descriptor instead.
 func (*SandboxExecStart) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{27}
+	return file_sandbox_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SandboxExecStart) GetSandboxId() string {
@@ -1655,7 +1839,7 @@ type SandboxExecExit struct {
 
 func (x *SandboxExecExit) Reset() {
 	*x = SandboxExecExit{}
-	mi := &file_sandbox_proto_msgTypes[28]
+	mi := &file_sandbox_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1667,7 +1851,7 @@ func (x *SandboxExecExit) String() string {
 func (*SandboxExecExit) ProtoMessage() {}
 
 func (x *SandboxExecExit) ProtoReflect() protoreflect.Message {
-	mi := &file_sandbox_proto_msgTypes[28]
+	mi := &file_sandbox_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1680,7 +1864,7 @@ func (x *SandboxExecExit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxExecExit.ProtoReflect.Descriptor instead.
 func (*SandboxExecExit) Descriptor() ([]byte, []int) {
-	return file_sandbox_proto_rawDescGZIP(), []int{28}
+	return file_sandbox_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SandboxExecExit) GetExitCode() int32 {
@@ -1766,7 +1950,18 @@ const file_sandbox_proto_rawDesc = "" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\"B\n" +
 	"\x12SandboxGetResponse\x12,\n" +
-	"\asandbox\x18\x01 \x01(\v2\x12.cellar.v1.SandboxR\asandbox\"\x14\n" +
+	"\asandbox\x18\x01 \x01(\v2\x12.cellar.v1.SandboxR\asandbox\"p\n" +
+	"\x1bSandboxUpdateNetworkRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x122\n" +
+	"\anetwork\x18\x02 \x01(\v2\x18.cellar.v1.NetworkPolicyR\anetwork\"L\n" +
+	"\x1cSandboxUpdateNetworkResponse\x12,\n" +
+	"\asandbox\x18\x01 \x01(\v2\x12.cellar.v1.SandboxR\asandbox\"n\n" +
+	"\x19ApplyNetworkPolicyRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x122\n" +
+	"\anetwork\x18\x02 \x01(\v2\x18.cellar.v1.NetworkPolicyR\anetwork\"\x1c\n" +
+	"\x1aApplyNetworkPolicyResponse\"\x14\n" +
 	"\x12SandboxListRequest\"G\n" +
 	"\x13SandboxListResponse\x120\n" +
 	"\tsandboxes\x18\x01 \x03(\v2\x12.cellar.v1.SandboxR\tsandboxes\"t\n" +
@@ -1812,20 +2007,22 @@ const file_sandbox_proto_rawDesc = "" +
 	"\x05stdin\x18\x04 \x01(\bR\x05stdin\"D\n" +
 	"\x0fSandboxExecExit\x12\x1b\n" +
 	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\xfc\x02\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error2\xde\x03\n" +
 	"\x0eSandboxControl\x12K\n" +
 	"\x06Create\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12E\n" +
 	"\x04Stop\x12\x1d.cellar.v1.SandboxStopRequest\x1a\x1e.cellar.v1.SandboxStopResponse\x12K\n" +
 	"\x06Remove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12B\n" +
 	"\x03Get\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12E\n" +
-	"\x04List\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse2\xaa\x02\n" +
+	"\x04List\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12`\n" +
+	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse2\xaa\x02\n" +
 	"\fRuntimeAgent\x12T\n" +
 	"\tHeartbeat\x12\".cellar.v1.RuntimeHeartbeatRequest\x1a#.cellar.v1.RuntimeHeartbeatResponse\x12d\n" +
 	"\x13UpdateSandboxStatus\x12%.cellar.v1.UpdateSandboxStatusRequest\x1a&.cellar.v1.UpdateSandboxStatusResponse\x12^\n" +
-	"\x11ListNodeSandboxes\x12#.cellar.v1.ListNodeSandboxesRequest\x1a$.cellar.v1.ListNodeSandboxesResponse2\xa0\x01\n" +
+	"\x11ListNodeSandboxes\x12#.cellar.v1.ListNodeSandboxesRequest\x1a$.cellar.v1.ListNodeSandboxesResponse2\x83\x02\n" +
 	"\x0eSandboxRuntime\x12D\n" +
 	"\x04Logs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12H\n" +
-	"\x04Exec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01B0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
+	"\x04Exec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01\x12a\n" +
+	"\x12ApplyNetworkPolicy\x12$.cellar.v1.ApplyNetworkPolicyRequest\x1a%.cellar.v1.ApplyNetworkPolicyResponseB0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
 
 var (
 	file_sandbox_proto_rawDescOnce sync.Once
@@ -1839,37 +2036,41 @@ func file_sandbox_proto_rawDescGZIP() []byte {
 	return file_sandbox_proto_rawDescData
 }
 
-var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_sandbox_proto_goTypes = []any{
-	(*Mount)(nil),                       // 0: cellar.v1.Mount
-	(*Resources)(nil),                   // 1: cellar.v1.Resources
-	(*NetworkRule)(nil),                 // 2: cellar.v1.NetworkRule
-	(*DNSPolicy)(nil),                   // 3: cellar.v1.DNSPolicy
-	(*NetworkPolicy)(nil),               // 4: cellar.v1.NetworkPolicy
-	(*SandboxSpec)(nil),                 // 5: cellar.v1.SandboxSpec
-	(*SandboxStatus)(nil),               // 6: cellar.v1.SandboxStatus
-	(*Sandbox)(nil),                     // 7: cellar.v1.Sandbox
-	(*SandboxCreateRequest)(nil),        // 8: cellar.v1.SandboxCreateRequest
-	(*SandboxCreateResponse)(nil),       // 9: cellar.v1.SandboxCreateResponse
-	(*SandboxStopRequest)(nil),          // 10: cellar.v1.SandboxStopRequest
-	(*SandboxStopResponse)(nil),         // 11: cellar.v1.SandboxStopResponse
-	(*SandboxRemoveRequest)(nil),        // 12: cellar.v1.SandboxRemoveRequest
-	(*SandboxRemoveResponse)(nil),       // 13: cellar.v1.SandboxRemoveResponse
-	(*SandboxGetRequest)(nil),           // 14: cellar.v1.SandboxGetRequest
-	(*SandboxGetResponse)(nil),          // 15: cellar.v1.SandboxGetResponse
-	(*SandboxListRequest)(nil),          // 16: cellar.v1.SandboxListRequest
-	(*SandboxListResponse)(nil),         // 17: cellar.v1.SandboxListResponse
-	(*RuntimeHeartbeatRequest)(nil),     // 18: cellar.v1.RuntimeHeartbeatRequest
-	(*RuntimeHeartbeatResponse)(nil),    // 19: cellar.v1.RuntimeHeartbeatResponse
-	(*UpdateSandboxStatusRequest)(nil),  // 20: cellar.v1.UpdateSandboxStatusRequest
-	(*UpdateSandboxStatusResponse)(nil), // 21: cellar.v1.UpdateSandboxStatusResponse
-	(*ListNodeSandboxesRequest)(nil),    // 22: cellar.v1.ListNodeSandboxesRequest
-	(*ListNodeSandboxesResponse)(nil),   // 23: cellar.v1.ListNodeSandboxesResponse
-	(*SandboxLogsRequest)(nil),          // 24: cellar.v1.SandboxLogsRequest
-	(*SandboxLogsChunk)(nil),            // 25: cellar.v1.SandboxLogsChunk
-	(*SandboxExecMessage)(nil),          // 26: cellar.v1.SandboxExecMessage
-	(*SandboxExecStart)(nil),            // 27: cellar.v1.SandboxExecStart
-	(*SandboxExecExit)(nil),             // 28: cellar.v1.SandboxExecExit
+	(*Mount)(nil),                        // 0: cellar.v1.Mount
+	(*Resources)(nil),                    // 1: cellar.v1.Resources
+	(*NetworkRule)(nil),                  // 2: cellar.v1.NetworkRule
+	(*DNSPolicy)(nil),                    // 3: cellar.v1.DNSPolicy
+	(*NetworkPolicy)(nil),                // 4: cellar.v1.NetworkPolicy
+	(*SandboxSpec)(nil),                  // 5: cellar.v1.SandboxSpec
+	(*SandboxStatus)(nil),                // 6: cellar.v1.SandboxStatus
+	(*Sandbox)(nil),                      // 7: cellar.v1.Sandbox
+	(*SandboxCreateRequest)(nil),         // 8: cellar.v1.SandboxCreateRequest
+	(*SandboxCreateResponse)(nil),        // 9: cellar.v1.SandboxCreateResponse
+	(*SandboxStopRequest)(nil),           // 10: cellar.v1.SandboxStopRequest
+	(*SandboxStopResponse)(nil),          // 11: cellar.v1.SandboxStopResponse
+	(*SandboxRemoveRequest)(nil),         // 12: cellar.v1.SandboxRemoveRequest
+	(*SandboxRemoveResponse)(nil),        // 13: cellar.v1.SandboxRemoveResponse
+	(*SandboxGetRequest)(nil),            // 14: cellar.v1.SandboxGetRequest
+	(*SandboxGetResponse)(nil),           // 15: cellar.v1.SandboxGetResponse
+	(*SandboxUpdateNetworkRequest)(nil),  // 16: cellar.v1.SandboxUpdateNetworkRequest
+	(*SandboxUpdateNetworkResponse)(nil), // 17: cellar.v1.SandboxUpdateNetworkResponse
+	(*ApplyNetworkPolicyRequest)(nil),    // 18: cellar.v1.ApplyNetworkPolicyRequest
+	(*ApplyNetworkPolicyResponse)(nil),   // 19: cellar.v1.ApplyNetworkPolicyResponse
+	(*SandboxListRequest)(nil),           // 20: cellar.v1.SandboxListRequest
+	(*SandboxListResponse)(nil),          // 21: cellar.v1.SandboxListResponse
+	(*RuntimeHeartbeatRequest)(nil),      // 22: cellar.v1.RuntimeHeartbeatRequest
+	(*RuntimeHeartbeatResponse)(nil),     // 23: cellar.v1.RuntimeHeartbeatResponse
+	(*UpdateSandboxStatusRequest)(nil),   // 24: cellar.v1.UpdateSandboxStatusRequest
+	(*UpdateSandboxStatusResponse)(nil),  // 25: cellar.v1.UpdateSandboxStatusResponse
+	(*ListNodeSandboxesRequest)(nil),     // 26: cellar.v1.ListNodeSandboxesRequest
+	(*ListNodeSandboxesResponse)(nil),    // 27: cellar.v1.ListNodeSandboxesResponse
+	(*SandboxLogsRequest)(nil),           // 28: cellar.v1.SandboxLogsRequest
+	(*SandboxLogsChunk)(nil),             // 29: cellar.v1.SandboxLogsChunk
+	(*SandboxExecMessage)(nil),           // 30: cellar.v1.SandboxExecMessage
+	(*SandboxExecStart)(nil),             // 31: cellar.v1.SandboxExecStart
+	(*SandboxExecExit)(nil),              // 32: cellar.v1.SandboxExecExit
 }
 var file_sandbox_proto_depIdxs = []int32{
 	3,  // 0: cellar.v1.NetworkPolicy.dns:type_name -> cellar.v1.DNSPolicy
@@ -1883,37 +2084,44 @@ var file_sandbox_proto_depIdxs = []int32{
 	7,  // 8: cellar.v1.SandboxCreateResponse.sandbox:type_name -> cellar.v1.Sandbox
 	7,  // 9: cellar.v1.SandboxStopResponse.sandbox:type_name -> cellar.v1.Sandbox
 	7,  // 10: cellar.v1.SandboxGetResponse.sandbox:type_name -> cellar.v1.Sandbox
-	7,  // 11: cellar.v1.SandboxListResponse.sandboxes:type_name -> cellar.v1.Sandbox
-	7,  // 12: cellar.v1.RuntimeHeartbeatResponse.assigned:type_name -> cellar.v1.Sandbox
-	6,  // 13: cellar.v1.UpdateSandboxStatusRequest.status:type_name -> cellar.v1.SandboxStatus
-	7,  // 14: cellar.v1.ListNodeSandboxesResponse.sandboxes:type_name -> cellar.v1.Sandbox
-	27, // 15: cellar.v1.SandboxExecMessage.start:type_name -> cellar.v1.SandboxExecStart
-	28, // 16: cellar.v1.SandboxExecMessage.exit:type_name -> cellar.v1.SandboxExecExit
-	8,  // 17: cellar.v1.SandboxControl.Create:input_type -> cellar.v1.SandboxCreateRequest
-	10, // 18: cellar.v1.SandboxControl.Stop:input_type -> cellar.v1.SandboxStopRequest
-	12, // 19: cellar.v1.SandboxControl.Remove:input_type -> cellar.v1.SandboxRemoveRequest
-	14, // 20: cellar.v1.SandboxControl.Get:input_type -> cellar.v1.SandboxGetRequest
-	16, // 21: cellar.v1.SandboxControl.List:input_type -> cellar.v1.SandboxListRequest
-	18, // 22: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
-	20, // 23: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
-	22, // 24: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
-	24, // 25: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
-	26, // 26: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
-	9,  // 27: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
-	11, // 28: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
-	13, // 29: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
-	15, // 30: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
-	17, // 31: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
-	19, // 32: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
-	21, // 33: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
-	23, // 34: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
-	25, // 35: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
-	26, // 36: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
-	27, // [27:37] is the sub-list for method output_type
-	17, // [17:27] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	4,  // 11: cellar.v1.SandboxUpdateNetworkRequest.network:type_name -> cellar.v1.NetworkPolicy
+	7,  // 12: cellar.v1.SandboxUpdateNetworkResponse.sandbox:type_name -> cellar.v1.Sandbox
+	4,  // 13: cellar.v1.ApplyNetworkPolicyRequest.network:type_name -> cellar.v1.NetworkPolicy
+	7,  // 14: cellar.v1.SandboxListResponse.sandboxes:type_name -> cellar.v1.Sandbox
+	7,  // 15: cellar.v1.RuntimeHeartbeatResponse.assigned:type_name -> cellar.v1.Sandbox
+	6,  // 16: cellar.v1.UpdateSandboxStatusRequest.status:type_name -> cellar.v1.SandboxStatus
+	7,  // 17: cellar.v1.ListNodeSandboxesResponse.sandboxes:type_name -> cellar.v1.Sandbox
+	31, // 18: cellar.v1.SandboxExecMessage.start:type_name -> cellar.v1.SandboxExecStart
+	32, // 19: cellar.v1.SandboxExecMessage.exit:type_name -> cellar.v1.SandboxExecExit
+	8,  // 20: cellar.v1.SandboxControl.Create:input_type -> cellar.v1.SandboxCreateRequest
+	10, // 21: cellar.v1.SandboxControl.Stop:input_type -> cellar.v1.SandboxStopRequest
+	12, // 22: cellar.v1.SandboxControl.Remove:input_type -> cellar.v1.SandboxRemoveRequest
+	14, // 23: cellar.v1.SandboxControl.Get:input_type -> cellar.v1.SandboxGetRequest
+	20, // 24: cellar.v1.SandboxControl.List:input_type -> cellar.v1.SandboxListRequest
+	16, // 25: cellar.v1.SandboxControl.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	22, // 26: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
+	24, // 27: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
+	26, // 28: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
+	28, // 29: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
+	30, // 30: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
+	18, // 31: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:input_type -> cellar.v1.ApplyNetworkPolicyRequest
+	9,  // 32: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
+	11, // 33: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
+	13, // 34: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
+	15, // 35: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
+	21, // 36: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
+	17, // 37: cellar.v1.SandboxControl.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	23, // 38: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
+	25, // 39: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
+	27, // 40: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
+	29, // 41: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
+	30, // 42: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
+	19, // 43: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:output_type -> cellar.v1.ApplyNetworkPolicyResponse
+	32, // [32:44] is the sub-list for method output_type
+	20, // [20:32] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_sandbox_proto_init() }
@@ -1921,7 +2129,7 @@ func file_sandbox_proto_init() {
 	if File_sandbox_proto != nil {
 		return
 	}
-	file_sandbox_proto_msgTypes[26].OneofWrappers = []any{
+	file_sandbox_proto_msgTypes[30].OneofWrappers = []any{
 		(*SandboxExecMessage_Start)(nil),
 		(*SandboxExecMessage_Stdin)(nil),
 		(*SandboxExecMessage_Stdout)(nil),
@@ -1935,7 +2143,7 @@ func file_sandbox_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sandbox_proto_rawDesc), len(file_sandbox_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   29,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

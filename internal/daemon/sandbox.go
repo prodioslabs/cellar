@@ -325,6 +325,66 @@ func (d *Daemon) SandboxList(ctx context.Context, req *cellarv1.SandboxListReque
 	return grpcapi.SandboxListRemote(ctx, addr, cert, key, ca)
 }
 
+// SandboxUpdateNetwork commits a new network policy and then pushes it to the
+// node running the sandbox so it takes effect immediately.
+func (d *Daemon) SandboxUpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
+	d.mu.Lock()
+	raft := d.raft
+	srv := d.sandboxServer
+	d.mu.Unlock()
+
+	var resp *cellarv1.SandboxUpdateNetworkResponse
+	var err error
+	if raft != nil && raft.IsLeader() && srv != nil {
+		resp, err = srv.UpdateNetwork(ctx, req)
+	} else {
+		var addr string
+		var cert, key, ca []byte
+		addr, cert, key, ca, err = d.dialLeaderControl(ctx)
+		if err != nil {
+			return nil, err
+		}
+		resp, err = grpcapi.SandboxUpdateNetworkRemote(ctx, addr, cert, key, ca, req)
+	}
+	if err != nil {
+		return nil, err
+	}
+	d.pushNetworkPolicy(ctx, resp.Sandbox)
+	return resp, nil
+}
+
+// pushNetworkPolicy applies a committed policy on the owning node. Failures are
+// logged only: the agent's reconcile loop re-applies desired state every tick,
+// so the push is a latency optimization, not the correctness path.
+func (d *Daemon) pushNetworkPolicy(ctx context.Context, sb *cellarv1.Sandbox) {
+	if sb == nil || sb.NodeId == "" {
+		return
+	}
+	policy := sb.Spec.GetNetwork()
+	mat := d.idStore.Material()
+	if mat != nil && sb.NodeId == mat.NodeID {
+		if d.agent != nil {
+			if err := d.agent.ApplyNetworkPolicy(ctx, sb.Id, sandbox.NetworkPolicyFromProto(policy)); err != nil {
+				log.Printf("sandbox %s: apply network policy: %v", sb.Id, err)
+			}
+		}
+		return
+	}
+	if mat == nil {
+		return
+	}
+	addr, err := d.lookupNodeRuntimeAddr(ctx, sb.NodeId)
+	if err != nil {
+		log.Printf("sandbox %s: apply network policy: %v", sb.Id, err)
+		return
+	}
+	err = grpcapi.ApplyNetworkPolicyRemote(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert,
+		&cellarv1.ApplyNetworkPolicyRequest{SandboxId: sb.Id, Network: policy})
+	if err != nil {
+		log.Printf("sandbox %s: apply network policy on %s: %v", sb.Id, sb.NodeId, err)
+	}
+}
+
 func (d *Daemon) SandboxLogs(req *cellarv1.SandboxLogsRequest, stream cellarv1.Control_SandboxLogsServer) error {
 	sbResp, err := d.SandboxGet(stream.Context(), &cellarv1.SandboxGetRequest{SandboxId: req.SandboxId})
 	if err != nil {

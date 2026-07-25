@@ -11,6 +11,7 @@ service SandboxControl {
   rpc Remove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
   rpc Get(SandboxGetRequest) returns (SandboxGetResponse);
   rpc List(SandboxListRequest) returns (SandboxListResponse);
+  rpc UpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
 }
 
 // RuntimeAgent is served on managers. Nodes report heartbeats and status.
@@ -24,6 +25,9 @@ service RuntimeAgent {
 service SandboxRuntime {
   rpc Logs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
   rpc Exec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
+  // Applies a committed network policy to a running sandbox immediately,
+  // instead of waiting for the next reconcile tick.
+  rpc ApplyNetworkPolicy(ApplyNetworkPolicyRequest) returns (ApplyNetworkPolicyResponse);
 }
 
 message Mount {
@@ -116,6 +120,22 @@ message SandboxGetRequest {
 message SandboxGetResponse {
   Sandbox sandbox = 1;
 }
+
+message SandboxUpdateNetworkRequest {
+  string sandbox_id = 1;
+  NetworkPolicy network = 2;
+}
+
+message SandboxUpdateNetworkResponse {
+  Sandbox sandbox = 1;
+}
+
+message ApplyNetworkPolicyRequest {
+  string sandbox_id = 1;
+  NetworkPolicy network = 2;
+}
+
+message ApplyNetworkPolicyResponse {}
 
 message SandboxListRequest {}
 
