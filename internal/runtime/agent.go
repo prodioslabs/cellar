@@ -23,6 +23,11 @@ type AssignmentSource interface {
 	ListAssigned(ctx context.Context) ([]*sandbox.Sandbox, error)
 }
 
+type restartBackoff struct {
+	attempts  int
+	notBefore time.Time
+}
+
 // Agent reconciles local Docker containers with assigned sandboxes.
 type Agent struct {
 	NodeID      string
@@ -36,6 +41,7 @@ type Agent struct {
 
 	mu       sync.Mutex
 	local    map[string]string // sandboxID -> containerID
+	restarts map[string]restartBackoff
 	interval time.Duration
 
 	// stopRemove overrides Driver for Stop/Remove when non-nil (unit tests).
@@ -60,8 +66,32 @@ func NewAgent(nodeID string, drv *Driver, proxy *egress.Proxy, redir *egress.Red
 		DataDir:     dataDir,
 		AgentBinary: agentBinary,
 		local:       make(map[string]string),
+		restarts:    make(map[string]restartBackoff),
 		interval:    3 * time.Second,
 	}
+}
+
+// nextRestartDelay returns the wait before the Nth recreate attempt (0-based).
+// Base 5s, doubling, capped at 60s.
+func nextRestartDelay(attempts int) time.Duration {
+	const (
+		base = 5 * time.Second
+		cap  = 60 * time.Second
+	)
+	if attempts < 0 {
+		attempts = 0
+	}
+	d := base
+	for i := 0; i < attempts; i++ {
+		if d >= cap {
+			return cap
+		}
+		d *= 2
+	}
+	if d > cap {
+		return cap
+	}
+	return d
 }
 
 func (a *Agent) stopper() stopRemover {
@@ -99,6 +129,7 @@ func (a *Agent) TeardownLocal(ctx context.Context) {
 		locals[id] = cid
 	}
 	a.local = make(map[string]string)
+	a.restarts = make(map[string]restartBackoff)
 	a.mu.Unlock()
 
 	if len(locals) == 0 {
@@ -180,6 +211,7 @@ func (a *Agent) reconcile(ctx context.Context) error {
 			a.Proxy.RemovePolicy(id)
 		}
 		delete(a.local, id)
+		delete(a.restarts, id)
 	}
 	return nil
 }
@@ -199,6 +231,7 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 
 	switch sb.DesiredState {
 	case sandbox.DesiredRemoved, sandbox.DesiredStopped:
+		delete(a.restarts, sb.ID)
 		if cid != "" {
 			if s := a.stopper(); s != nil {
 				_ = s.Stop(ctx, cid, 10)
@@ -237,47 +270,96 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 			a.Proxy.SetPolicy(sb.ID, sb.Spec.Network)
 		}
 		if cid == "" {
-			_ = a.report(ctx, sb.ID, sandbox.Status{
-				Phase:     sandbox.PhaseStarting,
-				UpdatedAt: time.Now().UTC(),
-			})
-			newID, err := a.Driver.CreateAndStart(ctx, sb, CreateOpts{
-				DataDir:     a.DataDir,
-				AgentBinary: a.AgentBinary,
-			})
-			if err != nil {
-				return err
-			}
-			a.local[sb.ID] = newID
-			cid = newID
-			if err := a.setupEgress(ctx, sb, cid); err != nil {
-				log.Printf("sandbox %s egress setup: %v", sb.ID, err)
-			}
-			return a.report(ctx, sb.ID, sandbox.Status{
-				Phase:       sandbox.PhaseRunning,
-				ContainerID: cid,
-				StartedAt:   time.Now().UTC(),
-				UpdatedAt:   time.Now().UTC(),
-			})
+			return a.createDesiredRunning(ctx, sb)
 		}
 		phase, exit, err := a.Driver.InspectPhase(ctx, cid)
 		if err != nil {
-			// container gone — recreate
+			// container gone — recreate on a later tick
 			delete(a.local, sb.ID)
+			a.noteRestart(sb.ID)
 			return fmt.Errorf("inspect: %w", err)
-		}
-		st := sandbox.Status{
-			Phase:       phase,
-			ContainerID: cid,
-			ExitCode:    exit,
-			UpdatedAt:   time.Now().UTC(),
 		}
 		if phase == sandbox.PhaseRunning {
 			_ = a.setupEgress(ctx, sb, cid)
+			return a.report(ctx, sb.ID, sandbox.Status{
+				Phase:       sandbox.PhaseRunning,
+				ContainerID: cid,
+				UpdatedAt:   time.Now().UTC(),
+			})
 		}
-		return a.report(ctx, sb.ID, st)
+
+		// Dead or stopped container while DesiredRunning — reap and recreate later.
+		msg := fmt.Sprintf("container exited with code %d", exit)
+		if phase == sandbox.PhaseStopped && exit == 0 {
+			msg = "container stopped"
+		}
+		_ = a.report(ctx, sb.ID, sandbox.Status{
+			Phase:       phase,
+			ContainerID: cid,
+			ExitCode:    exit,
+			Message:     msg,
+			UpdatedAt:   time.Now().UTC(),
+			FinishedAt:  time.Now().UTC(),
+		})
+		a.reapContainer(ctx, sb.ID, cid)
+		return nil
 	}
 	return nil
+}
+
+func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) error {
+	now := time.Now()
+	if rb, ok := a.restarts[sb.ID]; ok && now.Before(rb.notBefore) {
+		return a.report(ctx, sb.ID, sandbox.Status{
+			Phase:     sandbox.PhaseFailed,
+			Message:   fmt.Sprintf("waiting %s before recreate", rb.notBefore.Sub(now).Round(time.Second)),
+			UpdatedAt: now.UTC(),
+		})
+	}
+
+	_ = a.report(ctx, sb.ID, sandbox.Status{
+		Phase:     sandbox.PhaseStarting,
+		UpdatedAt: now.UTC(),
+	})
+	newID, err := a.Driver.CreateAndStart(ctx, sb, CreateOpts{
+		DataDir:     a.DataDir,
+		AgentBinary: a.AgentBinary,
+	})
+	if err != nil {
+		a.noteRestart(sb.ID)
+		return err
+	}
+	delete(a.restarts, sb.ID)
+	a.local[sb.ID] = newID
+	if err := a.setupEgress(ctx, sb, newID); err != nil {
+		log.Printf("sandbox %s egress setup: %v", sb.ID, err)
+	}
+	return a.report(ctx, sb.ID, sandbox.Status{
+		Phase:       sandbox.PhaseRunning,
+		ContainerID: newID,
+		StartedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	})
+}
+
+func (a *Agent) reapContainer(ctx context.Context, sandboxID, cid string) {
+	if s := a.stopper(); s != nil {
+		_ = s.Remove(ctx, cid)
+	}
+	if a.Redirect != nil {
+		_ = a.Redirect.RemoveSandbox(sandboxID)
+	}
+	delete(a.local, sandboxID)
+	a.noteRestart(sandboxID)
+}
+
+func (a *Agent) noteRestart(sandboxID string) {
+	prev := a.restarts[sandboxID]
+	attempts := prev.attempts
+	a.restarts[sandboxID] = restartBackoff{
+		attempts:  attempts + 1,
+		notBefore: time.Now().Add(nextRestartDelay(attempts)),
+	}
 }
 
 func (a *Agent) setupEgress(ctx context.Context, sb *sandbox.Sandbox, cid string) error {
