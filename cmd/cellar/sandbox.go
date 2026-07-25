@@ -68,6 +68,7 @@ func newSandboxCreateCmd() *cobra.Command {
 				for _, p := range allowPorts {
 					ports = append(ports, uint32(p))
 				}
+				warnUnmatchableHostRules(cmd.ErrOrStderr(), allowHosts, ports)
 				spec := &cellarv1.SandboxSpec{
 					Image:      image,
 					Runtime:    runtime,

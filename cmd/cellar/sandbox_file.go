@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -63,6 +66,9 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 	if mode == "" {
 		mode = "none"
 	}
+	if mode == "allowlist" || mode == "denylist" {
+		warnUnmatchableHostRules(os.Stderr, doc.Network.AllowHosts, doc.Network.AllowPorts)
+	}
 
 	spec := &cellarv1.SandboxSpec{
 		Image:      doc.Image,
@@ -104,4 +110,35 @@ func networkPolicyFromAllow(mode string, hosts []string, ports []uint32) *cellar
 		np.Dns = &cellarv1.DNSPolicy{Mode: mode, Names: hosts}
 	}
 	return np
+}
+
+// warnUnmatchableHostRules reports host rules that can never match, because a
+// hostname is only observable on port 80 (Host header) and 443 (TLS SNI).
+func warnUnmatchableHostRules(w io.Writer, hosts []string, ports []uint32) {
+	if len(ports) == 0 {
+		return
+	}
+	var names []string
+	for _, h := range hosts {
+		h = strings.TrimSpace(h)
+		if h == "" || strings.Contains(h, "/") || net.ParseIP(h) != nil {
+			continue
+		}
+		names = append(names, h)
+	}
+	if len(names) == 0 {
+		return
+	}
+	var unmatchable []string
+	for _, p := range ports {
+		if p != 80 && p != 443 {
+			unmatchable = append(unmatchable, strconv.FormatUint(uint64(p), 10))
+		}
+	}
+	if len(unmatchable) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "warning: hostname rules (%s) are ignored on port(s) %s; "+
+		"only ports 80 and 443 expose a hostname. Use an IP or CIDR instead.\n",
+		strings.Join(names, ", "), strings.Join(unmatchable, ", "))
 }

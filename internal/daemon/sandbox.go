@@ -50,10 +50,13 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 		return nil
 	}
 	proxy := egress.NewProxy()
+	if err := proxy.SetPrivateExceptions(d.cfg.EgressAllowPrivate); err != nil {
+		return fmt.Errorf("egress-allow-private-cidrs: %w", err)
+	}
 	if err := proxy.Start(ctx); err != nil {
 		log.Printf("egress proxy: %v", err)
 	}
-	redir := egress.NewRedirectManager(proxy.TCPPort, proxy.UDPPort)
+	redir := egress.NewRedirectManager(proxy.HTTPPort, proxy.TLSPort, proxy.OtherPort, proxy.UDPPort)
 	mat := d.idStore.Material()
 	if mat == nil {
 		return fmt.Errorf("no identity for runtime agent")

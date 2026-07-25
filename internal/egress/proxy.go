@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -15,44 +16,123 @@ import (
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
-const resolvedIPTTL = 5 * time.Minute
+// Proxy is a per-node transparent TCP (+ DNS UDP) egress proxy.
+//
+// Every redirected connection is attributed to exactly one sandbox by its
+// source IP, and only that sandbox's policy decides the outcome. Traffic from
+// an IP with no binding fails closed.
+// listenerKind selects how a redirected connection is inspected. Traffic is
+// split by destination port in iptables so protocol detection is never applied
+// to server-first protocols such as SSH or Postgres.
+type listenerKind int
 
-type resolvedIPEntry struct {
-	name    string
-	expires time.Time
+const (
+	kindOther listenerKind = iota // no inspection, IP and CIDR rules only
+	kindHTTP                      // port 80, Host header
+	kindTLS                       // port 443, TLS SNI
+)
+
+const (
+	connSetupTimeout = 60 * time.Second
+	peekTimeout      = 5 * time.Second
+	dialTimeout      = 15 * time.Second
+)
+
+// liveConn is an established upstream connection, kept so a policy change can
+// terminate what it no longer allows.
+type liveConn struct {
+	conn     net.Conn
+	hostname string
+	ip       net.IP
+	port     uint32
 }
 
-// Proxy is a per-node transparent TCP (+ DNS UDP) egress proxy.
 type Proxy struct {
 	mu         sync.RWMutex
 	policies   map[string]*Evaluator
-	resolvedIP map[string]resolvedIPEntry // IP string -> hostname from DNS answers
-	tcpLis     net.Listener
-	udpConn    *net.UDPConn
-	TCPPort    int
-	UDPPort    int
+	byIP       map[string]string             // container IP -> sandbox ID
+	ipOf       map[string]string             // sandbox ID -> container IP
+	conns      map[string]map[*liveConn]bool // sandbox ID -> live connections
+	exceptions []*net.IPNet                  // node-level carve-outs from DeniedCIDRs
+
+	httpLis  net.Listener
+	tlsLis   net.Listener
+	otherLis net.Listener
+	udpConn  *net.UDPConn
+
+	HTTPPort  int
+	TLSPort   int
+	OtherPort int
+	UDPPort   int
 }
 
 // NewProxy creates an unstarted proxy.
 func NewProxy() *Proxy {
 	return &Proxy{
-		policies:   make(map[string]*Evaluator),
-		resolvedIP: make(map[string]resolvedIPEntry),
+		policies: make(map[string]*Evaluator),
+		byIP:     make(map[string]string),
+		ipOf:     make(map[string]string),
+		conns:    make(map[string]map[*liveConn]bool),
 	}
 }
 
-// SetPolicy registers or replaces policy for a sandbox.
+// SetPolicy registers or replaces policy for a sandbox and terminates any
+// established connection the new policy no longer allows. Without that, a
+// lock-down applied before running untrusted code would leave sockets opened
+// under the old policy usable.
 func (p *Proxy) SetPolicy(sandboxID string, policy sandbox.NetworkPolicy) {
+	ev := NewEvaluator(policy)
 	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.policies[sandboxID] = NewEvaluator(policy)
+	p.policies[sandboxID] = ev
+	var revoked []*liveConn
+	for c := range p.conns[sandboxID] {
+		if decision, _ := ev.AllowConnect(c.hostname, c.ip, c.port); decision != Allow {
+			revoked = append(revoked, c)
+		}
+	}
+	p.mu.Unlock()
+
+	// Closing takes the lock again via untrackConn, so it happens after unlock.
+	for _, c := range revoked {
+		log.Printf("egress revoke tcp sandbox=%s dst=%s host=%q", sandboxID, c.ip, c.hostname)
+		_ = c.conn.Close()
+	}
 }
 
-// RemovePolicy drops a sandbox policy.
+// RemovePolicy drops a sandbox policy, its IP binding, and its connections.
 func (p *Proxy) RemovePolicy(sandboxID string) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	delete(p.policies, sandboxID)
+	p.unbindLocked(sandboxID)
+	open := p.conns[sandboxID]
+	delete(p.conns, sandboxID)
+	p.mu.Unlock()
+
+	for c := range open {
+		_ = c.conn.Close()
+	}
+}
+
+func (p *Proxy) trackConn(sandboxID string, c *liveConn) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.conns[sandboxID] == nil {
+		p.conns[sandboxID] = make(map[*liveConn]bool)
+	}
+	p.conns[sandboxID][c] = true
+}
+
+func (p *Proxy) untrackConn(sandboxID string, c *liveConn) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	set := p.conns[sandboxID]
+	if set == nil {
+		return
+	}
+	delete(set, c)
+	if len(set) == 0 {
+		delete(p.conns, sandboxID)
+	}
 }
 
 // HasPolicy reports whether a sandbox policy is registered.
@@ -63,66 +143,147 @@ func (p *Proxy) HasPolicy(sandboxID string) bool {
 	return ok
 }
 
-// rememberResolved records that ip was returned for name (for TCP allow checks).
-func (p *Proxy) rememberResolved(name string, ip net.IP) {
-	v4 := ip.To4()
-	if v4 == nil || name == "" {
+// BindSandboxIP associates a container IP with a sandbox so redirected
+// connections can be attributed to it.
+func (p *Proxy) BindSandboxIP(sandboxID, ip string) {
+	if sandboxID == "" || ip == "" {
 		return
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.resolvedIP[v4.String()] = resolvedIPEntry{
-		name:    name,
-		expires: time.Now().Add(resolvedIPTTL),
+	if prev, ok := p.ipOf[sandboxID]; ok && prev != ip {
+		if cur, ok := p.byIP[prev]; ok && cur == sandboxID {
+			delete(p.byIP, prev)
+		}
+	}
+	p.ipOf[sandboxID] = ip
+	p.byIP[ip] = sandboxID
+}
+
+// UnbindSandbox drops the IP binding for a sandbox.
+func (p *Proxy) UnbindSandbox(sandboxID string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.unbindLocked(sandboxID)
+}
+
+// SetPrivateExceptions carves node-level exceptions out of DeniedCIDRs, for
+// operators whose sandboxes legitimately need a private destination.
+func (p *Proxy) SetPrivateExceptions(cidrs []string) error {
+	nets, err := ParseCIDRs(cidrs)
+	if err != nil {
+		return err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.exceptions = nets
+	return nil
+}
+
+// destinationDenied reports whether ip is in an always-denied range with no
+// node-level exception covering it.
+func (p *Proxy) destinationDenied(ip net.IP) bool {
+	if !IsDenied(ip) {
+		return false
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return !cidrsContain(p.exceptions, ip)
+}
+
+// SandboxIP returns the bound container IP for a sandbox.
+func (p *Proxy) SandboxIP(sandboxID string) (string, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	ip, ok := p.ipOf[sandboxID]
+	return ip, ok
+}
+
+func (p *Proxy) unbindLocked(sandboxID string) {
+	ip, ok := p.ipOf[sandboxID]
+	if !ok {
+		return
+	}
+	delete(p.ipOf, sandboxID)
+	// Docker reuses bridge addresses, so only drop the reverse entry when it
+	// still points at this sandbox.
+	if cur, ok := p.byIP[ip]; ok && cur == sandboxID {
+		delete(p.byIP, ip)
 	}
 }
 
-// resolvedName returns the hostname associated with a recently answered DNS A record.
-func (p *Proxy) resolvedName(ip string) (string, bool) {
+// evaluatorFor resolves the sandbox owning a source address and its policy.
+func (p *Proxy) evaluatorFor(remoteAddr string) (*Evaluator, string, bool) {
+	ip, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		ip = remoteAddr
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	e, ok := p.resolvedIP[ip]
+	id, ok := p.byIP[ip]
 	if !ok {
-		return "", false
+		return nil, "", false
 	}
-	if time.Now().After(e.expires) {
-		return "", false
+	ev, ok := p.policies[id]
+	if !ok {
+		return nil, id, false
 	}
-	return e.name, true
+	return ev, id, true
 }
 
 // Start listens on ephemeral TCP/UDP ports for redirected traffic.
 func (p *Proxy) Start(ctx context.Context) error {
-	tcpLis, err := net.Listen("tcp", "0.0.0.0:0")
-	if err != nil {
-		return err
+	listeners := make([]net.Listener, 0, 3)
+	closeAll := func() {
+		for _, l := range listeners {
+			_ = l.Close()
+		}
+	}
+	for range 3 {
+		l, err := net.Listen("tcp", "0.0.0.0:0")
+		if err != nil {
+			closeAll()
+			return err
+		}
+		listeners = append(listeners, l)
 	}
 	udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:0")
 	if err != nil {
-		_ = tcpLis.Close()
+		closeAll()
 		return err
 	}
 	udpConn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		_ = tcpLis.Close()
+		closeAll()
 		return err
 	}
-	p.tcpLis = tcpLis
+
+	p.httpLis, p.tlsLis, p.otherLis = listeners[0], listeners[1], listeners[2]
 	p.udpConn = udpConn
-	p.TCPPort = tcpLis.Addr().(*net.TCPAddr).Port
+	p.HTTPPort = p.httpLis.Addr().(*net.TCPAddr).Port
+	p.TLSPort = p.tlsLis.Addr().(*net.TCPAddr).Port
+	p.OtherPort = p.otherLis.Addr().(*net.TCPAddr).Port
 	p.UDPPort = udpConn.LocalAddr().(*net.UDPAddr).Port
 
-	go p.serveTCP(ctx)
+	go p.serveTCP(ctx, p.httpLis, kindHTTP)
+	go p.serveTCP(ctx, p.tlsLis, kindTLS)
+	go p.serveTCP(ctx, p.otherLis, kindOther)
 	go p.serveUDP(ctx)
-	log.Printf("egress proxy listening tcp=:%d udp=:%d", p.TCPPort, p.UDPPort)
+	log.Printf("egress proxy listening http=:%d tls=:%d other=:%d dns=:%d",
+		p.HTTPPort, p.TLSPort, p.OtherPort, p.UDPPort)
 	return nil
 }
 
 // Close stops listeners.
 func (p *Proxy) Close() error {
 	var err error
-	if p.tcpLis != nil {
-		err = p.tcpLis.Close()
+	for _, l := range []net.Listener{p.httpLis, p.tlsLis, p.otherLis} {
+		if l == nil {
+			continue
+		}
+		if cerr := l.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
 	}
 	if p.udpConn != nil {
 		_ = p.udpConn.Close()
@@ -130,9 +291,9 @@ func (p *Proxy) Close() error {
 	return err
 }
 
-func (p *Proxy) serveTCP(ctx context.Context) {
+func (p *Proxy) serveTCP(ctx context.Context, lis net.Listener, kind listenerKind) {
 	for {
-		conn, err := p.tcpLis.Accept()
+		conn, err := lis.Accept()
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -141,13 +302,19 @@ func (p *Proxy) serveTCP(ctx context.Context) {
 				return
 			}
 		}
-		go p.handleTCP(conn)
+		go p.handleTCP(conn, kind)
 	}
 }
 
-func (p *Proxy) handleTCP(conn net.Conn) {
+func (p *Proxy) handleTCP(conn net.Conn, kind listenerKind) {
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(60 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(connSetupTimeout))
+
+	ev, sandboxID, ok := p.evaluatorFor(conn.RemoteAddr().String())
+	if !ok {
+		log.Printf("egress deny tcp: no sandbox bound to %s", conn.RemoteAddr())
+		return
+	}
 
 	orig, err := originalDST(conn)
 	if err != nil {
@@ -158,87 +325,86 @@ func (p *Proxy) handleTCP(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	if !p.allowAny(host, port) {
-		log.Printf("egress deny tcp %s", orig)
+	dstIP := net.ParseIP(host)
+	if p.destinationDenied(dstIP) {
+		log.Printf("egress deny tcp sandbox=%s dst=%s: internal range", sandboxID, orig)
 		return
 	}
-	dst, err := net.DialTimeout("tcp", orig, 15*time.Second)
+
+	// The name the connection itself asserts. Unavailable on the other-ports
+	// listener, where a failed peek would stall server-first protocols.
+	client := net.Conn(conn)
+	var hostname string
+	if kind != kindOther {
+		pc := newPeekConn(conn)
+		client = pc
+		_ = conn.SetReadDeadline(time.Now().Add(peekTimeout))
+		var name string
+		if kind == kindTLS {
+			name, err = peekTLSSNI(pc.r)
+		} else {
+			name, err = peekHTTPHost(pc.r)
+		}
+		_ = conn.SetReadDeadline(time.Now().Add(connSetupTimeout))
+		if err == nil {
+			hostname = sanitizeHostname(name)
+		}
+	}
+
+	decision, match := ev.AllowConnect(hostname, dstIP, port)
+	if decision != Allow {
+		log.Printf("egress deny tcp sandbox=%s dst=%s host=%q", sandboxID, orig, hostname)
+		return
+	}
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), dialTimeout)
+	dst, err := p.dialUpstream(dialCtx, hostname, orig, port, match)
+	cancelDial()
 	if err != nil {
+		log.Printf("egress dial sandbox=%s dst=%s host=%q: %v", sandboxID, orig, hostname, err)
 		return
 	}
 	defer dst.Close()
 	_ = conn.SetDeadline(time.Time{})
 	_ = dst.SetDeadline(time.Time{})
-	proxyCopy(conn, dst)
+
+	live := &liveConn{conn: conn, hostname: hostname, ip: dstIP, port: port}
+	p.trackConn(sandboxID, live)
+	defer p.untrackConn(sandboxID, live)
+
+	proxyCopy(client, dst)
 }
 
-func (p *Proxy) allowAny(host string, port uint32) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	if len(p.policies) == 0 {
-		return false
+// dialUpstream connects to the destination the policy actually approved.
+//
+// A domain match approved a name, not an address, so the name is re-resolved
+// here rather than trusting the guest's original destination: otherwise an
+// /etc/hosts edit or a guest-side resolver could point an allowed name at an
+// internal address and ride through on the SNI alone.
+func (p *Proxy) dialUpstream(ctx context.Context, hostname, orig string, port uint32, match MatchType) (net.Conn, error) {
+	if match != MatchDomain || hostname == "" {
+		var d net.Dialer
+		return d.DialContext(ctx, "tcp", orig)
 	}
-	// SO_ORIGINAL_DST is an IP; map recent DNS answers back to hostnames so
-	// allowlist rules that name hosts (e.g. example.com) still match.
-	hosts := []string{host}
-	if e, ok := p.resolvedIP[host]; ok && !time.Now().After(e.expires) && e.name != "" && e.name != host {
-		hosts = append(hosts, e.name)
-	}
-	hasAllowlist := false
-	anyAllow := false
-	for _, ev := range p.policies {
-		if ev.policy.Mode == sandbox.NetworkAllowlist {
-			hasAllowlist = true
-			for _, h := range hosts {
-				if ev.AllowConnect(h, port) == Allow {
-					anyAllow = true
-					break
-				}
-			}
-		}
-	}
-	if hasAllowlist {
-		return anyAllow
-	}
-	for _, ev := range p.policies {
-		for _, h := range hosts {
-			if ev.AllowConnect(h, port) == Deny {
-				return false
-			}
-		}
-	}
-	return true
+	d := &net.Dialer{ControlContext: p.rejectDeniedAddr}
+	return d.DialContext(ctx, "tcp", net.JoinHostPort(hostname, strconv.FormatUint(uint64(port), 10)))
 }
 
-func (p *Proxy) allowDNSAny(name string) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	if len(p.policies) == 0 {
-		return false
+// rejectDeniedAddr runs after resolution but before connect(2), so every
+// address Happy Eyeballs tries is checked, not just the first.
+func (p *Proxy) rejectDeniedAddr(_ context.Context, _, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("egress: unparsable dial address %q", address)
 	}
-	hasAllowlist := false
-	anyAllow := false
-	for _, ev := range p.policies {
-		mode := ev.policy.DNS.Mode
-		if mode == "" {
-			mode = sandbox.DNSMode(ev.policy.Mode)
-		}
-		if mode == sandbox.DNSAllowlist {
-			hasAllowlist = true
-			if ev.AllowDNS(name) == Allow {
-				anyAllow = true
-			}
-		}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("egress: unresolved dial address %q", address)
 	}
-	if hasAllowlist {
-		return anyAllow
+	if p.destinationDenied(ip) {
+		return fmt.Errorf("egress: %s resolves into a denied internal range", address)
 	}
-	for _, ev := range p.policies {
-		if ev.AllowDNS(name) == Deny {
-			return false
-		}
-	}
-	return true
+	return nil
 }
 
 func proxyCopy(a, b net.Conn) {
@@ -301,8 +467,13 @@ func (p *Proxy) handleDNS(pkt []byte, client *net.UDPAddr) {
 	if err != nil || name == "" {
 		return
 	}
-	if !p.allowDNSAny(name) {
-		log.Printf("egress deny dns %s", name)
+	ev, sandboxID, ok := p.evaluatorFor(client.IP.String())
+	if !ok {
+		log.Printf("egress deny dns: no sandbox bound to %s", client.IP)
+		return
+	}
+	if ev.AllowDNS(name) != Allow {
+		log.Printf("egress deny dns sandbox=%s name=%s", sandboxID, name)
 		return
 	}
 	resp, err := net.LookupIP(name)
@@ -323,6 +494,5 @@ func (p *Proxy) handleDNS(pkt []byte, client *net.UDPAddr) {
 	if err != nil {
 		return
 	}
-	p.rememberResolved(name, a)
 	_, _ = p.udpConn.WriteToUDP(out, client)
 }

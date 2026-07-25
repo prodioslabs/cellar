@@ -48,6 +48,9 @@ type Config struct {
 	SocketPath string
 	ListenAddr string // default remote listen; may be overridden by init/join
 	RaftAddr   string
+	// EgressAllowPrivate exempts CIDRs from the egress internal-range deny
+	// list. Node-level so a sandbox spec can never widen it.
+	EgressAllowPrivate []string
 }
 
 // Daemon is the long-running cellar node process.

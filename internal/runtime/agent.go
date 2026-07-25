@@ -349,6 +349,11 @@ func (a *Agent) reapContainer(ctx context.Context, sandboxID, cid string) {
 	if a.Redirect != nil {
 		_ = a.Redirect.RemoveSandbox(sandboxID)
 	}
+	// The container IP goes back to the bridge pool; drop the binding so a
+	// later tenant reusing it is not attributed to this sandbox.
+	if a.Proxy != nil {
+		a.Proxy.UnbindSandbox(sandboxID)
+	}
 	delete(a.local, sandboxID)
 	a.noteRestart(sandboxID)
 }
@@ -362,6 +367,28 @@ func (a *Agent) noteRestart(sandboxID string) {
 	}
 }
 
+// ApplyNetworkPolicy installs an already-committed policy on a locally running
+// sandbox so it takes effect without waiting for the next reconcile tick.
+func (a *Agent) ApplyNetworkPolicy(_ context.Context, sandboxID string, policy sandbox.NetworkPolicy) error {
+	if a.Proxy == nil {
+		return fmt.Errorf("egress proxy not running on this node")
+	}
+	a.mu.Lock()
+	_, local := a.local[sandboxID]
+	a.mu.Unlock()
+	if !local {
+		return fmt.Errorf("sandbox %s is not running on this node", sandboxID)
+	}
+	if policy.Mode == sandbox.NetworkNone || policy.Mode == "" {
+		// No REDIRECT rules exist for a none-mode sandbox, so dropping the
+		// policy is enough; live connections are closed as a side effect.
+		a.Proxy.RemovePolicy(sandboxID)
+		return nil
+	}
+	a.Proxy.SetPolicy(sandboxID, policy)
+	return nil
+}
+
 func (a *Agent) setupEgress(ctx context.Context, sb *sandbox.Sandbox, cid string) error {
 	if sb.Spec.Network.Mode == sandbox.NetworkNone || sb.Spec.Network.Mode == "" {
 		return nil
@@ -372,6 +399,9 @@ func (a *Agent) setupEgress(ctx context.Context, sb *sandbox.Sandbox, cid string
 	ip, err := a.Driver.ContainerIP(ctx, cid)
 	if err != nil || ip == "" {
 		return err
+	}
+	if a.Proxy != nil {
+		a.Proxy.BindSandboxIP(sb.ID, ip)
 	}
 	return a.Redirect.EnsureSandbox(sb.ID, ip)
 }

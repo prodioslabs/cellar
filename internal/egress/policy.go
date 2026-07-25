@@ -17,6 +17,17 @@ const (
 	Deny  Decision = false
 )
 
+// MatchType records how a connection matched, which decides how it is dialed:
+// a domain match is re-dialed by name so the destination cannot be swapped for
+// an internal address, anything else uses the original destination IP.
+type MatchType string
+
+const (
+	MatchNone   MatchType = "none"
+	MatchDomain MatchType = "domain"
+	MatchCIDR   MatchType = "cidr"
+)
+
 // Evaluator applies NetworkPolicy in userspace.
 type Evaluator struct {
 	policy sandbox.NetworkPolicy
@@ -26,27 +37,55 @@ func NewEvaluator(policy sandbox.NetworkPolicy) *Evaluator {
 	return &Evaluator{policy: policy}
 }
 
-// AllowConnect checks TCP connect to host (name or IP) and port.
-func (e *Evaluator) AllowConnect(host string, port uint32) Decision {
+// Policy returns the evaluated policy.
+func (e *Evaluator) Policy() sandbox.NetworkPolicy { return e.policy }
+
+// AllowConnect checks a TCP connect. hostname is the name asserted by the
+// connection itself (TLS SNI or HTTP Host) and is empty when unknown; ip is the
+// original destination. Hostname rules therefore only apply to the ports where
+// a name is observable, everything else falls back to IP and CIDR rules.
+func (e *Evaluator) AllowConnect(hostname string, ip net.IP, port uint32) (Decision, MatchType) {
 	mode := e.policy.Mode
 	if mode == "" || mode == sandbox.NetworkNone {
-		return Deny
+		return Deny, MatchNone
 	}
-	matched := e.matchRules(host, port)
+	match := e.match(hostname, ip, port)
 	switch mode {
 	case sandbox.NetworkAllowlist:
-		if matched {
-			return Allow
+		if match != MatchNone {
+			return Allow, match
 		}
-		return Deny
+		return Deny, MatchNone
 	case sandbox.NetworkDenylist:
-		if matched {
-			return Deny
+		if match != MatchNone {
+			return Deny, match
 		}
-		return Allow
+		// Nothing was asserted about this destination, so keep the guest's
+		// original target rather than re-resolving the name.
+		return Allow, MatchNone
 	default:
-		return Deny
+		return Deny, MatchNone
 	}
+}
+
+// match reports the strongest match for a destination, preferring a domain
+// match so the caller can re-dial by name.
+func (e *Evaluator) match(hostname string, ip net.IP, port uint32) MatchType {
+	if hostname != "" {
+		for _, r := range e.policy.Rules {
+			if ruleAppliesTo(r, port) && nameMatchesAny(hostname, r.Hosts) {
+				return MatchDomain
+			}
+		}
+	}
+	if ip != nil {
+		for _, r := range e.policy.Rules {
+			if ruleAppliesTo(r, port) && ipMatchesAny(ip, r.Hosts) {
+				return MatchCIDR
+			}
+		}
+	}
+	return MatchNone
 }
 
 // AllowDNS checks whether a DNS name may be resolved.
@@ -58,7 +97,7 @@ func (e *Evaluator) AllowDNS(name string) Decision {
 	if mode == "" || mode == sandbox.DNSNone {
 		return Deny
 	}
-	matched := matchNames(name, e.policy.DNS.Names)
+	matched := nameMatchesAny(name, e.policy.DNS.Names)
 	// If DNS names empty, fall back to rule hosts for allow/deny symmetry.
 	if len(e.policy.DNS.Names) == 0 {
 		matched = e.matchHostOnly(name)
@@ -79,68 +118,92 @@ func (e *Evaluator) AllowDNS(name string) Decision {
 	}
 }
 
-func (e *Evaluator) matchRules(host string, port uint32) bool {
-	for _, r := range e.policy.Rules {
-		if !hostMatchesAny(host, r.Hosts) {
-			continue
-		}
-		if len(r.Ports) > 0 && !portIn(port, r.Ports) {
-			continue
-		}
-		if len(r.Protocols) > 0 && !protoIn("tcp", r.Protocols) {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
 func (e *Evaluator) matchHostOnly(host string) bool {
 	for _, r := range e.policy.Rules {
-		if hostMatchesAny(host, r.Hosts) {
+		if nameMatchesAny(host, r.Hosts) {
 			return true
 		}
 	}
 	return false
 }
 
-func hostMatchesAny(host string, patterns []string) bool {
-	host = strings.TrimSuffix(strings.ToLower(host), ".")
+func ruleAppliesTo(r sandbox.NetworkRule, port uint32) bool {
+	if len(r.Ports) > 0 && !portIn(port, r.Ports) {
+		return false
+	}
+	if len(r.Protocols) > 0 && !protoIn("tcp", r.Protocols) {
+		return false
+	}
+	return true
+}
+
+func nameMatchesAny(host string, patterns []string) bool {
+	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
+	if host == "" {
+		return false
+	}
 	for _, p := range patterns {
-		if hostMatch(host, p) {
+		if nameMatch(host, normalizePattern(p)) {
 			return true
 		}
 	}
 	return false
 }
 
-func hostMatch(host, pattern string) bool {
-	pattern = strings.TrimSpace(strings.ToLower(pattern))
-	if pattern == "" {
+// nameMatch matches a hostname against a name pattern. IP and CIDR patterns
+// never match a name.
+func nameMatch(host, pattern string) bool {
+	switch {
+	case pattern == "":
+		return false
+	case pattern == "*":
+		return true
+	case isAddrPattern(pattern):
+		return false
+	case strings.HasPrefix(pattern, "*."):
+		suffix := pattern[1:] // ".example.com"
+		return strings.HasSuffix(host, suffix) || host == suffix[1:]
+	case strings.HasPrefix(pattern, "."):
+		return strings.HasSuffix(host, pattern) || host == pattern[1:]
+	default:
+		return host == pattern || strings.HasSuffix(host, "."+pattern)
+	}
+}
+
+func ipMatchesAny(ip net.IP, patterns []string) bool {
+	for _, p := range patterns {
+		if ipMatch(ip, normalizePattern(p)) {
+			return true
+		}
+	}
+	return false
+}
+
+// ipMatch matches a destination address against an IP or CIDR pattern. Name
+// patterns never match an address.
+func ipMatch(ip net.IP, pattern string) bool {
+	if ip == nil || pattern == "" {
 		return false
 	}
 	if strings.Contains(pattern, "/") {
-		ip := net.ParseIP(host)
-		if ip == nil {
-			return false
-		}
 		_, cidr, err := net.ParseCIDR(pattern)
 		if err != nil {
 			return false
 		}
 		return cidr.Contains(ip)
 	}
-	if ip := net.ParseIP(pattern); ip != nil {
-		return strings.EqualFold(host, pattern) || net.ParseIP(host) != nil && net.ParseIP(host).Equal(ip)
+	if lit := net.ParseIP(pattern); lit != nil {
+		return lit.Equal(ip)
 	}
-	if strings.HasPrefix(pattern, ".") {
-		return strings.HasSuffix(host, pattern) || host == strings.TrimPrefix(pattern, ".")
-	}
-	return host == pattern || strings.HasSuffix(host, "."+pattern)
+	return false
 }
 
-func matchNames(name string, patterns []string) bool {
-	return hostMatchesAny(name, patterns)
+func isAddrPattern(pattern string) bool {
+	return strings.Contains(pattern, "/") || net.ParseIP(pattern) != nil
+}
+
+func normalizePattern(p string) string {
+	return strings.TrimSpace(strings.ToLower(p))
 }
 
 func portIn(port uint32, ports []uint32) bool {

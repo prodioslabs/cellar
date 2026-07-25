@@ -35,7 +35,7 @@ func (f *fakeStopRemove) Remove(_ context.Context, containerID string) error {
 func TestTeardownLocal(t *testing.T) {
 	dataDir := t.TempDir()
 	proxy := egress.NewProxy()
-	redir := egress.NewRedirectManager(1234, 5678)
+	redir := egress.NewRedirectManager(1234, 5678, 9012, 3456)
 
 	fake := &fakeStopRemove{}
 	a := NewAgent("node-1", nil, proxy, redir, nil, nil, dataDir, "")
@@ -51,6 +51,8 @@ func TestTeardownLocal(t *testing.T) {
 		}
 		proxy.SetPolicy(id, sandbox.NetworkPolicy{Mode: sandbox.NetworkAllowlist})
 	}
+	proxy.BindSandboxIP("sb-a", "10.0.0.1")
+	proxy.BindSandboxIP("sb-b", "10.0.0.2")
 	redir.SeedSandbox("sb-a", "10.0.0.1")
 	redir.SeedSandbox("sb-b", "10.0.0.2")
 
@@ -86,6 +88,9 @@ func TestTeardownLocal(t *testing.T) {
 		}
 		if proxy.HasPolicy(id) {
 			t.Fatalf("proxy policy still present for %s", id)
+		}
+		if _, ok := proxy.SandboxIP(id); ok {
+			t.Fatalf("proxy IP binding still present for %s", id)
 		}
 		if redir.HasSandbox(id) {
 			t.Fatalf("redirect rules still present for %s", id)
