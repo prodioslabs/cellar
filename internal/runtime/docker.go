@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -62,7 +63,7 @@ func (d *Driver) EnsureBridge(ctx context.Context) error {
 // FindBySandboxID returns a container ID for the sandbox label, if any.
 func (d *Driver) FindBySandboxID(ctx context.Context, sandboxID string) (string, error) {
 	list, err := d.cli.ContainerList(ctx, container.ListOptions{
-		All: true,
+		All:     true,
 		Filters: filters.NewArgs(filters.Arg("label", labelSandboxID+"="+sandboxID)),
 	})
 	if err != nil {
@@ -106,6 +107,9 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 
 	cfg := &container.Config{
 		Image: sb.Spec.Image,
+		// cellar-agent is PID 1 and must be able to read the bind-mounted
+		// token and create its control socket regardless of the image USER.
+		User: "0:0",
 		Env: append(append([]string(nil), sb.Spec.Env...),
 			sandboxagent.EnvSandboxID+"="+sb.ID,
 			sandboxagent.EnvAgentSock+"="+guestAgentSock,
@@ -175,12 +179,47 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 
 	sock := AgentSockPath(opts.DataDir, sb.ID)
 	if err := WaitAgentHealthy(ctx, sock, token, sb.ID, 30*time.Second); err != nil {
+		diagnostics := d.agentStartupDiagnostics(ctx, resp.ID)
 		_ = d.cli.ContainerStop(ctx, resp.ID, container.StopOptions{})
 		_ = d.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 		_ = CleanupSandboxDir(opts.DataDir, sb.ID)
+		if diagnostics != "" {
+			return "", fmt.Errorf("agent not ready: %w (%s)", err, diagnostics)
+		}
 		return "", fmt.Errorf("agent not ready: %w", err)
 	}
 	return resp.ID, nil
+}
+
+func (d *Driver) agentStartupDiagnostics(ctx context.Context, containerID string) string {
+	diagnosticCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+
+	var parts []string
+	if ins, err := d.cli.ContainerInspect(diagnosticCtx, containerID); err == nil && ins.State != nil {
+		if ins.State.Running {
+			parts = append(parts, "container still running")
+		} else {
+			parts = append(parts, fmt.Sprintf("container exited with code %d", ins.State.ExitCode))
+		}
+	}
+
+	logs, err := d.Logs(diagnosticCtx, containerID, false, "20")
+	if err == nil {
+		defer logs.Close()
+		var stdout, stderr bytes.Buffer
+		if err := DemuxLogs(logs, &stdout, &stderr); err == nil {
+			text := strings.TrimSpace(strings.Join([]string{stderr.String(), stdout.String()}, "\n"))
+			if text != "" {
+				const maxLogBytes = 4096
+				if len(text) > maxLogBytes {
+					text = text[len(text)-maxLogBytes:]
+				}
+				parts = append(parts, "logs: "+strings.Join(strings.Fields(text), " "))
+			}
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 func (d *Driver) pullIfMissing(ctx context.Context, ref string) error {
