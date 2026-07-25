@@ -100,6 +100,7 @@ cellar sandbox create --runtime node-26
 cellar sandbox create -f examples/sandbox.yaml
 
 # Allowlisted egress (enforced by cellard's userspace proxy + iptables REDIRECT)
+# See internal/egress/README.md for proxy, DNS bait mount, and policy details.
 cellar sandbox create --image curlimages/curl --network allowlist \
   --allow-host example.com --allow-port 443
 # or: cellar sandbox create -f examples/sandbox-allowlist.yaml
