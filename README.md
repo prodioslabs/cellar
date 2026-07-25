@@ -105,6 +105,10 @@ cellar sandbox create --image curlimages/curl --network allowlist \
   --allow-host example.com --allow-port 443
 # or: cellar sandbox create -f examples/sandbox-allowlist.yaml
 
+# Tighten (or loosen) the policy of a running sandbox. Takes effect immediately
+# and closes connections the new policy no longer allows.
+cellar sandbox network <id> --mode allowlist --allow-host api.example.com --allow-port 443
+
 cellar sandbox ls
 cellar sandbox inspect <id>
 cellar sandbox logs -f <id>
