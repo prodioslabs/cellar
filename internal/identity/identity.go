@@ -201,6 +201,22 @@ func (s *Store) HasIdentity() bool {
 	return s.mat != nil
 }
 
+// Clear removes persisted identity and daemon state so the node can init/join again.
+func (s *Store) Clear() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, name := range []string{certFile, keyFile, caFile, metaFile, stateFile} {
+		path := filepath.Join(s.dataDir, name)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	s.mat = nil
+	s.state = DaemonState{}
+	return nil
+}
+
 // ServerTLSConfig builds a TLS config for the remote gRPC listener.
 // ClientAuth is VerifyClientCertIfGiven so bootstrap RPCs work without a client cert.
 func (s *Store) ServerTLSConfig() (*tls.Config, error) {

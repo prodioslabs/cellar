@@ -10,6 +10,7 @@ import "sandbox.proto";
 service Control {
   rpc Init(InitRequest) returns (InitResponse);
   rpc Join(JoinRequest) returns (JoinResponse);
+  rpc Leave(LeaveRequest) returns (LeaveResponse);
   rpc JoinToken(JoinTokenRequest) returns (JoinTokenResponse);
   rpc Status(StatusRequest) returns (StatusResponse);
 
@@ -62,6 +63,12 @@ message JoinTokenResponse {
   string advertise_addr = 2;
   string join_command = 3;
 }
+
+message LeaveRequest {
+  bool force = 1; // required for managers
+}
+
+message LeaveResponse {}
 
 message StatusRequest {}
 

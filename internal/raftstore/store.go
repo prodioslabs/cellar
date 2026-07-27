@@ -444,5 +444,23 @@ func (s *Store) ListPeers() []PeerInfo {
 	return s.fsm.listPeers()
 }
 
+// NumVoters returns the number of Raft voters in the current configuration.
+func (s *Store) NumVoters() int {
+	if s.raft == nil {
+		return 0
+	}
+	fut := s.raft.GetConfiguration()
+	if err := fut.Error(); err != nil {
+		return 0
+	}
+	n := 0
+	for _, srv := range fut.Configuration().Servers {
+		if srv.Suffrage == raft.Voter {
+			n++
+		}
+	}
+	return n
+}
+
 // Ensure Store implements store.Store.
 var _ store.Store = (*Store)(nil)

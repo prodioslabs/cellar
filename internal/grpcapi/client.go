@@ -124,6 +124,24 @@ func RaftJoin(ctx context.Context, remoteAddr string, certPEM, keyPEM, caPEM []b
 	return err
 }
 
+// RaftLeave asks the leader to remove a manager voter (mTLS required).
+func RaftLeave(ctx context.Context, remoteAddr string, certPEM, keyPEM, caPEM []byte, nodeID string) error {
+	tlsCfg, err := ClientTLSFromPEMs(certPEM, keyPEM, caPEM, TLSServerName)
+	if err != nil {
+		return err
+	}
+	conn, err := grpc.NewClient(normalizeAddr(remoteAddr), grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	_, err = cellarv1.NewRaftMembershipClient(conn).Leave(ctx, &cellarv1.RaftLeaveRequest{
+		NodeId: nodeID,
+	})
+	return err
+}
+
 func normalizeAddr(addr string) string {
 	addr = strings.TrimSpace(addr)
 	if _, _, err := net.SplitHostPort(addr); err == nil {

@@ -35,7 +35,7 @@ func newRootCmd() *cobra.Command {
 		Short: "Cellar CLI — manage a local cellard daemon",
 		Long: `cellar talks to a local cellard over a unix socket.
 
-Start cellard first, then use init / join / join-token / status.`,
+Start cellard first, then use init / join / leave / join-token / status.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -43,6 +43,7 @@ Start cellard first, then use init / join / join-token / status.`,
 
 	root.AddCommand(newInitCmd())
 	root.AddCommand(newJoinCmd())
+	root.AddCommand(newLeaveCmd())
 	root.AddCommand(newJoinTokenCmd())
 	root.AddCommand(newStatusCmd())
 	root.AddCommand(newSandboxCmd())
@@ -131,6 +132,35 @@ func newJoinCmd() *cobra.Command {
 	cmd.Flags().StringVar(&listenAddr, "listen-addr", "", "remote gRPC listen address (managers)")
 	cmd.Flags().StringVar(&raftAddr, "raft-addr", "", "raft TCP address (managers)")
 	_ = cmd.MarkFlagRequired("token")
+	return cmd
+}
+
+func newLeaveCmd() *cobra.Command {
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "leave",
+		Short: "Leave the cluster on this node",
+		Long:  "Clears local membership so this node can init or join again. Managers require --force.",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
+			defer cancel()
+
+			_, err = client.Leave(ctx, &cellarv1.LeaveRequest{Force: force})
+			if err != nil {
+				return fmt.Errorf("leave: %w", err)
+			}
+			fmt.Println("Node left the cluster.")
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "force leave (required for managers)")
 	return cmd
 }
 

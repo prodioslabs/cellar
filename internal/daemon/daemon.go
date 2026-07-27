@@ -78,9 +78,12 @@ type Daemon struct {
 	remoteLis  net.Listener
 	remoteGRPC *grpc.Server
 
-	cancel context.CancelFunc
-	runCtx context.Context
-	wg     sync.WaitGroup
+	cancel        context.CancelFunc
+	runCtx        context.Context
+	clusterCancel context.CancelFunc
+	clusterCtx    context.Context
+	wg            sync.WaitGroup // local control serve
+	clusterWG     sync.WaitGroup // renew, leadership, heartbeat, agent, remote gRPC
 }
 
 func New(cfg Config) *Daemon {
@@ -124,13 +127,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	if d.idStore.HasIdentity() {
 		state := d.idStore.State()
+		clusterCtx := d.ensureClusterCtx()
 		switch state.Role {
 		case node.RoleManager:
-			if err := d.resumeManager(ctx, state); err != nil {
+			if err := d.resumeManager(clusterCtx, state); err != nil {
 				log.Printf("resume manager: %v", err)
 			}
 		case node.RoleWorker:
-			if err := d.resumeWorker(ctx, state); err != nil {
+			if err := d.resumeWorker(clusterCtx, state); err != nil {
 				log.Printf("resume worker: %v", err)
 			}
 		}
@@ -157,6 +161,7 @@ func (d *Daemon) shutdown() {
 	proxy := d.proxy
 	driver := d.driver
 	agent := d.agent
+	clusterCancel := d.clusterCancel
 	cancel := d.cancel
 	d.remoteGRPC = nil
 	d.remoteLis = nil
@@ -167,6 +172,11 @@ func (d *Daemon) shutdown() {
 	d.proxy = nil
 	d.driver = nil
 	d.agent = nil
+	d.caServer = nil
+	d.sandboxServer = nil
+	d.runtimeSrv = nil
+	d.clusterCancel = nil
+	d.clusterCtx = nil
 	d.cancel = nil
 	d.mu.Unlock()
 
@@ -179,12 +189,15 @@ func (d *Daemon) shutdown() {
 		_ = localLis.Close()
 	}
 
-	// Cancel run context so agent / renew / heartbeat loops exit, then wait
-	// briefly so TeardownLocal does not race a concurrent reconcile that
-	// would recreate containers.
+	// Cancel cluster then run context so agent / renew / heartbeat loops exit,
+	// then wait briefly so TeardownLocal does not race a concurrent reconcile.
+	if clusterCancel != nil {
+		clusterCancel()
+	}
 	if cancel != nil {
 		cancel()
 	}
+	waitWG(&d.clusterWG, wgWaitTimeout)
 	waitWG(&d.wg, wgWaitTimeout)
 
 	if agent != nil {
@@ -205,6 +218,32 @@ func (d *Daemon) shutdown() {
 	if driver != nil {
 		_ = driver.Close()
 	}
+}
+
+// ensureClusterCtx returns a cancellable context for cluster membership work.
+// Creates a fresh child of runCtx when none is active (e.g. after Leave).
+func (d *Daemon) ensureClusterCtx() context.Context {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.ensureClusterCtxLocked()
+}
+
+func (d *Daemon) ensureClusterCtxLocked() context.Context {
+	if d.clusterCtx != nil {
+		select {
+		case <-d.clusterCtx.Done():
+		default:
+			return d.clusterCtx
+		}
+	}
+	parent := d.runCtx
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithCancel(parent)
+	d.clusterCtx = ctx
+	d.clusterCancel = cancel
+	return ctx
 }
 
 // gracefulStop waits for GracefulStop up to timeout, then Force Stop.
@@ -266,40 +305,112 @@ func (d *Daemon) startLocalControl() error {
 	return nil
 }
 
-func (d *Daemon) startRemoteGRPC(listenAddr string) error {
+func (d *Daemon) Leave(ctx context.Context, req *cellarv1.LeaveRequest) (*cellarv1.LeaveResponse, error) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.remoteGRPC != nil {
-		return nil
+	mat := d.idStore.Material()
+	if mat == nil {
+		d.mu.Unlock()
+		return nil, fmt.Errorf("node is not part of a cluster")
 	}
-	tlsCfg, err := d.idStore.ServerTLSConfig()
-	if err != nil {
-		return err
+	role := mat.Role
+	nodeID := mat.NodeID
+	certPEM := mat.Certificate
+	keyPEM := mat.PrivateKey
+	caPEM := mat.CACert
+	raft := d.raft
+	state := d.idStore.State()
+	force := req.GetForce()
+	d.mu.Unlock()
+
+	if role == node.RoleManager && !force {
+		return nil, fmt.Errorf("leaving as a manager requires --force")
 	}
-	// Advertise cellar-manager as the TLS server name for clients.
-	tlsCfg.Certificates[0].Leaf = nil
-	lis, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		return fmt.Errorf("listen remote: %w", err)
-	}
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsCfg)))
-	if d.caServer != nil {
-		grpcapi.RegisterRemote(s, d.caServer, d.sandboxServer)
-	}
-	if d.runtimeSrv != nil {
-		grpcapi.RegisterRuntime(s, d.runtimeSrv)
-	}
-	d.remoteLis = lis
-	d.remoteGRPC = s
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-		if err := s.Serve(lis); err != nil {
-			log.Printf("remote grpc serve: %v", err)
+
+	if role == node.RoleManager && force && raft != nil {
+		sole := raft.NumVoters() <= 1
+		if !sole {
+			addr := raft.LeaderGRPC()
+			if addr == "" {
+				addr = state.ManagerAddr
+			}
+			if addr == "" {
+				addr = state.AdvertiseAddr
+			}
+			if addr != "" {
+				if err := grpcapi.RaftLeave(ctx, addr, certPEM, keyPEM, caPEM, nodeID); err != nil {
+					log.Printf("raft leave: %v (continuing local wipe)", err)
+				}
+			}
 		}
-	}()
-	log.Printf("remote gRPC listening on %s", listenAddr)
-	return nil
+	}
+
+	d.stopClusterLocal()
+
+	if err := d.idStore.Clear(); err != nil {
+		return nil, err
+	}
+	raftDir := filepath.Join(d.cfg.DataDir, "raft")
+	if err := os.RemoveAll(raftDir); err != nil {
+		return nil, fmt.Errorf("remove raft dir: %w", err)
+	}
+	log.Printf("left cluster; local identity cleared")
+	return &cellarv1.LeaveResponse{}, nil
+}
+
+// stopClusterLocal tears down remote gRPC, runtime, and raft without touching
+// the local Control unix socket.
+func (d *Daemon) stopClusterLocal() {
+	d.mu.Lock()
+	remoteGRPC := d.remoteGRPC
+	remoteLis := d.remoteLis
+	raft := d.raft
+	redirect := d.redirect
+	proxy := d.proxy
+	driver := d.driver
+	agent := d.agent
+	clusterCancel := d.clusterCancel
+	d.remoteGRPC = nil
+	d.remoteLis = nil
+	d.raft = nil
+	d.redirect = nil
+	d.proxy = nil
+	d.driver = nil
+	d.agent = nil
+	d.caServer = nil
+	d.sandboxServer = nil
+	d.runtimeSrv = nil
+	d.runtimeErr = nil
+	d.lastAssigned = nil
+	d.clusterCancel = nil
+	d.clusterCtx = nil
+	d.mu.Unlock()
+
+	gracefulStop(remoteGRPC, gracefulStopTimeout)
+	if remoteLis != nil {
+		_ = remoteLis.Close()
+	}
+	if clusterCancel != nil {
+		clusterCancel()
+	}
+	waitWG(&d.clusterWG, wgWaitTimeout)
+
+	if agent != nil {
+		tctx, tcancel := context.WithTimeout(context.Background(), teardownTimeout)
+		agent.TeardownLocal(tctx)
+		tcancel()
+	}
+	if raft != nil {
+		_ = raft.Close()
+	}
+	if redirect != nil {
+		_ = redirect.Close()
+	}
+	if proxy != nil {
+		_ = proxy.Close()
+	}
+	if driver != nil {
+		_ = driver.Close()
+	}
 }
 
 func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) error {
@@ -326,29 +437,33 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	if err != nil {
 		return err
 	}
-	d.raft = rs
-	d.caServer = grpcapi.NewCAServer(rs, rs)
-	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
 	if err := rs.WaitForLeader(30 * time.Second); err != nil {
 		log.Printf("wait leader: %v", err)
 	}
-	if err := rs.WaitInitialized(30 * time.Second); err == nil {
-		_ = d.caServer.UpdateRootCA(ctx)
+	if err := rs.WaitInitialized(30 * time.Second); err != nil {
+		log.Printf("wait initialized: %v", err)
 	}
-	d.wg.Add(1)
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.raft = rs
+	d.caServer = grpcapi.NewCAServer(rs, rs)
+	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
+	_ = d.caServer.UpdateRootCA(ctx)
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
+		defer d.clusterWG.Done()
 		d.watchLeadership(ctx)
 	}()
-	d.wg.Add(1)
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
+		defer d.clusterWG.Done()
 		_ = d.renewLoop(ctx, advertise)
 	}()
 	if err := d.startRuntimeLocked(ctx); err != nil {
 		log.Printf("runtime: %v", err)
 	}
-	return d.startRemoteGRPC(listen)
+	return d.startRemoteGRPCLocked(listen)
 }
 
 func (d *Daemon) resumeWorker(ctx context.Context, state identity.DaemonState) error {
@@ -357,19 +472,21 @@ func (d *Daemon) resumeWorker(ctx context.Context, state identity.DaemonState) e
 	if listen == "" {
 		listen = d.cfg.ListenAddr
 	}
-	d.wg.Add(1)
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
+		defer d.clusterWG.Done()
 		mgr := state.ManagerAddr
 		if mgr == "" {
 			mgr = advertise
 		}
 		_ = d.renewLoop(ctx, mgr)
 	}()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	if err := d.startRuntimeLocked(ctx); err != nil {
 		log.Printf("runtime: %v", err)
 	}
-	return d.startRemoteGRPC(listen)
+	return d.startRemoteGRPCLocked(listen)
 }
 
 func (d *Daemon) watchLeadership(ctx context.Context) {
@@ -505,18 +622,19 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 		return nil, err
 	}
 
-	d.wg.Add(1)
+	clusterCtx := d.ensureClusterCtxLocked()
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
-		d.watchLeadership(d.runCtx)
+		defer d.clusterWG.Done()
+		d.watchLeadership(clusterCtx)
 	}()
-	d.wg.Add(1)
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
-		_ = d.renewLoop(d.runCtx, advertise)
+		defer d.clusterWG.Done()
+		_ = d.renewLoop(clusterCtx, advertise)
 	}()
 
-	if err := d.startRuntimeLocked(d.runCtx); err != nil {
+	if err := d.startRuntimeLocked(clusterCtx); err != nil {
 		log.Printf("runtime: %v", err)
 	}
 
@@ -559,9 +677,9 @@ func (d *Daemon) startRemoteGRPCLocked(listenAddr string) error {
 	}
 	d.remoteLis = lis
 	d.remoteGRPC = s
-	d.wg.Add(1)
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
+		defer d.clusterWG.Done()
 		if err := s.Serve(lis); err != nil {
 			log.Printf("remote grpc serve: %v", err)
 		}
@@ -674,17 +792,18 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		d.caServer = grpcapi.NewCAServer(rs, rs)
 		d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
 		_ = d.caServer.UpdateRootCA(ctx)
-		d.wg.Add(1)
+		clusterCtx := d.ensureClusterCtxLocked()
+		d.clusterWG.Add(1)
 		go func() {
-			defer d.wg.Done()
-			d.watchLeadership(d.runCtx)
+			defer d.clusterWG.Done()
+			d.watchLeadership(clusterCtx)
 		}()
-		d.wg.Add(1)
+		d.clusterWG.Add(1)
 		go func() {
-			defer d.wg.Done()
-			_ = d.renewLoop(d.runCtx, req.RemoteAddr)
+			defer d.clusterWG.Done()
+			_ = d.renewLoop(clusterCtx, req.RemoteAddr)
 		}()
-		if err := d.startRuntimeLocked(d.runCtx); err != nil {
+		if err := d.startRuntimeLocked(clusterCtx); err != nil {
 			log.Printf("runtime: %v", err)
 		}
 		if err := d.startRemoteGRPCLocked(listen); err != nil {
@@ -694,12 +813,13 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		if err := d.idStore.Save(mat, state); err != nil {
 			return nil, err
 		}
-		d.wg.Add(1)
+		clusterCtx := d.ensureClusterCtxLocked()
+		d.clusterWG.Add(1)
 		go func() {
-			defer d.wg.Done()
-			_ = d.renewLoop(d.runCtx, req.RemoteAddr)
+			defer d.clusterWG.Done()
+			_ = d.renewLoop(clusterCtx, req.RemoteAddr)
 		}()
-		if err := d.startRuntimeLocked(d.runCtx); err != nil {
+		if err := d.startRuntimeLocked(clusterCtx); err != nil {
 			log.Printf("runtime: %v", err)
 		}
 		if err := d.startRemoteGRPCLocked(listen); err != nil {
@@ -845,6 +965,9 @@ func (c *controlServer) Init(ctx context.Context, req *cellarv1.InitRequest) (*c
 }
 func (c *controlServer) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1.JoinResponse, error) {
 	return c.d.Join(ctx, req)
+}
+func (c *controlServer) Leave(ctx context.Context, req *cellarv1.LeaveRequest) (*cellarv1.LeaveResponse, error) {
+	return c.d.Leave(ctx, req)
 }
 func (c *controlServer) JoinToken(ctx context.Context, req *cellarv1.JoinTokenRequest) (*cellarv1.JoinTokenResponse, error) {
 	return c.d.JoinToken(ctx, req)

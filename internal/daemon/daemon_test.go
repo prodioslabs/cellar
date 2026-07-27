@@ -252,3 +252,134 @@ func TestManagerJoinReplicatesCA(t *testing.T) {
 		t.Fatal("empty node id after failover")
 	}
 }
+
+func TestLeaveManagerRequiresForceAndAllowsReinit(t *testing.T) {
+	base := t.TempDir()
+	listen := freePort(t)
+	raft := freePort(t)
+	sock := filepath.Join(base, "mgr.sock")
+	startDaemon(t, filepath.Join(base, "mgr"), sock, listen, raft)
+
+	conn, err := daemon.DialLocal(sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	ctrl := cellarv1.NewControlClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	_, err = ctrl.Init(ctx, &cellarv1.InitRequest{
+		AdvertiseAddr: listen,
+		ListenAddr:    listen,
+		RaftAddr:      raft,
+	})
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	_, err = ctrl.Leave(ctx, &cellarv1.LeaveRequest{})
+	if err == nil {
+		t.Fatal("expected manager leave without force to fail")
+	}
+
+	_, err = ctrl.Leave(ctx, &cellarv1.LeaveRequest{Force: true})
+	if err != nil {
+		t.Fatalf("leave --force: %v", err)
+	}
+
+	st, err := ctrl.Status(ctx, &cellarv1.StatusRequest{})
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if st.Initialized {
+		t.Fatal("expected initialized=false after leave")
+	}
+	if st.NodeId != "" || st.ClusterId != "" {
+		t.Fatalf("expected cleared identity, got node=%q cluster=%q", st.NodeId, st.ClusterId)
+	}
+
+	listen2 := freePort(t)
+	raft2 := freePort(t)
+	initResp, err := ctrl.Init(ctx, &cellarv1.InitRequest{
+		AdvertiseAddr: listen2,
+		ListenAddr:    listen2,
+		RaftAddr:      raft2,
+	})
+	if err != nil {
+		t.Fatalf("re-init after leave: %v", err)
+	}
+	if initResp.ClusterId == "" || initResp.NodeId == "" {
+		t.Fatal("empty re-init response")
+	}
+}
+
+func TestLeaveWorkerAllowsRejoin(t *testing.T) {
+	base := t.TempDir()
+	mgrListen := freePort(t)
+	mgrRaft := freePort(t)
+	mgrSock := filepath.Join(base, "mgr.sock")
+	startDaemon(t, filepath.Join(base, "mgr"), mgrSock, mgrListen, mgrRaft)
+
+	mgrConn, err := daemon.DialLocal(mgrSock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgrConn.Close()
+	mgrCtrl := cellarv1.NewControlClient(mgrConn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	initResp, err := mgrCtrl.Init(ctx, &cellarv1.InitRequest{
+		AdvertiseAddr: mgrListen,
+		ListenAddr:    mgrListen,
+		RaftAddr:      mgrRaft,
+	})
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	workerSock := filepath.Join(base, "worker.sock")
+	startDaemon(t, filepath.Join(base, "worker"), workerSock, freePort(t), freePort(t))
+
+	wconn, err := daemon.DialLocal(workerSock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wconn.Close()
+	wctrl := cellarv1.NewControlClient(wconn)
+
+	_, err = wctrl.Join(ctx, &cellarv1.JoinRequest{
+		Token:      initResp.WorkerToken,
+		RemoteAddr: mgrListen,
+	})
+	if err != nil {
+		t.Fatalf("worker join: %v", err)
+	}
+
+	_, err = wctrl.Leave(ctx, &cellarv1.LeaveRequest{})
+	if err != nil {
+		t.Fatalf("worker leave: %v", err)
+	}
+
+	st, err := wctrl.Status(ctx, &cellarv1.StatusRequest{})
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if st.Initialized {
+		t.Fatal("expected initialized=false after leave")
+	}
+
+	joinResp, err := wctrl.Join(ctx, &cellarv1.JoinRequest{
+		Token:      initResp.WorkerToken,
+		RemoteAddr: mgrListen,
+	})
+	if err != nil {
+		t.Fatalf("worker re-join: %v", err)
+	}
+	if joinResp.Role != string(node.RoleWorker) {
+		t.Fatalf("role=%s", joinResp.Role)
+	}
+}

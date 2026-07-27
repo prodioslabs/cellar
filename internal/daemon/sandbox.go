@@ -73,14 +73,14 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 	d.runtimeErr = nil
 	d.runtimeSrv = grpcapi.NewRuntimeServer(agent)
 
-	d.wg.Add(1)
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
+		defer d.clusterWG.Done()
 		agent.Run(ctx)
 	}()
-	d.wg.Add(1)
+	d.clusterWG.Add(1)
 	go func() {
-		defer d.wg.Done()
+		defer d.clusterWG.Done()
 		d.heartbeatLoop(ctx)
 	}()
 	log.Printf("runtime agent started for node %s", mat.NodeID)

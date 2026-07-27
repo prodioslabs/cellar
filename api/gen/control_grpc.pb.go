@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Control_Init_FullMethodName                 = "/cellar.v1.Control/Init"
 	Control_Join_FullMethodName                 = "/cellar.v1.Control/Join"
+	Control_Leave_FullMethodName                = "/cellar.v1.Control/Leave"
 	Control_JoinToken_FullMethodName            = "/cellar.v1.Control/JoinToken"
 	Control_Status_FullMethodName               = "/cellar.v1.Control/Status"
 	Control_SandboxCreate_FullMethodName        = "/cellar.v1.Control/SandboxCreate"
@@ -41,6 +42,7 @@ const (
 type ControlClient interface {
 	Init(ctx context.Context, in *InitRequest, opts ...grpc.CallOption) (*InitResponse, error)
 	Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error)
+	Leave(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*LeaveResponse, error)
 	JoinToken(ctx context.Context, in *JoinTokenRequest, opts ...grpc.CallOption) (*JoinTokenResponse, error)
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	// Sandbox ops (forwarded to a manager / leader when needed).
@@ -76,6 +78,16 @@ func (c *controlClient) Join(ctx context.Context, in *JoinRequest, opts ...grpc.
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(JoinResponse)
 	err := c.cc.Invoke(ctx, Control_Join_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) Leave(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*LeaveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LeaveResponse)
+	err := c.cc.Invoke(ctx, Control_Leave_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +214,7 @@ type Control_SandboxExecClient = grpc.BidiStreamingClient[SandboxExecMessage, Sa
 type ControlServer interface {
 	Init(context.Context, *InitRequest) (*InitResponse, error)
 	Join(context.Context, *JoinRequest) (*JoinResponse, error)
+	Leave(context.Context, *LeaveRequest) (*LeaveResponse, error)
 	JoinToken(context.Context, *JoinTokenRequest) (*JoinTokenResponse, error)
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	// Sandbox ops (forwarded to a manager / leader when needed).
@@ -228,6 +241,9 @@ func (UnimplementedControlServer) Init(context.Context, *InitRequest) (*InitResp
 }
 func (UnimplementedControlServer) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Join not implemented")
+}
+func (UnimplementedControlServer) Leave(context.Context, *LeaveRequest) (*LeaveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Leave not implemented")
 }
 func (UnimplementedControlServer) JoinToken(context.Context, *JoinTokenRequest) (*JoinTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method JoinToken not implemented")
@@ -312,6 +328,24 @@ func _Control_Join_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServer).Join(ctx, req.(*JoinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_Leave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LeaveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).Leave(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_Leave_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).Leave(ctx, req.(*LeaveRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -492,6 +526,10 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Join",
 			Handler:    _Control_Join_Handler,
+		},
+		{
+			MethodName: "Leave",
+			Handler:    _Control_Leave_Handler,
 		},
 		{
 			MethodName: "JoinToken",

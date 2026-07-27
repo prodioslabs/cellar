@@ -405,6 +405,86 @@ func (x *JoinTokenResponse) GetJoinCommand() string {
 	return ""
 }
 
+type LeaveRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Force         bool                   `protobuf:"varint,1,opt,name=force,proto3" json:"force,omitempty"` // required for managers
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveRequest) Reset() {
+	*x = LeaveRequest{}
+	mi := &file_control_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveRequest) ProtoMessage() {}
+
+func (x *LeaveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveRequest.ProtoReflect.Descriptor instead.
+func (*LeaveRequest) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *LeaveRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+type LeaveResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveResponse) Reset() {
+	*x = LeaveResponse{}
+	mi := &file_control_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveResponse) ProtoMessage() {}
+
+func (x *LeaveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveResponse.ProtoReflect.Descriptor instead.
+func (*LeaveResponse) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{7}
+}
+
 type StatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -413,7 +493,7 @@ type StatusRequest struct {
 
 func (x *StatusRequest) Reset() {
 	*x = StatusRequest{}
-	mi := &file_control_proto_msgTypes[6]
+	mi := &file_control_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -425,7 +505,7 @@ func (x *StatusRequest) String() string {
 func (*StatusRequest) ProtoMessage() {}
 
 func (x *StatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[6]
+	mi := &file_control_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +518,7 @@ func (x *StatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusRequest.ProtoReflect.Descriptor instead.
 func (*StatusRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{6}
+	return file_control_proto_rawDescGZIP(), []int{8}
 }
 
 type StatusResponse struct {
@@ -455,7 +535,7 @@ type StatusResponse struct {
 
 func (x *StatusResponse) Reset() {
 	*x = StatusResponse{}
-	mi := &file_control_proto_msgTypes[7]
+	mi := &file_control_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -467,7 +547,7 @@ func (x *StatusResponse) String() string {
 func (*StatusResponse) ProtoMessage() {}
 
 func (x *StatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[7]
+	mi := &file_control_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -480,7 +560,7 @@ func (x *StatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusResponse.ProtoReflect.Descriptor instead.
 func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{7}
+	return file_control_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StatusResponse) GetNodeId() string {
@@ -561,7 +641,10 @@ const file_control_proto_rawDesc = "" +
 	"\x11JoinTokenResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12%\n" +
 	"\x0eadvertise_addr\x18\x02 \x01(\tR\radvertiseAddr\x12!\n" +
-	"\fjoin_command\x18\x03 \x01(\tR\vjoinCommand\"\x0f\n" +
+	"\fjoin_command\x18\x03 \x01(\tR\vjoinCommand\"$\n" +
+	"\fLeaveRequest\x12\x14\n" +
+	"\x05force\x18\x01 \x01(\bR\x05force\"\x0f\n" +
+	"\rLeaveResponse\"\x0f\n" +
 	"\rStatusRequest\"\xc2\x01\n" +
 	"\x0eStatusResponse\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x12\n" +
@@ -570,10 +653,11 @@ const file_control_proto_rawDesc = "" +
 	"cluster_id\x18\x03 \x01(\tR\tclusterId\x12\x1b\n" +
 	"\tis_leader\x18\x04 \x01(\bR\bisLeader\x12%\n" +
 	"\x0eadvertise_addr\x18\x05 \x01(\tR\radvertiseAddr\x12 \n" +
-	"\vinitialized\x18\x06 \x01(\bR\vinitialized2\x98\a\n" +
+	"\vinitialized\x18\x06 \x01(\bR\vinitialized2\xd4\a\n" +
 	"\aControl\x127\n" +
 	"\x04Init\x12\x16.cellar.v1.InitRequest\x1a\x17.cellar.v1.InitResponse\x127\n" +
-	"\x04Join\x12\x16.cellar.v1.JoinRequest\x1a\x17.cellar.v1.JoinResponse\x12F\n" +
+	"\x04Join\x12\x16.cellar.v1.JoinRequest\x1a\x17.cellar.v1.JoinResponse\x12:\n" +
+	"\x05Leave\x12\x17.cellar.v1.LeaveRequest\x1a\x18.cellar.v1.LeaveResponse\x12F\n" +
 	"\tJoinToken\x12\x1b.cellar.v1.JoinTokenRequest\x1a\x1c.cellar.v1.JoinTokenResponse\x12=\n" +
 	"\x06Status\x12\x18.cellar.v1.StatusRequest\x1a\x19.cellar.v1.StatusResponse\x12R\n" +
 	"\rSandboxCreate\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12L\n" +
@@ -598,7 +682,7 @@ func file_control_proto_rawDescGZIP() []byte {
 	return file_control_proto_rawDescData
 }
 
-var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_control_proto_goTypes = []any{
 	(*InitRequest)(nil),                  // 0: cellar.v1.InitRequest
 	(*InitResponse)(nil),                 // 1: cellar.v1.InitResponse
@@ -606,51 +690,55 @@ var file_control_proto_goTypes = []any{
 	(*JoinResponse)(nil),                 // 3: cellar.v1.JoinResponse
 	(*JoinTokenRequest)(nil),             // 4: cellar.v1.JoinTokenRequest
 	(*JoinTokenResponse)(nil),            // 5: cellar.v1.JoinTokenResponse
-	(*StatusRequest)(nil),                // 6: cellar.v1.StatusRequest
-	(*StatusResponse)(nil),               // 7: cellar.v1.StatusResponse
-	(*SandboxCreateRequest)(nil),         // 8: cellar.v1.SandboxCreateRequest
-	(*SandboxStopRequest)(nil),           // 9: cellar.v1.SandboxStopRequest
-	(*SandboxRemoveRequest)(nil),         // 10: cellar.v1.SandboxRemoveRequest
-	(*SandboxGetRequest)(nil),            // 11: cellar.v1.SandboxGetRequest
-	(*SandboxUpdateNetworkRequest)(nil),  // 12: cellar.v1.SandboxUpdateNetworkRequest
-	(*SandboxListRequest)(nil),           // 13: cellar.v1.SandboxListRequest
-	(*SandboxLogsRequest)(nil),           // 14: cellar.v1.SandboxLogsRequest
-	(*SandboxExecMessage)(nil),           // 15: cellar.v1.SandboxExecMessage
-	(*SandboxCreateResponse)(nil),        // 16: cellar.v1.SandboxCreateResponse
-	(*SandboxStopResponse)(nil),          // 17: cellar.v1.SandboxStopResponse
-	(*SandboxRemoveResponse)(nil),        // 18: cellar.v1.SandboxRemoveResponse
-	(*SandboxGetResponse)(nil),           // 19: cellar.v1.SandboxGetResponse
-	(*SandboxUpdateNetworkResponse)(nil), // 20: cellar.v1.SandboxUpdateNetworkResponse
-	(*SandboxListResponse)(nil),          // 21: cellar.v1.SandboxListResponse
-	(*SandboxLogsChunk)(nil),             // 22: cellar.v1.SandboxLogsChunk
+	(*LeaveRequest)(nil),                 // 6: cellar.v1.LeaveRequest
+	(*LeaveResponse)(nil),                // 7: cellar.v1.LeaveResponse
+	(*StatusRequest)(nil),                // 8: cellar.v1.StatusRequest
+	(*StatusResponse)(nil),               // 9: cellar.v1.StatusResponse
+	(*SandboxCreateRequest)(nil),         // 10: cellar.v1.SandboxCreateRequest
+	(*SandboxStopRequest)(nil),           // 11: cellar.v1.SandboxStopRequest
+	(*SandboxRemoveRequest)(nil),         // 12: cellar.v1.SandboxRemoveRequest
+	(*SandboxGetRequest)(nil),            // 13: cellar.v1.SandboxGetRequest
+	(*SandboxUpdateNetworkRequest)(nil),  // 14: cellar.v1.SandboxUpdateNetworkRequest
+	(*SandboxListRequest)(nil),           // 15: cellar.v1.SandboxListRequest
+	(*SandboxLogsRequest)(nil),           // 16: cellar.v1.SandboxLogsRequest
+	(*SandboxExecMessage)(nil),           // 17: cellar.v1.SandboxExecMessage
+	(*SandboxCreateResponse)(nil),        // 18: cellar.v1.SandboxCreateResponse
+	(*SandboxStopResponse)(nil),          // 19: cellar.v1.SandboxStopResponse
+	(*SandboxRemoveResponse)(nil),        // 20: cellar.v1.SandboxRemoveResponse
+	(*SandboxGetResponse)(nil),           // 21: cellar.v1.SandboxGetResponse
+	(*SandboxUpdateNetworkResponse)(nil), // 22: cellar.v1.SandboxUpdateNetworkResponse
+	(*SandboxListResponse)(nil),          // 23: cellar.v1.SandboxListResponse
+	(*SandboxLogsChunk)(nil),             // 24: cellar.v1.SandboxLogsChunk
 }
 var file_control_proto_depIdxs = []int32{
 	0,  // 0: cellar.v1.Control.Init:input_type -> cellar.v1.InitRequest
 	2,  // 1: cellar.v1.Control.Join:input_type -> cellar.v1.JoinRequest
-	4,  // 2: cellar.v1.Control.JoinToken:input_type -> cellar.v1.JoinTokenRequest
-	6,  // 3: cellar.v1.Control.Status:input_type -> cellar.v1.StatusRequest
-	8,  // 4: cellar.v1.Control.SandboxCreate:input_type -> cellar.v1.SandboxCreateRequest
-	9,  // 5: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
-	10, // 6: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
-	11, // 7: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
-	12, // 8: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	13, // 9: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
-	14, // 10: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
-	15, // 11: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
-	1,  // 12: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
-	3,  // 13: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
-	5,  // 14: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
-	7,  // 15: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
-	16, // 16: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
-	17, // 17: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
-	18, // 18: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
-	19, // 19: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
-	20, // 20: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	21, // 21: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
-	22, // 22: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
-	15, // 23: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
-	12, // [12:24] is the sub-list for method output_type
-	0,  // [0:12] is the sub-list for method input_type
+	6,  // 2: cellar.v1.Control.Leave:input_type -> cellar.v1.LeaveRequest
+	4,  // 3: cellar.v1.Control.JoinToken:input_type -> cellar.v1.JoinTokenRequest
+	8,  // 4: cellar.v1.Control.Status:input_type -> cellar.v1.StatusRequest
+	10, // 5: cellar.v1.Control.SandboxCreate:input_type -> cellar.v1.SandboxCreateRequest
+	11, // 6: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
+	12, // 7: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
+	13, // 8: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
+	14, // 9: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	15, // 10: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
+	16, // 11: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
+	17, // 12: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
+	1,  // 13: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
+	3,  // 14: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
+	7,  // 15: cellar.v1.Control.Leave:output_type -> cellar.v1.LeaveResponse
+	5,  // 16: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
+	9,  // 17: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
+	18, // 18: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
+	19, // 19: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
+	20, // 20: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
+	21, // 21: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
+	22, // 22: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	23, // 23: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
+	24, // 24: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
+	17, // 25: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
+	13, // [13:26] is the sub-list for method output_type
+	0,  // [0:13] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -668,7 +756,7 @@ func file_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_control_proto_rawDesc), len(file_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
