@@ -32,37 +32,46 @@ Defaults avoid Docker Swarm’s control-plane ports (`7946` gossip, `2377` manag
 | Remote gRPC | `:17946` | Bootstrap insecure TLS + token digest; else mTLS | CA issue/renew, raft membership |
 | Raft TCP | `127.0.0.1:17947` | Manager network | Consensus / CA key replication |
 
-## Build
+## Build & install
 
 ```bash
 make build          # → bin/cellard, bin/cellar, bin/cellar-agent
 # or: make cellard / make cellar / make cellar-agent
+
+sudo make install   # Linux: binaries → /usr/local/bin, plus systemd unit + sysusers from contrib/
 ```
 
-Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. Keep it next to `cellard` (or set `CELLAR_AGENT_BINARY`) so the daemon can bind-mount it into sandboxes.
+Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
+
+| Source | Destination |
+|--------|-------------|
+| `contrib/systemd/cellard.service` | `/usr/lib/systemd/system/cellard.service` |
+| `contrib/systemd/cellar.sysusers` | `/usr/lib/sysusers.d/cellar.conf` |
+
+`make install` does not enable or start the service. Use `make uninstall` to remove the installed files.
 
 ## Quick start
 
 ```bash
-# Host A — start daemon (idle until init)
-./bin/cellard --data-dir ./data-a --socket ./cellar-a.sock \
-  --listen 127.0.0.1:17946 --raft-addr 127.0.0.1:17947
+# On each host — install, create the cellar system user, start the daemon
+sudo make install
+sudo systemd-sysusers
+sudo systemctl daemon-reload
+sudo systemctl enable --now cellard
 
-# Initialize cluster (first manager)
-./bin/cellar --socket ./cellar-a.sock init --advertise-addr 127.0.0.1:17946 \
-  --listen-addr 127.0.0.1:17946 --raft-addr 127.0.0.1:17947
+# Host A — initialize cluster (first manager)
+# Use this host’s reachable address (defaults: data /var/lib/cellar, socket /var/run/cellar/cellar.sock)
+sudo cellar init --advertise-addr 192.0.2.10:17946
 
 # Print ready-to-run join command
-./bin/cellar --socket ./cellar-a.sock join-token worker
-# → cellar join --token CLLRN-1-… 127.0.0.1:17946
+sudo cellar join-token worker
+# → cellar join --token CLLRN-1-… 192.0.2.10:17946
 
-# Host B — worker
-./bin/cellard --data-dir ./data-b --socket ./cellar-b.sock
-./bin/cellar --socket ./cellar-b.sock join --token CLLRN-1-… 127.0.0.1:17946
+# Host B — worker (after install + enable --now cellard as above)
+sudo cellar join --token CLLRN-1-… 192.0.2.10:17946
 ```
 
-Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
-
+The control socket is mode `0660` and owned by `cellar:cellar`, so local CLI calls need root (or membership in the `cellar` group). Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
 ## Sandboxes
 
 Requires Docker with the gVisor [`runsc`](https://gvisor.dev/docs/user_guide/install/) runtime registered. After `sudo runsc install`, enable host Unix-domain sockets so `cellar-agent` can expose its control socket on the bind-mounted sandbox dir (gVisor blocks this by default):
@@ -93,28 +102,28 @@ Each sandbox runs with **`cellar-agent` as the container entrypoint** (PID 1). T
 
 ```bash
 # Create an isolated sandbox (no external network)
-cellar sandbox create --image alpine
+sudo cellar sandbox create --image alpine
 # or a language runtime preset (resolves to an Alpine image):
-cellar sandbox create --runtime node-26
+sudo cellar sandbox create --runtime node-26
 # or from YAML:
-cellar sandbox create -f examples/sandbox.yaml
+sudo cellar sandbox create -f examples/sandbox.yaml
 
 # Allowlisted egress (enforced by cellard's userspace proxy + iptables REDIRECT)
 # See internal/egress/README.md for proxy, DNS bait mount, and policy details.
-cellar sandbox create --image curlimages/curl --network allowlist \
+sudo cellar sandbox create --image curlimages/curl --network allowlist \
   --allow-host example.com --allow-port 443
-# or: cellar sandbox create -f examples/sandbox-allowlist.yaml
+# or: sudo cellar sandbox create -f examples/sandbox-allowlist.yaml
 
 # Tighten (or loosen) the policy of a running sandbox. Takes effect immediately
 # and closes connections the new policy no longer allows.
-cellar sandbox network <id> --mode allowlist --allow-host api.example.com --allow-port 443
+sudo cellar sandbox network <id> --mode allowlist --allow-host api.example.com --allow-port 443
 
-cellar sandbox ls
-cellar sandbox inspect <id>
-cellar sandbox logs -f <id>
-cellar sandbox exec <id> -- uname -a
-cellar sandbox stop <id>
-cellar sandbox rm <id>
+sudo cellar sandbox ls
+sudo cellar sandbox inspect <id>
+sudo cellar sandbox logs -f <id>
+sudo cellar sandbox exec <id> -- uname -a
+sudo cellar sandbox stop <id>
+sudo cellar sandbox rm <id>
 ```
 
 Runtime presets and their images:
