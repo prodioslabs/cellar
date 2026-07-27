@@ -15,8 +15,10 @@ import (
 	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/raftstore"
 	"github.com/prodioslabs/cellar/internal/runtime"
 	"github.com/prodioslabs/cellar/internal/sandbox"
+	"github.com/prodioslabs/cellar/internal/scheduler"
 )
 
 type heartbeatSource struct {
@@ -41,11 +43,13 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 	}
 	drv, err := runtime.NewDriver()
 	if err != nil {
+		d.runtimeErr = err
 		log.Printf("docker runtime unavailable: %v (sandbox create will fail on this node)", err)
 		return nil
 	}
 	if err := drv.DefaultOCIRuntimeAvailable(ctx); err != nil {
 		_ = drv.Close()
+		d.runtimeErr = err
 		log.Printf("oci runtime unavailable: %v (sandbox create will fail on this node)", err)
 		return nil
 	}
@@ -66,6 +70,7 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 	d.proxy = proxy
 	d.redirect = redir
 	d.agent = agent
+	d.runtimeErr = nil
 	d.runtimeSrv = grpcapi.NewRuntimeServer(agent)
 
 	d.wg.Add(1)
@@ -80,6 +85,32 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 	}()
 	log.Printf("runtime agent started for node %s", mat.NodeID)
 	return nil
+}
+
+// ensureSandboxCreateRuntime refuses create when no node can run sandboxes,
+// surfacing Docker/runsc errors instead of leaving a pending sandbox.
+func (d *Daemon) ensureSandboxCreateRuntime(ctx context.Context, raft *raftstore.Store, drv *runtime.Driver, runtimeErr error) error {
+	now := time.Now().UTC()
+	nodes, err := raft.ListNodes(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range nodes {
+		if scheduler.IsNodeLive(n, now) {
+			return nil
+		}
+	}
+	if drv != nil {
+		if err := drv.DefaultOCIRuntimeAvailable(ctx); err != nil {
+			return status.Error(codes.FailedPrecondition, err.Error())
+		}
+		// Local OCI is registered; allow create before the first heartbeat.
+		return nil
+	}
+	if runtimeErr != nil {
+		return status.Error(codes.FailedPrecondition, runtimeErr.Error())
+	}
+	return status.Error(codes.FailedPrecondition, "no node with a live sandbox runtime")
 }
 
 func (d *Daemon) managerDialAddr() string {
@@ -251,8 +282,13 @@ func (d *Daemon) SandboxCreate(ctx context.Context, req *cellarv1.SandboxCreateR
 	d.mu.Lock()
 	raft := d.raft
 	sb := d.sandboxServer
+	drv := d.driver
+	runtimeErr := d.runtimeErr
 	d.mu.Unlock()
 	if raft != nil && raft.IsLeader() && sb != nil {
+		if err := d.ensureSandboxCreateRuntime(ctx, raft, drv, runtimeErr); err != nil {
+			return nil, err
+		}
 		return sb.Create(ctx, req)
 	}
 	addr, cert, key, ca, err := d.dialLeaderControl(ctx)

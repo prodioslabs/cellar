@@ -68,7 +68,10 @@ type Daemon struct {
 	proxy         *egress.Proxy
 	redirect      *egress.RedirectManager
 	agent         *runtime.Agent
-	lastAssigned  []*sandbox.Sandbox
+	// runtimeErr is set when this node cannot start a Docker/runsc agent.
+	// SandboxCreate surfaces it when no other node has a live runtime.
+	runtimeErr   error
+	lastAssigned []*sandbox.Sandbox
 
 	localLis   net.Listener
 	localGRPC  *grpc.Server
