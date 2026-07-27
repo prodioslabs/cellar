@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -20,7 +21,7 @@ import (
 const (
 	applyTimeout     = 10 * time.Second
 	raftRetainSnap   = 2
-	defaultRaftAddr  = "127.0.0.1:17947"
+	defaultRaftAddr  = ":17947"
 	maxPool          = 3
 	transportTimeout = 10 * time.Second
 )
@@ -55,6 +56,7 @@ func Open(cfg Config) (*Store, error) {
 	if cfg.RaftAddr == "" {
 		cfg.RaftAddr = defaultRaftAddr
 	}
+	cfg.RaftAddr = resolveRaftAddr(cfg.RaftAddr)
 
 	raftDir := filepath.Join(cfg.DataDir, "raft")
 	if err := os.MkdirAll(raftDir, 0o700); err != nil {
@@ -464,3 +466,30 @@ func (s *Store) NumVoters() int {
 
 // Ensure Store implements store.Store.
 var _ store.Store = (*Store)(nil)
+
+// resolveRaftAddr fills an empty host with a private IPv4 so Raft peers can dial us.
+func resolveRaftAddr(addr string) string {
+	if strings.HasPrefix(addr, ":") {
+		return privateIPv4() + addr
+	}
+	return addr
+}
+
+func privateIPv4() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+	for _, a := range addrs {
+		ipNet, ok := a.(*net.IPNet)
+		if !ok || ipNet.IP.IsLoopback() {
+			continue
+		}
+		ip := ipNet.IP.To4()
+		if ip == nil || !ip.IsPrivate() {
+			continue
+		}
+		return ip.String()
+	}
+	return "127.0.0.1"
+}

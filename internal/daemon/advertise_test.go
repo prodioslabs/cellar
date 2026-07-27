@@ -35,6 +35,35 @@ func TestDefaultAdvertisePreservesHost(t *testing.T) {
 	}
 }
 
+func TestDefaultRaftAddrEmptyHost(t *testing.T) {
+	got := defaultRaftAddr(":17947")
+	host, port, err := net.SplitHostPort(got)
+	if err != nil {
+		t.Fatalf("defaultRaftAddr(:17947) = %q: %v", got, err)
+	}
+	if port != "17947" {
+		t.Fatalf("port = %q, want 17947", port)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.To4() == nil {
+		t.Fatalf("host = %q, want IPv4", host)
+	}
+	private := privateIPv4()
+	if host != private {
+		t.Fatalf("host = %q, want privateIPv4() %q", host, private)
+	}
+	if private != "127.0.0.1" && host == "127.0.0.1" {
+		t.Fatal("used 127.0.0.1 despite a private address being available")
+	}
+}
+
+func TestDefaultRaftAddrPreservesHost(t *testing.T) {
+	const want = "192.0.2.10:17947"
+	if got := defaultRaftAddr(want); got != want {
+		t.Fatalf("defaultRaftAddr(%q) = %q, want %q", want, got, want)
+	}
+}
+
 func TestPrivateIPv4(t *testing.T) {
 	got := privateIPv4()
 	ip := net.ParseIP(got)

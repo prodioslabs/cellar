@@ -35,7 +35,7 @@ const (
 	DefaultSocket     = "/var/run/cellar/cellar.sock"
 	DefaultDataDir    = "/var/lib/cellar"
 	DefaultListenAddr = ":17946"
-	DefaultRaftAddr   = "127.0.0.1:17947"
+	DefaultRaftAddr   = ":17947"
 
 	gracefulStopTimeout = 5 * time.Second
 	wgWaitTimeout       = 5 * time.Second
@@ -422,6 +422,7 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	if raftAddr == "" {
 		raftAddr = d.cfg.RaftAddr
 	}
+	raftAddr = defaultRaftAddr(raftAddr)
 	advertise := state.AdvertiseAddr
 	if advertise == "" {
 		advertise = defaultAdvertise(listen)
@@ -534,6 +535,7 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 	if raftAddr == "" {
 		raftAddr = d.cfg.RaftAddr
 	}
+	raftAddr = defaultRaftAddr(raftAddr)
 	advertise := req.AdvertiseAddr
 	if advertise == "" {
 		advertise = defaultAdvertise(listen)
@@ -707,6 +709,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 	if raftAddr == "" {
 		raftAddr = d.cfg.RaftAddr
 	}
+	raftAddr = defaultRaftAddr(raftAddr)
 	advertise := req.AdvertiseAddr
 	if advertise == "" {
 		advertise = defaultAdvertise(listen)
@@ -1007,6 +1010,13 @@ func defaultAdvertise(listen string) string {
 	return listen
 }
 
+func defaultRaftAddr(addr string) string {
+	if strings.HasPrefix(addr, ":") {
+		return privateIPv4() + addr
+	}
+	return addr
+}
+
 // privateIPv4 returns the first non-loopback RFC1918 IPv4 address, or
 // 127.0.0.1 if none is found.
 func privateIPv4() string {
@@ -1020,7 +1030,7 @@ func privateIPv4() string {
 			continue
 		}
 		ip := ipNet.IP.To4()
-		if ip == nil {
+		if ip == nil || !ip.IsPrivate() {
 			continue
 		}
 		return ip.String()
