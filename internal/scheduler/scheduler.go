@@ -13,6 +13,7 @@ const HeartbeatStaleAfter = 30 * time.Second
 // SelectNode picks a live runtime node using spread (fewest sandboxes).
 // Prefer nodes with a recent heartbeat; fall back to any accepted node if none are live
 // (bootstrap / first sandbox before the first heartbeat lands).
+// Nodes with availability pause or drain are never selected.
 func SelectNode(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Time) string {
 	counts := map[string]int{}
 	for _, sb := range sandboxes {
@@ -32,6 +33,9 @@ func SelectNode(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Time)
 
 	for _, n := range nodes {
 		if n == nil || n.ID == "" || n.Membership != node.MembershipAccepted {
+			continue
+		}
+		if !n.Availability.Schedulable() {
 			continue
 		}
 		c := counts[n.ID]

@@ -34,3 +34,16 @@ func TestSelectNodeFallbackWithoutHeartbeat(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestSelectNodeSkipsPauseAndDrain(t *testing.T) {
+	now := time.Now()
+	nodes := []*node.Node{
+		{ID: "paused", Membership: node.MembershipAccepted, Availability: node.AvailabilityPause, RuntimeHeartbeatAt: now},
+		{ID: "drained", Membership: node.MembershipAccepted, Availability: node.AvailabilityDrain, RuntimeHeartbeatAt: now},
+		{ID: "active", Membership: node.MembershipAccepted, Availability: node.AvailabilityActive, RuntimeHeartbeatAt: now},
+	}
+	got := scheduler.SelectNode(nodes, nil, now)
+	if got != "active" {
+		t.Fatalf("got %q want active", got)
+	}
+}
