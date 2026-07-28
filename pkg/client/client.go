@@ -61,11 +61,11 @@ type Client struct {
 }
 
 // NewFromEnv builds a client from CELLAR_* environment variables.
+// CELLAR_CA_CERT may be a file path, \\n-escaped PEM, or base64 of PEM.
 func NewFromEnv() (*Client, error) {
 	return New(Config{
-		Endpoints:  splitEndpoints(os.Getenv(EnvEndpoints)),
-		APIKey:     os.Getenv(EnvAPIKey),
-		CACertFile: os.Getenv(EnvCACert),
+		Endpoints: splitEndpoints(os.Getenv(EnvEndpoints)),
+		APIKey:    os.Getenv(EnvAPIKey),
 	})
 }
 
@@ -80,16 +80,30 @@ func New(cfg Config) (*Client, error) {
 	for i, e := range cfg.Endpoints {
 		cfg.Endpoints[i] = strings.TrimSpace(e)
 	}
-	caPEM := cfg.CACert
+
+	caPEM := append([]byte(nil), cfg.CACert...)
 	if len(caPEM) == 0 && cfg.CACertFile != "" {
-		b, err := os.ReadFile(cfg.CACertFile)
+		b, err := ResolveCACert(cfg.CACertFile)
 		if err != nil {
-			return nil, fmt.Errorf("read CA cert: %w", err)
+			return nil, fmt.Errorf("CA cert: %w", err)
 		}
 		caPEM = b
 	}
 	if len(caPEM) == 0 {
+		if v := os.Getenv(EnvCACert); v != "" {
+			b, err := ResolveCACert(v)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", EnvCACert, err)
+			}
+			caPEM = b
+		}
+	}
+	if len(caPEM) == 0 {
 		return nil, fmt.Errorf("CA certificate is required (set %s or Config.CACert)", EnvCACert)
+	}
+	if !strings.Contains(string(caPEM), "BEGIN CERTIFICATE") {
+		// Config.CACert may already be PEM bytes; if Resolve wasn't used, still validate.
+		return nil, fmt.Errorf("failed to parse CA certificate PEM")
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(caPEM) {
