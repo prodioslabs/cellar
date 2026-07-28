@@ -6,31 +6,31 @@ This repository implements the **cluster identity layer** (mTLS gRPC, Raft-repli
 
 ## Binaries
 
-| Binary | Role |
-|--------|------|
-| **`cellard`** | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
-| **`cellar`** | CLI client (`init`, `join`, `join-token`, `status`, `sandbox …`) talking to local `cellard`. |
-| **`cellar-agent`** | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket. |
+| Binary         | Role                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cellard`      | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
+| `cellar`       | CLI client (`init`, `join`, `join-token`, `status`, `ca-cert`, `api-key …`, `sandbox …`) talking to local `cellard`.                                                           |
+| `cellar-agent` | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                       |
 
 ## Roles
 
-| Role | Join token | Raft | Holds RootCA key | Control plane |
-|------|------------|------|------------------|---------------|
-| **Manager** | manager token | Voter | Yes (via Raft `Cluster.RootCA`) | Yes |
-| **Worker** | worker token | No | No | No |
+| Role        | Join token    | Raft  | Holds RootCA key                | Control plane |
+| ----------- | ------------- | ----- | ------------------------------- | ------------- |
+| **Manager** | manager token | Voter | Yes (via Raft `Cluster.RootCA`) | Yes           |
+| **Worker**  | worker token  | No    | No                              | No            |
 
-The CA private key and join secrets live on the raft-backed **`Cluster.RootCA`** object (SwarmKit-style).
+The CA private key and join secrets live on the raft-backed `Cluster.RootCA` object (SwarmKit-style).
 Local disk stores only this node’s leaf cert/key and the public CA cert.
 
 ## Ports / sockets
 
 Defaults avoid Docker Swarm’s control-plane ports (`7946` gossip, `2377` manager).
 
-| Listener | Default | Auth | Purpose |
-|----------|---------|------|---------|
-| Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions | `Init`, `Join`, `JoinToken`, `Status` |
-| Remote gRPC | `:17946` | Bootstrap insecure TLS + token digest; else mTLS | CA issue/renew, raft membership |
-| Raft TCP | `127.0.0.1:17947` | Manager network | Consensus / CA key replication |
+| Listener    | Default                       | Auth                                                                           | Purpose                                                               |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, local sandbox ops |
+| Remote gRPC | `:17946`                      | Bootstrap insecure TLS + token digest; else mTLS **or** API key (`SandboxAPI`) | CA issue/renew, raft membership, public sandbox client API            |
+| Raft TCP    | `127.0.0.1:17947`             | Manager network                                                                | Consensus / CA key replication                                        |
 
 ## Build & install
 
@@ -43,10 +43,10 @@ sudo make install   # Linux: binaries → /usr/local/bin, plus systemd unit + sy
 
 Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
 
-| Source | Destination |
-|--------|-------------|
+| Source                            | Destination                               |
+| --------------------------------- | ----------------------------------------- |
 | `contrib/systemd/cellard.service` | `/usr/lib/systemd/system/cellard.service` |
-| `contrib/systemd/cellar.sysusers` | `/usr/lib/sysusers.d/cellar.conf` |
+| `contrib/systemd/cellar.sysusers` | `/usr/lib/sysusers.d/cellar.conf`         |
 
 `make install` does not enable or start the service. Use `make uninstall` to remove the installed files.
 
@@ -72,9 +72,10 @@ sudo cellar join --token CLLRN-1-… 192.0.2.10:17946
 ```
 
 The control socket is mode `0660` and owned by `cellar:cellar`, so local CLI calls need root (or membership in the `cellar` group). Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
+
 ## Sandboxes
 
-Requires Docker with the gVisor [`runsc`](https://gvisor.dev/docs/user_guide/install/) runtime registered. After `sudo runsc install`, enable host Unix-domain sockets so `cellar-agent` can expose its control socket on the bind-mounted sandbox dir (gVisor blocks this by default):
+Requires Docker with the gVisor `[runsc](https://gvisor.dev/docs/user_guide/install/)` runtime registered. After `sudo runsc install`, enable host Unix-domain sockets so `cellar-agent` can expose its control socket on the bind-mounted sandbox dir (gVisor blocks this by default):
 
 ```json
 {
@@ -98,7 +99,7 @@ sudo runsc install
 sudo systemctl restart docker
 ```
 
-Each sandbox runs with **`cellar-agent` as the container entrypoint** (PID 1). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec`, which talks to the agent over a bind-mounted Unix socket authenticated with a per-sandbox bearer token.
+Each sandbox runs with `cellar-agent` **as the container entrypoint** (PID 1). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec`, which talks to the agent over a bind-mounted Unix socket authenticated with a per-sandbox bearer token.
 
 ```bash
 # Create an isolated sandbox (no external network)
@@ -128,35 +129,146 @@ sudo cellar sandbox rm <id>
 
 Runtime presets and their images:
 
-| Runtime | Image |
-|---------|-------|
-| `node-26` | `node:26-alpine` |
-| `bun-1.3` | `oven/bun:1.3-alpine` |
+| Runtime       | Image                         |
+| ------------- | ----------------------------- |
+| `node-26`     | `node:26-alpine`              |
+| `bun-1.3`     | `oven/bun:1.3-alpine`         |
 | `python-3.13` | `astral/uv:python3.13-alpine` |
-| `go-1.26` | `golang:1.26-alpine` |
+| `go-1.26`     | `golang:1.26-alpine`          |
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node.
 
 ## Client API (remote apps)
 
-Mint an API key once on the **Raft leader** (unix Control), then use [`pkg/client`](pkg/client) from applications — do not run the CLI for every sandbox.
+Apps talk to **managers** over gRPC (`SandboxAPI` on `:17946`) with a long-lived API key.
+Mint the key once with the CLI; do **not** run `cellar sandbox …` from application code.
+
+### Create an API key
+
+`api-key create` and `api-key rm` must run on the **Raft leader** (local unix socket).
+Check with `cellar status` (`is_leader: true`).
 
 ```bash
-# On a manager that is currently leader:
+sudo cellar status
+# is_leader:   true
+
 sudo cellar api-key create --name ci
-# → cellar_<40 hex>  (shown once)
-
-sudo cellar api-key ls
-sudo cellar api-key rm <id>
 ```
+
+Example output:
+
+```text
+API key created: <id> (ci)
+
+Store this secret now; it will not be shown again:
+
+    cellar_<40 hex chars>
+
+Export for the Go client:
+
+    export CELLAR_API_KEY=cellar_…
+```
+
+The raw `cellar_…` secret is shown **once**. Only a hash is stored in Raft; `ls` returns a mask.
 
 ```bash
-export CELLAR_API_KEY=cellar_…
-export CELLAR_ENDPOINTS=192.0.2.10:17946,192.0.2.11:17946,192.0.2.12:17946
-export CELLAR_CA_CERT=/path/to/ca.crt   # from a manager's data dir
+sudo cellar api-key ls
+# ID  NAME  MASK              CREATED
+# …   ci    cellar_ab…wxyz    …
+
+sudo cellar api-key rm <id>   # revoke; also must run on the leader
 ```
 
-The Go client round-robins manager endpoints and fails over on dial/`Unavailable` errors. Non-leader managers forward writes to the Raft leader; Exec/Logs are proxied to the owning node. Auth is `Authorization: Bearer …` or `x-api-key` metadata over TLS (cluster CA).
+### Export the cluster CA
+
+Clients need the **public** cluster CA cert (not the CA private key) to verify managers over TLS.
+
+```bash
+# PEM to stdout (any joined manager or worker)
+sudo cellar ca-cert
+
+# Write PEM file
+sudo cellar ca-cert --out ca.crt
+
+# Base64 one-liner (for secret stores)
+sudo cellar ca-cert --format base64
+
+# Ready-to-paste .env line (\\n-escaped PEM)
+sudo cellar ca-cert --env
+# → CELLAR_CA_CERT="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"
+
+sudo cellar ca-cert --env --out cellar.ca.env
+```
+
+You can still copy `/var/lib/cellar/ca.crt` from a node’s data dir directly.
+
+### Configure the client
+
+| Variable | Required | Meaning |
+|----------|----------|---------|
+| `CELLAR_API_KEY` | yes | Raw key from `api-key create` (`cellar_…`) |
+| `CELLAR_ENDPOINTS` | yes | Comma-separated manager gRPC addrs (`host:17946`) |
+| `CELLAR_CA_CERT` | yes | File path, `\n`-escaped PEM (from `ca-cert --env`), or base64 of PEM |
+
+```bash
+export CELLAR_API_KEY='cellar_…'
+export CELLAR_ENDPOINTS='192.0.2.10:17946,192.0.2.11:17946,192.0.2.12:17946'
+
+# Option A: path to PEM file
+export CELLAR_CA_CERT=/var/lib/cellar/ca.crt
+# Option B: paste output of `cellar ca-cert --env` into your .env
+```
+
+List every manager you want the client to fail over across. A single endpoint is fine; there is no in-tree network load balancer.
+
+### Use the Go client
+
+Package: `[pkg/client](pkg/client)`. Auth is sent as `Authorization: Bearer …` and `x-api-key`. The client round-robins endpoints and retries on dial / `Unavailable` / `DeadlineExceeded`. Non-leader managers forward writes to the Raft leader; Exec/Logs are proxied to the owning node.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/pkg/client"
+)
+
+func main() {
+	c, err := client.NewFromEnv() // or client.New(client.Config{…})
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx := context.Background()
+
+	sb, err := c.Create(ctx, &cellarv1.SandboxCreateRequest{
+		Spec: &cellarv1.SandboxSpec{Image: "alpine:3.20"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("created", sb.Id)
+
+	res, err := c.Exec(ctx, sb.Id, []string{"uname", "-a"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("exit=%d stdout=%s\n", res.ExitCode, res.Stdout)
+
+	if err := c.Remove(ctx, sb.Id); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+Supported client ops: `Create`, `Stop`, `Remove`, `Get`, `List`, `UpdateNetwork`, `Exec` (and streaming Logs via the generated `SandboxAPI` stub if you dial directly).
+
+### Rotation
+
+Create a new key, update `CELLAR_API_KEY` in your apps/secrets, then `cellar api-key rm <old-id>` on the leader.
 
 ## Cluster CA (HA)
 
