@@ -20,7 +20,10 @@ GO          ?= go
 PROTOC      ?= protoc
 UNAME_S     := $(shell uname -s)
 
-.PHONY: all build cellard cellar cellar-agent install uninstall proto tools test clean help
+SDK_NODE_DIR := sdk/node
+SANDBOX_PROTO := $(PROTO_DIR)/sandbox.proto
+
+.PHONY: all build cellard cellar cellar-agent install uninstall proto tools test clean help sdk-node-proto
 
 all: build
 
@@ -33,6 +36,7 @@ help:
 	@echo "  make install       Install binaries, systemd unit, and sysusers drop-in (Linux)"
 	@echo "  make uninstall     Remove installed binaries, systemd unit, and sysusers drop-in (Linux)"
 	@echo "  make proto         Regenerate gRPC stubs from $(PROTO_DIR)/"
+	@echo "  make sdk-node-proto Regenerate TypeScript stubs under $(SDK_NODE_DIR)/src/gen/"
 	@echo "  make tools         Install protoc-gen-go and protoc-gen-go-grpc"
 	@echo "  make test          Run go test ./..."
 	@echo "  make clean         Remove built binaries"
@@ -89,6 +93,11 @@ proto: $(PROTO_SRCS) $(AGENT_PROTO)
 		--go_out=$(GEN_DIR)/agent --go_opt=paths=source_relative \
 		--go-grpc_out=$(GEN_DIR)/agent --go-grpc_opt=paths=source_relative \
 		$(AGENT_PROTO)
+
+# Requires bun install in sdk/node (ts-proto plugin).
+sdk-node-proto: $(SANDBOX_PROTO)
+	@mkdir -p $(SDK_NODE_DIR)/src/gen
+	cd $(SDK_NODE_DIR) && bun run proto
 
 test:
 	$(GO) test ./...

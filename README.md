@@ -71,7 +71,31 @@ sudo cellar join-token worker
 sudo cellar join --token CLLRN-1-… 192.0.2.10:17946
 ```
 
-The control socket is mode `0660` and owned by `cellar:cellar`, so local CLI calls need root (or membership in the `cellar` group). Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
+Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
+
+## Manage Cellar as a non-root user
+
+The control socket is mode `0660` and owned by `cellar:cellar`. By default only root can talk to it; to run `cellar` without `sudo`, add your user to the `cellar` group (created by `systemd-sysusers` from `contrib/systemd/cellar.sysusers`).
+
+> **Warning:** The `cellar` group grants local control-plane access equivalent to root for CLI operations against the socket.
+
+1. Add your user to the `cellar` group.
+
+   ```bash
+   sudo usermod -aG cellar $USER
+   ```
+
+2. Log out and log back in so that your group membership is re-evaluated. You can also activate the group in the current shell:
+
+   ```bash
+   newgrp cellar
+   ```
+
+3. Verify that you can run `cellar` without `sudo` (with `cellard` already running):
+
+   ```bash
+   cellar status
+   ```
 
 ## Sandboxes
 
@@ -164,7 +188,7 @@ Store this secret now; it will not be shown again:
 
     cellar_<40 hex chars>
 
-Export for the Go client:
+Export for clients:
 
     export CELLAR_API_KEY=cellar_…
 ```
@@ -266,6 +290,32 @@ func main() {
 
 Supported client ops: `Create`, `Stop`, `Remove`, `Get`, `List`, `UpdateNetwork`, `Exec` (and streaming Logs via the generated `SandboxAPI` stub if you dial directly).
 
+### Use the TypeScript client
+
+Package: [`@cellar/node`](sdk/node) (Node.js 18+ and Bun). Same env vars and auth as the Go client.
+
+```bash
+npm install @cellar/node
+```
+
+```ts
+import { Client } from "@cellar/node";
+
+const c = Client.fromEnv();
+
+const sb = await c.create({
+  spec: { image: "alpine:3.20" },
+});
+console.log("created", sb.id);
+
+const res = await c.exec(sb.id, ["uname", "-a"]);
+console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`);
+
+await c.remove(sb.id);
+```
+
+See [`sdk/node/README.md`](sdk/node/README.md) for details. Regenerate stubs with `make sdk-node-proto`.
+
 ### Rotation
 
 Create a new key, update `CELLAR_API_KEY` in your apps/secrets, then `cellar api-key rm <old-id>` on the leader.
@@ -282,6 +332,7 @@ Create a new key, update `CELLAR_API_KEY` in your apps/secrets, then `cellar api
 ```bash
 make tools   # install protoc-gen-go and protoc-gen-go-grpc (needs protoc on PATH)
 make proto   # regenerate gRPC stubs under api/gen/
+make sdk-node-proto  # regenerate TypeScript stubs under sdk/node/src/gen/ (needs bun install in sdk/node)
 make test
 make clean
 ```
