@@ -54,8 +54,12 @@ func (f *FSM) Apply(l *raft.Log) interface{} {
 		return f.applyUpdateCluster(cmd.Op, cmd.Payload)
 	case opSaveNode:
 		return f.applySaveNode(cmd.Payload)
+	case opDeleteNode:
+		return f.applyDeleteNode(cmd.Payload)
 	case opSavePeer:
 		return f.applySavePeer(cmd.Payload)
+	case opDeletePeer:
+		return f.applyDeletePeer(cmd.Payload)
 	case opSaveSandbox:
 		return f.applySaveSandbox(cmd.Payload)
 	case opDeleteSandbox:
@@ -178,7 +182,23 @@ func (f *FSM) applySaveNode(raw json.RawMessage) interface{} {
 		return fmt.Errorf("node is required")
 	}
 	cp := *p.Node
+	cp.Labels = node.CloneLabels(p.Node.Labels)
 	f.nodes[p.Node.ID] = &cp
+	return nil
+}
+
+func (f *FSM) applyDeleteNode(raw json.RawMessage) interface{} {
+	var p deleteNodePayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.ID == "" {
+		return fmt.Errorf("node id is required")
+	}
+	if _, ok := f.nodes[p.ID]; !ok {
+		return store.ErrNodeNotFound
+	}
+	delete(f.nodes, p.ID)
 	return nil
 }
 
@@ -191,6 +211,18 @@ func (f *FSM) applySavePeer(raw json.RawMessage) interface{} {
 		return fmt.Errorf("peer node_id is required")
 	}
 	f.peers[p.Peer.NodeID] = p.Peer
+	return nil
+}
+
+func (f *FSM) applyDeletePeer(raw json.RawMessage) interface{} {
+	var p deletePeerPayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.ID == "" {
+		return fmt.Errorf("peer node_id is required")
+	}
+	delete(f.peers, p.ID)
 	return nil
 }
 
@@ -446,6 +478,7 @@ func (f *FSM) getNode(id string) (*node.Node, error) {
 		return nil, store.ErrNodeNotFound
 	}
 	cp := *n
+	cp.Labels = node.CloneLabels(n.Labels)
 	return &cp, nil
 }
 
@@ -455,6 +488,7 @@ func (f *FSM) listNodes() []*node.Node {
 	out := make([]*node.Node, 0, len(f.nodes))
 	for _, n := range f.nodes {
 		cp := *n
+		cp.Labels = node.CloneLabels(n.Labels)
 		out = append(out, &cp)
 	}
 	return out

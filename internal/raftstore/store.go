@@ -230,11 +230,46 @@ func (s *Store) LeaderGRPC() string {
 // NodeID returns this manager's Raft server ID.
 func (s *Store) NodeID() string { return s.cfg.NodeID }
 
+// LeaderID returns the Raft server ID of the current leader, if known.
+func (s *Store) LeaderID() string {
+	_, id := s.raft.LeaderWithID()
+	return string(id)
+}
+
+// IsVoter reports whether nodeID is a Raft voter in the current configuration.
+func (s *Store) IsVoter(nodeID string) bool {
+	if s.raft == nil || nodeID == "" {
+		return false
+	}
+	fut := s.raft.GetConfiguration()
+	if err := fut.Error(); err != nil {
+		return false
+	}
+	for _, srv := range fut.Configuration().Servers {
+		if string(srv.ID) == nodeID && srv.Suffrage == raft.Voter {
+			return true
+		}
+	}
+	return false
+}
+
 // RaftAddr returns this manager's Raft bind address.
 func (s *Store) RaftAddr() string { return string(s.transport.LocalAddr()) }
 
 // GRPCAdvertise returns this manager's advertised gRPC address.
 func (s *Store) GRPCAdvertise() string { return s.cfg.GRPCAdvertise }
+
+// LeadershipTransfer asks this leader to hand off leadership to another voter.
+func (s *Store) LeadershipTransfer() error {
+	if s.raft == nil {
+		return fmt.Errorf("raft is not enabled")
+	}
+	if !s.IsLeader() {
+		return store.ErrNotLeader
+	}
+	fut := s.raft.LeadershipTransfer()
+	return fut.Error()
+}
 
 // AddVoter adds a manager as a Raft voter and records its peer info.
 func (s *Store) AddVoter(ctx context.Context, peer PeerInfo) error {
@@ -270,6 +305,22 @@ func (s *Store) SavePeer(ctx context.Context, peer PeerInfo) error {
 		return store.ErrNotLeader
 	}
 	data, err := encodeCommand(opSavePeer, savePeerPayload{Peer: peer})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// DeletePeer removes manager address metadata from the FSM.
+func (s *Store) DeletePeer(ctx context.Context, nodeID string) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if nodeID == "" {
+		return fmt.Errorf("peer node_id is required")
+	}
+	data, err := encodeCommand(opDeletePeer, deletePeerPayload{ID: nodeID})
 	if err != nil {
 		return err
 	}
@@ -380,6 +431,22 @@ func (s *Store) SaveNode(ctx context.Context, n *node.Node) error {
 		return fmt.Errorf("node is required")
 	}
 	data, err := encodeCommand(opSaveNode, saveNodePayload{Node: n})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// DeleteNode removes a node record from the FSM.
+func (s *Store) DeleteNode(ctx context.Context, nodeID string) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if nodeID == "" {
+		return fmt.Errorf("node id is required")
+	}
+	data, err := encodeCommand(opDeleteNode, deleteNodePayload{ID: nodeID})
 	if err != nil {
 		return err
 	}

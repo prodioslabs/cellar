@@ -79,6 +79,7 @@ type Store interface {
 	GetRootCA(ctx context.Context) (*ca.RootCA, error)
 	GetNode(ctx context.Context, nodeID string) (*node.Node, error)
 	SaveNode(ctx context.Context, n *node.Node) error
+	DeleteNode(ctx context.Context, nodeID string) error
 	ListNodes(ctx context.Context) ([]*node.Node, error)
 
 	SaveSandbox(ctx context.Context, sb *sandbox.Sandbox) error

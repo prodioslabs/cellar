@@ -16,7 +16,9 @@ const (
 	opCreateCluster  = "create_cluster"
 	opUpdateCluster  = "update_cluster"
 	opSaveNode       = "save_node"
+	opDeleteNode     = "delete_node"
 	opSavePeer       = "save_peer"
+	opDeletePeer     = "delete_peer"
 	opSaveSandbox    = "save_sandbox"
 	opDeleteSandbox  = "delete_sandbox"
 	opSaveAPIKey     = "save_api_key"
@@ -45,6 +47,10 @@ type saveNodePayload struct {
 	Node *node.Node `json:"node"`
 }
 
+type deleteNodePayload struct {
+	ID string `json:"id"`
+}
+
 // PeerInfo tracks a manager's Raft and gRPC addresses.
 type PeerInfo struct {
 	NodeID   string `json:"node_id"`
@@ -54,6 +60,10 @@ type PeerInfo struct {
 
 type savePeerPayload struct {
 	Peer PeerInfo `json:"peer"`
+}
+
+type deletePeerPayload struct {
+	ID string `json:"id"`
 }
 
 type saveSandboxPayload struct {
