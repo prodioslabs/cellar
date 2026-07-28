@@ -1,8 +1,14 @@
+<p align="center">
+  <img src="assets/cellar-logo.png" alt="Cellar — isometric C of slate-blue cubes with a single orange cube in the center" width="220" />
+</p>
+
 # Cellar
 
 Cellar is a Docker Swarm–style container orchestrator control plane for isolated sandboxes.
 This repository implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
 **sandbox lifecycle** (desired state in Raft, Docker + gVisor `runsc` on every node, userspace egress policy).
+
+Clients: Go [`pkg/client`](pkg/client) and TypeScript [`@cellar/node`](sdk/node) — see [Client API](#client-api-remote-apps) and [`sdk/node/README.md`](sdk/node/README.md).
 
 ## Binaries
 
@@ -316,29 +322,31 @@ Supported client ops: `Create`, `Stop`, `Remove`, `Get`, `List`, `UpdateNetwork`
 
 ### Use the TypeScript client
 
-Package: [`@cellar/node`](sdk/node) (Node.js 18+ and Bun). Same env vars and auth as the Go client.
+Package: [`@cellar/node`](sdk/node) — full docs in [`sdk/node/README.md`](sdk/node/README.md). Works on **Node.js 18+** and **Bun**. Same env vars and auth as the Go client; TLS verifies managers with the cluster CA using SNI `cellar-manager`.
 
 ```bash
 npm install @cellar/node
+# or: bun add @cellar/node
 ```
 
 ```ts
-import { Client } from "@cellar/node";
+import { Client } from '@cellar/node'
 
-const c = Client.fromEnv();
+const c = Client.fromEnv()
+// or: Client.create({ endpoints: ["192.0.2.10:17946"], apiKey: "cellar_…", caCertFile: "./ca.crt" })
 
 const sb = await c.create({
-  spec: { image: "alpine:3.20" },
-});
-console.log("created", sb.id);
+  spec: { image: 'alpine:3.20' },
+})
+console.log('created', sb.id)
 
-const res = await c.exec(sb.id, ["uname", "-a"]);
-console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`);
+const res = await c.exec(sb.id, ['uname', '-a'])
+console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`)
 
-await c.remove(sb.id);
+await c.remove(sb.id)
 ```
 
-See [`sdk/node/README.md`](sdk/node/README.md) for details. Regenerate stubs with `make sdk-node-proto`.
+Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`. Regenerate stubs with `make sdk-node-proto`.
 
 ### Rotation
 

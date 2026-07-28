@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../assets/cellar-logo.png" alt="Cellar — isometric C of slate-blue cubes with a single orange cube in the center" width="160" />
+</p>
+
 # `@cellar/node`
 
 TypeScript SDK for Cellar’s public **SandboxAPI**. Works on **Node.js 18+** and **Bun**.
