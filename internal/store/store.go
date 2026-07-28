@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/prodioslabs/cellar/internal/apikey"
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/sandbox"
@@ -20,6 +21,8 @@ var (
 	ErrNodeNotFound = errors.New("node not found")
 	// ErrSandboxNotFound indicates a sandbox record is missing.
 	ErrSandboxNotFound = errors.New("sandbox not found")
+	// ErrAPIKeyNotFound indicates an API key record is missing.
+	ErrAPIKeyNotFound = errors.New("api key not found")
 	// ErrNotLeader indicates the node is not the Raft leader.
 	ErrNotLeader = errors.New("not the raft leader")
 )
@@ -83,4 +86,10 @@ type Store interface {
 	GetSandbox(ctx context.Context, id string) (*sandbox.Sandbox, error)
 	ListSandboxes(ctx context.Context) ([]*sandbox.Sandbox, error)
 	ListSandboxesByNode(ctx context.Context, nodeID string) ([]*sandbox.Sandbox, error)
+
+	SaveAPIKey(ctx context.Context, key *apikey.Key) error
+	DeleteAPIKey(ctx context.Context, id string) error
+	GetAPIKey(ctx context.Context, id string) (*apikey.Key, error)
+	GetAPIKeyByHash(ctx context.Context, keyHash string) (*apikey.Key, error)
+	ListAPIKeys(ctx context.Context) ([]*apikey.Key, error)
 }

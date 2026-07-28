@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
 
+	"github.com/prodioslabs/cellar/internal/apikey"
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/sandbox"
@@ -439,6 +440,56 @@ func (s *Store) ListSandboxes(ctx context.Context) ([]*sandbox.Sandbox, error) {
 func (s *Store) ListSandboxesByNode(ctx context.Context, nodeID string) ([]*sandbox.Sandbox, error) {
 	_ = ctx
 	return s.fsm.listSandboxesByNode(nodeID), nil
+}
+
+// SaveAPIKey replicates an API key record (hash only).
+func (s *Store) SaveAPIKey(ctx context.Context, key *apikey.Key) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if key == nil || key.ID == "" || key.KeyHash == "" {
+		return fmt.Errorf("api key is required")
+	}
+	data, err := encodeCommand(opSaveAPIKey, saveAPIKeyPayload{Key: key})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// DeleteAPIKey removes an API key from the FSM.
+func (s *Store) DeleteAPIKey(ctx context.Context, id string) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if id == "" {
+		return fmt.Errorf("api key id is required")
+	}
+	data, err := encodeCommand(opDeleteAPIKey, deleteAPIKeyPayload{ID: id})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// GetAPIKey returns an API key by id.
+func (s *Store) GetAPIKey(ctx context.Context, id string) (*apikey.Key, error) {
+	_ = ctx
+	return s.fsm.getAPIKey(id)
+}
+
+// GetAPIKeyByHash looks up an API key by its secret hash.
+func (s *Store) GetAPIKeyByHash(ctx context.Context, keyHash string) (*apikey.Key, error) {
+	_ = ctx
+	return s.fsm.getAPIKeyByHash(keyHash)
+}
+
+// ListAPIKeys returns all API keys.
+func (s *Store) ListAPIKeys(ctx context.Context) ([]*apikey.Key, error) {
+	_ = ctx
+	return s.fsm.listAPIKeys(), nil
 }
 
 // ListPeers returns known manager peer metadata.
