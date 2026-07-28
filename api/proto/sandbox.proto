@@ -5,6 +5,7 @@ package cellar.v1;
 option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
 
 // SandboxControl is served on managers (mTLS). Leader applies Raft writes.
+// Callers must present a cluster client certificate.
 service SandboxControl {
   rpc Create(SandboxCreateRequest) returns (SandboxCreateResponse);
   rpc Stop(SandboxStopRequest) returns (SandboxStopResponse);
@@ -12,6 +13,20 @@ service SandboxControl {
   rpc Get(SandboxGetRequest) returns (SandboxGetResponse);
   rpc List(SandboxListRequest) returns (SandboxListResponse);
   rpc UpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
+}
+
+// SandboxAPI is the public client API on managers. Authenticate with an API key
+// (authorization: Bearer cellar_… or x-api-key metadata). Non-leader managers
+// forward mutating RPCs to the Raft leader. Exec/Logs are proxied to the owning node.
+service SandboxAPI {
+  rpc Create(SandboxCreateRequest) returns (SandboxCreateResponse);
+  rpc Stop(SandboxStopRequest) returns (SandboxStopResponse);
+  rpc Remove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
+  rpc Get(SandboxGetRequest) returns (SandboxGetResponse);
+  rpc List(SandboxListRequest) returns (SandboxListResponse);
+  rpc UpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
+  rpc Logs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
+  rpc Exec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
 }
 
 // RuntimeAgent is served on managers. Nodes report heartbeats and status.

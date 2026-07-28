@@ -605,6 +605,370 @@ func (x *StatusResponse) GetInitialized() bool {
 	return false
 }
 
+type APIKeyCreateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *APIKeyCreateRequest) Reset() {
+	*x = APIKeyCreateRequest{}
+	mi := &file_control_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKeyCreateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKeyCreateRequest) ProtoMessage() {}
+
+func (x *APIKeyCreateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKeyCreateRequest.ProtoReflect.Descriptor instead.
+func (*APIKeyCreateRequest) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *APIKeyCreateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type APIKeyCreateResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Key               string                 `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"` // raw secret; shown once
+	Mask              string                 `protobuf:"bytes,4,opt,name=mask,proto3" json:"mask,omitempty"`
+	CreatedAtUnixNano int64                  `protobuf:"varint,5,opt,name=created_at_unix_nano,json=createdAtUnixNano,proto3" json:"created_at_unix_nano,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *APIKeyCreateResponse) Reset() {
+	*x = APIKeyCreateResponse{}
+	mi := &file_control_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKeyCreateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKeyCreateResponse) ProtoMessage() {}
+
+func (x *APIKeyCreateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKeyCreateResponse.ProtoReflect.Descriptor instead.
+func (*APIKeyCreateResponse) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *APIKeyCreateResponse) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *APIKeyCreateResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *APIKeyCreateResponse) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *APIKeyCreateResponse) GetMask() string {
+	if x != nil {
+		return x.Mask
+	}
+	return ""
+}
+
+func (x *APIKeyCreateResponse) GetCreatedAtUnixNano() int64 {
+	if x != nil {
+		return x.CreatedAtUnixNano
+	}
+	return 0
+}
+
+type APIKeyListRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *APIKeyListRequest) Reset() {
+	*x = APIKeyListRequest{}
+	mi := &file_control_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKeyListRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKeyListRequest) ProtoMessage() {}
+
+func (x *APIKeyListRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKeyListRequest.ProtoReflect.Descriptor instead.
+func (*APIKeyListRequest) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{12}
+}
+
+type APIKeyInfo struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Mask              string                 `protobuf:"bytes,3,opt,name=mask,proto3" json:"mask,omitempty"`
+	CreatedAtUnixNano int64                  `protobuf:"varint,4,opt,name=created_at_unix_nano,json=createdAtUnixNano,proto3" json:"created_at_unix_nano,omitempty"`
+	LastUsedUnixNano  int64                  `protobuf:"varint,5,opt,name=last_used_unix_nano,json=lastUsedUnixNano,proto3" json:"last_used_unix_nano,omitempty"`
+	Disabled          bool                   `protobuf:"varint,6,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *APIKeyInfo) Reset() {
+	*x = APIKeyInfo{}
+	mi := &file_control_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKeyInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKeyInfo) ProtoMessage() {}
+
+func (x *APIKeyInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKeyInfo.ProtoReflect.Descriptor instead.
+func (*APIKeyInfo) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *APIKeyInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *APIKeyInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *APIKeyInfo) GetMask() string {
+	if x != nil {
+		return x.Mask
+	}
+	return ""
+}
+
+func (x *APIKeyInfo) GetCreatedAtUnixNano() int64 {
+	if x != nil {
+		return x.CreatedAtUnixNano
+	}
+	return 0
+}
+
+func (x *APIKeyInfo) GetLastUsedUnixNano() int64 {
+	if x != nil {
+		return x.LastUsedUnixNano
+	}
+	return 0
+}
+
+func (x *APIKeyInfo) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+type APIKeyListResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []*APIKeyInfo          `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *APIKeyListResponse) Reset() {
+	*x = APIKeyListResponse{}
+	mi := &file_control_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKeyListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKeyListResponse) ProtoMessage() {}
+
+func (x *APIKeyListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKeyListResponse.ProtoReflect.Descriptor instead.
+func (*APIKeyListResponse) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *APIKeyListResponse) GetKeys() []*APIKeyInfo {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+type APIKeyDeleteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *APIKeyDeleteRequest) Reset() {
+	*x = APIKeyDeleteRequest{}
+	mi := &file_control_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKeyDeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKeyDeleteRequest) ProtoMessage() {}
+
+func (x *APIKeyDeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKeyDeleteRequest.ProtoReflect.Descriptor instead.
+func (*APIKeyDeleteRequest) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *APIKeyDeleteRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type APIKeyDeleteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *APIKeyDeleteResponse) Reset() {
+	*x = APIKeyDeleteResponse{}
+	mi := &file_control_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKeyDeleteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKeyDeleteResponse) ProtoMessage() {}
+
+func (x *APIKeyDeleteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_control_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKeyDeleteResponse.ProtoReflect.Descriptor instead.
+func (*APIKeyDeleteResponse) Descriptor() ([]byte, []int) {
+	return file_control_proto_rawDescGZIP(), []int{16}
+}
+
 var File_control_proto protoreflect.FileDescriptor
 
 const file_control_proto_rawDesc = "" +
@@ -653,7 +1017,29 @@ const file_control_proto_rawDesc = "" +
 	"cluster_id\x18\x03 \x01(\tR\tclusterId\x12\x1b\n" +
 	"\tis_leader\x18\x04 \x01(\bR\bisLeader\x12%\n" +
 	"\x0eadvertise_addr\x18\x05 \x01(\tR\radvertiseAddr\x12 \n" +
-	"\vinitialized\x18\x06 \x01(\bR\vinitialized2\xd4\a\n" +
+	"\vinitialized\x18\x06 \x01(\bR\vinitialized\")\n" +
+	"\x13APIKeyCreateRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x91\x01\n" +
+	"\x14APIKeyCreateResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
+	"\x03key\x18\x03 \x01(\tR\x03key\x12\x12\n" +
+	"\x04mask\x18\x04 \x01(\tR\x04mask\x12/\n" +
+	"\x14created_at_unix_nano\x18\x05 \x01(\x03R\x11createdAtUnixNano\"\x13\n" +
+	"\x11APIKeyListRequest\"\xc0\x01\n" +
+	"\n" +
+	"APIKeyInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04mask\x18\x03 \x01(\tR\x04mask\x12/\n" +
+	"\x14created_at_unix_nano\x18\x04 \x01(\x03R\x11createdAtUnixNano\x12-\n" +
+	"\x13last_used_unix_nano\x18\x05 \x01(\x03R\x10lastUsedUnixNano\x12\x1a\n" +
+	"\bdisabled\x18\x06 \x01(\bR\bdisabled\"?\n" +
+	"\x12APIKeyListResponse\x12)\n" +
+	"\x04keys\x18\x01 \x03(\v2\x15.cellar.v1.APIKeyInfoR\x04keys\"%\n" +
+	"\x13APIKeyDeleteRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
+	"\x14APIKeyDeleteResponse2\xc1\t\n" +
 	"\aControl\x127\n" +
 	"\x04Init\x12\x16.cellar.v1.InitRequest\x1a\x17.cellar.v1.InitResponse\x127\n" +
 	"\x04Join\x12\x16.cellar.v1.JoinRequest\x1a\x17.cellar.v1.JoinResponse\x12:\n" +
@@ -668,7 +1054,11 @@ const file_control_proto_rawDesc = "" +
 	"\x14SandboxUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse\x12L\n" +
 	"\vSandboxList\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12K\n" +
 	"\vSandboxLogs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12O\n" +
-	"\vSandboxExec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01B0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
+	"\vSandboxExec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01\x12O\n" +
+	"\fAPIKeyCreate\x12\x1e.cellar.v1.APIKeyCreateRequest\x1a\x1f.cellar.v1.APIKeyCreateResponse\x12I\n" +
+	"\n" +
+	"APIKeyList\x12\x1c.cellar.v1.APIKeyListRequest\x1a\x1d.cellar.v1.APIKeyListResponse\x12O\n" +
+	"\fAPIKeyDelete\x12\x1e.cellar.v1.APIKeyDeleteRequest\x1a\x1f.cellar.v1.APIKeyDeleteResponseB0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
 
 var (
 	file_control_proto_rawDescOnce sync.Once
@@ -682,7 +1072,7 @@ func file_control_proto_rawDescGZIP() []byte {
 	return file_control_proto_rawDescData
 }
 
-var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_control_proto_goTypes = []any{
 	(*InitRequest)(nil),                  // 0: cellar.v1.InitRequest
 	(*InitResponse)(nil),                 // 1: cellar.v1.InitResponse
@@ -694,54 +1084,68 @@ var file_control_proto_goTypes = []any{
 	(*LeaveResponse)(nil),                // 7: cellar.v1.LeaveResponse
 	(*StatusRequest)(nil),                // 8: cellar.v1.StatusRequest
 	(*StatusResponse)(nil),               // 9: cellar.v1.StatusResponse
-	(*SandboxCreateRequest)(nil),         // 10: cellar.v1.SandboxCreateRequest
-	(*SandboxStopRequest)(nil),           // 11: cellar.v1.SandboxStopRequest
-	(*SandboxRemoveRequest)(nil),         // 12: cellar.v1.SandboxRemoveRequest
-	(*SandboxGetRequest)(nil),            // 13: cellar.v1.SandboxGetRequest
-	(*SandboxUpdateNetworkRequest)(nil),  // 14: cellar.v1.SandboxUpdateNetworkRequest
-	(*SandboxListRequest)(nil),           // 15: cellar.v1.SandboxListRequest
-	(*SandboxLogsRequest)(nil),           // 16: cellar.v1.SandboxLogsRequest
-	(*SandboxExecMessage)(nil),           // 17: cellar.v1.SandboxExecMessage
-	(*SandboxCreateResponse)(nil),        // 18: cellar.v1.SandboxCreateResponse
-	(*SandboxStopResponse)(nil),          // 19: cellar.v1.SandboxStopResponse
-	(*SandboxRemoveResponse)(nil),        // 20: cellar.v1.SandboxRemoveResponse
-	(*SandboxGetResponse)(nil),           // 21: cellar.v1.SandboxGetResponse
-	(*SandboxUpdateNetworkResponse)(nil), // 22: cellar.v1.SandboxUpdateNetworkResponse
-	(*SandboxListResponse)(nil),          // 23: cellar.v1.SandboxListResponse
-	(*SandboxLogsChunk)(nil),             // 24: cellar.v1.SandboxLogsChunk
+	(*APIKeyCreateRequest)(nil),          // 10: cellar.v1.APIKeyCreateRequest
+	(*APIKeyCreateResponse)(nil),         // 11: cellar.v1.APIKeyCreateResponse
+	(*APIKeyListRequest)(nil),            // 12: cellar.v1.APIKeyListRequest
+	(*APIKeyInfo)(nil),                   // 13: cellar.v1.APIKeyInfo
+	(*APIKeyListResponse)(nil),           // 14: cellar.v1.APIKeyListResponse
+	(*APIKeyDeleteRequest)(nil),          // 15: cellar.v1.APIKeyDeleteRequest
+	(*APIKeyDeleteResponse)(nil),         // 16: cellar.v1.APIKeyDeleteResponse
+	(*SandboxCreateRequest)(nil),         // 17: cellar.v1.SandboxCreateRequest
+	(*SandboxStopRequest)(nil),           // 18: cellar.v1.SandboxStopRequest
+	(*SandboxRemoveRequest)(nil),         // 19: cellar.v1.SandboxRemoveRequest
+	(*SandboxGetRequest)(nil),            // 20: cellar.v1.SandboxGetRequest
+	(*SandboxUpdateNetworkRequest)(nil),  // 21: cellar.v1.SandboxUpdateNetworkRequest
+	(*SandboxListRequest)(nil),           // 22: cellar.v1.SandboxListRequest
+	(*SandboxLogsRequest)(nil),           // 23: cellar.v1.SandboxLogsRequest
+	(*SandboxExecMessage)(nil),           // 24: cellar.v1.SandboxExecMessage
+	(*SandboxCreateResponse)(nil),        // 25: cellar.v1.SandboxCreateResponse
+	(*SandboxStopResponse)(nil),          // 26: cellar.v1.SandboxStopResponse
+	(*SandboxRemoveResponse)(nil),        // 27: cellar.v1.SandboxRemoveResponse
+	(*SandboxGetResponse)(nil),           // 28: cellar.v1.SandboxGetResponse
+	(*SandboxUpdateNetworkResponse)(nil), // 29: cellar.v1.SandboxUpdateNetworkResponse
+	(*SandboxListResponse)(nil),          // 30: cellar.v1.SandboxListResponse
+	(*SandboxLogsChunk)(nil),             // 31: cellar.v1.SandboxLogsChunk
 }
 var file_control_proto_depIdxs = []int32{
-	0,  // 0: cellar.v1.Control.Init:input_type -> cellar.v1.InitRequest
-	2,  // 1: cellar.v1.Control.Join:input_type -> cellar.v1.JoinRequest
-	6,  // 2: cellar.v1.Control.Leave:input_type -> cellar.v1.LeaveRequest
-	4,  // 3: cellar.v1.Control.JoinToken:input_type -> cellar.v1.JoinTokenRequest
-	8,  // 4: cellar.v1.Control.Status:input_type -> cellar.v1.StatusRequest
-	10, // 5: cellar.v1.Control.SandboxCreate:input_type -> cellar.v1.SandboxCreateRequest
-	11, // 6: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
-	12, // 7: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
-	13, // 8: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
-	14, // 9: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	15, // 10: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
-	16, // 11: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
-	17, // 12: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
-	1,  // 13: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
-	3,  // 14: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
-	7,  // 15: cellar.v1.Control.Leave:output_type -> cellar.v1.LeaveResponse
-	5,  // 16: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
-	9,  // 17: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
-	18, // 18: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
-	19, // 19: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
-	20, // 20: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
-	21, // 21: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
-	22, // 22: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	23, // 23: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
-	24, // 24: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
-	17, // 25: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
-	13, // [13:26] is the sub-list for method output_type
-	0,  // [0:13] is the sub-list for method input_type
-	0,  // [0:0] is the sub-list for extension type_name
-	0,  // [0:0] is the sub-list for extension extendee
-	0,  // [0:0] is the sub-list for field type_name
+	13, // 0: cellar.v1.APIKeyListResponse.keys:type_name -> cellar.v1.APIKeyInfo
+	0,  // 1: cellar.v1.Control.Init:input_type -> cellar.v1.InitRequest
+	2,  // 2: cellar.v1.Control.Join:input_type -> cellar.v1.JoinRequest
+	6,  // 3: cellar.v1.Control.Leave:input_type -> cellar.v1.LeaveRequest
+	4,  // 4: cellar.v1.Control.JoinToken:input_type -> cellar.v1.JoinTokenRequest
+	8,  // 5: cellar.v1.Control.Status:input_type -> cellar.v1.StatusRequest
+	17, // 6: cellar.v1.Control.SandboxCreate:input_type -> cellar.v1.SandboxCreateRequest
+	18, // 7: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
+	19, // 8: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
+	20, // 9: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
+	21, // 10: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	22, // 11: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
+	23, // 12: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
+	24, // 13: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
+	10, // 14: cellar.v1.Control.APIKeyCreate:input_type -> cellar.v1.APIKeyCreateRequest
+	12, // 15: cellar.v1.Control.APIKeyList:input_type -> cellar.v1.APIKeyListRequest
+	15, // 16: cellar.v1.Control.APIKeyDelete:input_type -> cellar.v1.APIKeyDeleteRequest
+	1,  // 17: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
+	3,  // 18: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
+	7,  // 19: cellar.v1.Control.Leave:output_type -> cellar.v1.LeaveResponse
+	5,  // 20: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
+	9,  // 21: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
+	25, // 22: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
+	26, // 23: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
+	27, // 24: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
+	28, // 25: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
+	29, // 26: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	30, // 27: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
+	31, // 28: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
+	24, // 29: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
+	11, // 30: cellar.v1.Control.APIKeyCreate:output_type -> cellar.v1.APIKeyCreateResponse
+	14, // 31: cellar.v1.Control.APIKeyList:output_type -> cellar.v1.APIKeyListResponse
+	16, // 32: cellar.v1.Control.APIKeyDelete:output_type -> cellar.v1.APIKeyDeleteResponse
+	17, // [17:33] is the sub-list for method output_type
+	1,  // [1:17] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_control_proto_init() }
@@ -756,7 +1160,7 @@ func file_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_control_proto_rawDesc), len(file_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

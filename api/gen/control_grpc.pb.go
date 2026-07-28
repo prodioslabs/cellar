@@ -32,6 +32,9 @@ const (
 	Control_SandboxList_FullMethodName          = "/cellar.v1.Control/SandboxList"
 	Control_SandboxLogs_FullMethodName          = "/cellar.v1.Control/SandboxLogs"
 	Control_SandboxExec_FullMethodName          = "/cellar.v1.Control/SandboxExec"
+	Control_APIKeyCreate_FullMethodName         = "/cellar.v1.Control/APIKeyCreate"
+	Control_APIKeyList_FullMethodName           = "/cellar.v1.Control/APIKeyList"
+	Control_APIKeyDelete_FullMethodName         = "/cellar.v1.Control/APIKeyDelete"
 )
 
 // ControlClient is the client API for Control service.
@@ -54,6 +57,10 @@ type ControlClient interface {
 	SandboxList(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
 	SandboxLogs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
 	SandboxExec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
+	// API key management (local unix socket; writes require Raft leader).
+	APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error)
+	APIKeyList(ctx context.Context, in *APIKeyListRequest, opts ...grpc.CallOption) (*APIKeyListResponse, error)
+	APIKeyDelete(ctx context.Context, in *APIKeyDeleteRequest, opts ...grpc.CallOption) (*APIKeyDeleteResponse, error)
 }
 
 type controlClient struct {
@@ -206,6 +213,36 @@ func (c *controlClient) SandboxExec(ctx context.Context, opts ...grpc.CallOption
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
 
+func (c *controlClient) APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(APIKeyCreateResponse)
+	err := c.cc.Invoke(ctx, Control_APIKeyCreate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) APIKeyList(ctx context.Context, in *APIKeyListRequest, opts ...grpc.CallOption) (*APIKeyListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(APIKeyListResponse)
+	err := c.cc.Invoke(ctx, Control_APIKeyList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) APIKeyDelete(ctx context.Context, in *APIKeyDeleteRequest, opts ...grpc.CallOption) (*APIKeyDeleteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(APIKeyDeleteResponse)
+	err := c.cc.Invoke(ctx, Control_APIKeyDelete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -226,6 +263,10 @@ type ControlServer interface {
 	SandboxList(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
 	SandboxLogs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
 	SandboxExec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
+	// API key management (local unix socket; writes require Raft leader).
+	APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error)
+	APIKeyList(context.Context, *APIKeyListRequest) (*APIKeyListResponse, error)
+	APIKeyDelete(context.Context, *APIKeyDeleteRequest) (*APIKeyDeleteResponse, error)
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -274,6 +315,15 @@ func (UnimplementedControlServer) SandboxLogs(*SandboxLogsRequest, grpc.ServerSt
 }
 func (UnimplementedControlServer) SandboxExec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
 	return status.Error(codes.Unimplemented, "method SandboxExec not implemented")
+}
+func (UnimplementedControlServer) APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method APIKeyCreate not implemented")
+}
+func (UnimplementedControlServer) APIKeyList(context.Context, *APIKeyListRequest) (*APIKeyListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method APIKeyList not implemented")
+}
+func (UnimplementedControlServer) APIKeyDelete(context.Context, *APIKeyDeleteRequest) (*APIKeyDeleteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method APIKeyDelete not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -512,6 +562,60 @@ func _Control_SandboxExec_Handler(srv interface{}, stream grpc.ServerStream) err
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
 
+func _Control_APIKeyCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(APIKeyCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).APIKeyCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_APIKeyCreate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).APIKeyCreate(ctx, req.(*APIKeyCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_APIKeyList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(APIKeyListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).APIKeyList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_APIKeyList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).APIKeyList(ctx, req.(*APIKeyListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_APIKeyDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(APIKeyDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).APIKeyDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_APIKeyDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).APIKeyDelete(ctx, req.(*APIKeyDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -562,6 +666,18 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SandboxList",
 			Handler:    _Control_SandboxList_Handler,
+		},
+		{
+			MethodName: "APIKeyCreate",
+			Handler:    _Control_APIKeyCreate_Handler,
+		},
+		{
+			MethodName: "APIKeyList",
+			Handler:    _Control_APIKeyList_Handler,
+		},
+		{
+			MethodName: "APIKeyDelete",
+			Handler:    _Control_APIKeyDelete_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -32,6 +32,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // SandboxControl is served on managers (mTLS). Leader applies Raft writes.
+// Callers must present a cluster client certificate.
 type SandboxControlClient interface {
 	Create(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error)
 	Stop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error)
@@ -114,6 +115,7 @@ func (c *sandboxControlClient) UpdateNetwork(ctx context.Context, in *SandboxUpd
 // for forward compatibility.
 //
 // SandboxControl is served on managers (mTLS). Leader applies Raft writes.
+// Callers must present a cluster client certificate.
 type SandboxControlServer interface {
 	Create(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error)
 	Stop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error)
@@ -311,6 +313,380 @@ var SandboxControl_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
+	Metadata: "sandbox.proto",
+}
+
+const (
+	SandboxAPI_Create_FullMethodName        = "/cellar.v1.SandboxAPI/Create"
+	SandboxAPI_Stop_FullMethodName          = "/cellar.v1.SandboxAPI/Stop"
+	SandboxAPI_Remove_FullMethodName        = "/cellar.v1.SandboxAPI/Remove"
+	SandboxAPI_Get_FullMethodName           = "/cellar.v1.SandboxAPI/Get"
+	SandboxAPI_List_FullMethodName          = "/cellar.v1.SandboxAPI/List"
+	SandboxAPI_UpdateNetwork_FullMethodName = "/cellar.v1.SandboxAPI/UpdateNetwork"
+	SandboxAPI_Logs_FullMethodName          = "/cellar.v1.SandboxAPI/Logs"
+	SandboxAPI_Exec_FullMethodName          = "/cellar.v1.SandboxAPI/Exec"
+)
+
+// SandboxAPIClient is the client API for SandboxAPI service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// SandboxAPI is the public client API on managers. Authenticate with an API key
+// (authorization: Bearer cellar_… or x-api-key metadata). Non-leader managers
+// forward mutating RPCs to the Raft leader. Exec/Logs are proxied to the owning node.
+type SandboxAPIClient interface {
+	Create(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error)
+	Stop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error)
+	Remove(ctx context.Context, in *SandboxRemoveRequest, opts ...grpc.CallOption) (*SandboxRemoveResponse, error)
+	Get(ctx context.Context, in *SandboxGetRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
+	List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
+	UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error)
+	Logs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
+	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
+}
+
+type sandboxAPIClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSandboxAPIClient(cc grpc.ClientConnInterface) SandboxAPIClient {
+	return &sandboxAPIClient{cc}
+}
+
+func (c *sandboxAPIClient) Create(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxCreateResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_Create_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) Stop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxStopResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_Stop_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) Remove(ctx context.Context, in *SandboxRemoveRequest, opts ...grpc.CallOption) (*SandboxRemoveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxRemoveResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_Remove_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) Get(ctx context.Context, in *SandboxGetRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxGetResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_Get_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxListResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_List_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxUpdateNetworkResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_UpdateNetwork_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) Logs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[0], SandboxAPI_Logs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SandboxLogsRequest, SandboxLogsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_LogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
+
+func (c *sandboxAPIClient) Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[1], SandboxAPI_Exec_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SandboxExecMessage, SandboxExecMessage]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_ExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
+
+// SandboxAPIServer is the server API for SandboxAPI service.
+// All implementations must embed UnimplementedSandboxAPIServer
+// for forward compatibility.
+//
+// SandboxAPI is the public client API on managers. Authenticate with an API key
+// (authorization: Bearer cellar_… or x-api-key metadata). Non-leader managers
+// forward mutating RPCs to the Raft leader. Exec/Logs are proxied to the owning node.
+type SandboxAPIServer interface {
+	Create(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error)
+	Stop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error)
+	Remove(context.Context, *SandboxRemoveRequest) (*SandboxRemoveResponse, error)
+	Get(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error)
+	List(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
+	UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error)
+	Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
+	Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
+	mustEmbedUnimplementedSandboxAPIServer()
+}
+
+// UnimplementedSandboxAPIServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedSandboxAPIServer struct{}
+
+func (UnimplementedSandboxAPIServer) Create(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Create not implemented")
+}
+func (UnimplementedSandboxAPIServer) Stop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Stop not implemented")
+}
+func (UnimplementedSandboxAPIServer) Remove(context.Context, *SandboxRemoveRequest) (*SandboxRemoveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Remove not implemented")
+}
+func (UnimplementedSandboxAPIServer) Get(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedSandboxAPIServer) List(context.Context, *SandboxListRequest) (*SandboxListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method List not implemented")
+}
+func (UnimplementedSandboxAPIServer) UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateNetwork not implemented")
+}
+func (UnimplementedSandboxAPIServer) Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
+	return status.Error(codes.Unimplemented, "method Logs not implemented")
+}
+func (UnimplementedSandboxAPIServer) Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
+	return status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedSandboxAPIServer) mustEmbedUnimplementedSandboxAPIServer() {}
+func (UnimplementedSandboxAPIServer) testEmbeddedByValue()                    {}
+
+// UnsafeSandboxAPIServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SandboxAPIServer will
+// result in compilation errors.
+type UnsafeSandboxAPIServer interface {
+	mustEmbedUnimplementedSandboxAPIServer()
+}
+
+func RegisterSandboxAPIServer(s grpc.ServiceRegistrar, srv SandboxAPIServer) {
+	// If the following call panics, it indicates UnimplementedSandboxAPIServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&SandboxAPI_ServiceDesc, srv)
+}
+
+func _SandboxAPI_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).Create(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_Create_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).Create(ctx, req.(*SandboxCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxStopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).Stop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_Stop_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).Stop(ctx, req.(*SandboxStopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_Remove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxRemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).Remove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_Remove_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).Remove(ctx, req.(*SandboxRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).Get(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_Get_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).Get(ctx, req.(*SandboxGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).List(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_List_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).List(ctx, req.(*SandboxListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_UpdateNetwork_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxUpdateNetworkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).UpdateNetwork(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_UpdateNetwork_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).UpdateNetwork(ctx, req.(*SandboxUpdateNetworkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_Logs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SandboxLogsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SandboxAPIServer).Logs(m, &grpc.GenericServerStream[SandboxLogsRequest, SandboxLogsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_LogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
+
+func _SandboxAPI_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SandboxAPIServer).Exec(&grpc.GenericServerStream[SandboxExecMessage, SandboxExecMessage]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_ExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
+
+// SandboxAPI_ServiceDesc is the grpc.ServiceDesc for SandboxAPI service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "cellar.v1.SandboxAPI",
+	HandlerType: (*SandboxAPIServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Create",
+			Handler:    _SandboxAPI_Create_Handler,
+		},
+		{
+			MethodName: "Stop",
+			Handler:    _SandboxAPI_Stop_Handler,
+		},
+		{
+			MethodName: "Remove",
+			Handler:    _SandboxAPI_Remove_Handler,
+		},
+		{
+			MethodName: "Get",
+			Handler:    _SandboxAPI_Get_Handler,
+		},
+		{
+			MethodName: "List",
+			Handler:    _SandboxAPI_List_Handler,
+		},
+		{
+			MethodName: "UpdateNetwork",
+			Handler:    _SandboxAPI_UpdateNetwork_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Logs",
+			Handler:       _SandboxAPI_Logs_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Exec",
+			Handler:       _SandboxAPI_Exec_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "sandbox.proto",
 }
 
