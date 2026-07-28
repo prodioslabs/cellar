@@ -137,6 +137,27 @@ Runtime presets and their images:
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node.
 
+## Client API (remote apps)
+
+Mint an API key once on the **Raft leader** (unix Control), then use [`pkg/client`](pkg/client) from applications — do not run the CLI for every sandbox.
+
+```bash
+# On a manager that is currently leader:
+sudo cellar api-key create --name ci
+# → cellar_<40 hex>  (shown once)
+
+sudo cellar api-key ls
+sudo cellar api-key rm <id>
+```
+
+```bash
+export CELLAR_API_KEY=cellar_…
+export CELLAR_ENDPOINTS=192.0.2.10:17946,192.0.2.11:17946,192.0.2.12:17946
+export CELLAR_CA_CERT=/path/to/ca.crt   # from a manager's data dir
+```
+
+The Go client round-robins manager endpoints and fails over on dial/`Unavailable` errors. Non-leader managers forward writes to the Raft leader; Exec/Logs are proxied to the owning node. Auth is `Authorization: Bearer …` or `x-api-key` metadata over TLS (cluster CA).
+
 ## Cluster CA (HA)
 
 1. `cellar init` generates a RootCA in memory, issues a local manager leaf, bootstraps Raft, and proposes `CreateCluster` with `CAKey` + `CACert` + join tokens.
