@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prodioslabs/cellar/internal/apikey"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/sandbox"
 	"github.com/prodioslabs/cellar/internal/store"
@@ -18,6 +19,8 @@ const (
 	opSavePeer       = "save_peer"
 	opSaveSandbox    = "save_sandbox"
 	opDeleteSandbox  = "delete_sandbox"
+	opSaveAPIKey     = "save_api_key"
+	opDeleteAPIKey   = "delete_api_key"
 
 	// Legacy ops still decoded for older log entries / tests.
 	opInitCluster = "init_cluster"
@@ -58,6 +61,14 @@ type saveSandboxPayload struct {
 }
 
 type deleteSandboxPayload struct {
+	ID string `json:"id"`
+}
+
+type saveAPIKeyPayload struct {
+	Key *apikey.Key `json:"key"`
+}
+
+type deleteAPIKeyPayload struct {
 	ID string `json:"id"`
 }
 
