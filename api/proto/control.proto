@@ -23,6 +23,11 @@ service Control {
   rpc SandboxList(SandboxListRequest) returns (SandboxListResponse);
   rpc SandboxLogs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
   rpc SandboxExec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
+
+  // API key management (local unix socket; writes require Raft leader).
+  rpc APIKeyCreate(APIKeyCreateRequest) returns (APIKeyCreateResponse);
+  rpc APIKeyList(APIKeyListRequest) returns (APIKeyListResponse);
+  rpc APIKeyDelete(APIKeyDeleteRequest) returns (APIKeyDeleteResponse);
 }
 
 message InitRequest {
@@ -80,3 +85,36 @@ message StatusResponse {
   string advertise_addr = 5;
   bool initialized = 6;
 }
+
+message APIKeyCreateRequest {
+  string name = 1;
+}
+
+message APIKeyCreateResponse {
+  string id = 1;
+  string name = 2;
+  string key = 3;  // raw secret; shown once
+  string mask = 4;
+  int64 created_at_unix_nano = 5;
+}
+
+message APIKeyListRequest {}
+
+message APIKeyInfo {
+  string id = 1;
+  string name = 2;
+  string mask = 3;
+  int64 created_at_unix_nano = 4;
+  int64 last_used_unix_nano = 5;
+  bool disabled = 6;
+}
+
+message APIKeyListResponse {
+  repeated APIKeyInfo keys = 1;
+}
+
+message APIKeyDeleteRequest {
+  string id = 1;
+}
+
+message APIKeyDeleteResponse {}

@@ -2014,7 +2014,17 @@ const file_sandbox_proto_rawDesc = "" +
 	"\x06Remove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12B\n" +
 	"\x03Get\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12E\n" +
 	"\x04List\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12`\n" +
-	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse2\xaa\x02\n" +
+	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse2\xea\x04\n" +
+	"\n" +
+	"SandboxAPI\x12K\n" +
+	"\x06Create\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12E\n" +
+	"\x04Stop\x12\x1d.cellar.v1.SandboxStopRequest\x1a\x1e.cellar.v1.SandboxStopResponse\x12K\n" +
+	"\x06Remove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12B\n" +
+	"\x03Get\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12E\n" +
+	"\x04List\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12`\n" +
+	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse\x12D\n" +
+	"\x04Logs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12H\n" +
+	"\x04Exec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x012\xaa\x02\n" +
 	"\fRuntimeAgent\x12T\n" +
 	"\tHeartbeat\x12\".cellar.v1.RuntimeHeartbeatRequest\x1a#.cellar.v1.RuntimeHeartbeatResponse\x12d\n" +
 	"\x13UpdateSandboxStatus\x12%.cellar.v1.UpdateSandboxStatusRequest\x1a&.cellar.v1.UpdateSandboxStatusResponse\x12^\n" +
@@ -2099,26 +2109,42 @@ var file_sandbox_proto_depIdxs = []int32{
 	14, // 23: cellar.v1.SandboxControl.Get:input_type -> cellar.v1.SandboxGetRequest
 	20, // 24: cellar.v1.SandboxControl.List:input_type -> cellar.v1.SandboxListRequest
 	16, // 25: cellar.v1.SandboxControl.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	22, // 26: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
-	24, // 27: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
-	26, // 28: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
-	28, // 29: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
-	30, // 30: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
-	18, // 31: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:input_type -> cellar.v1.ApplyNetworkPolicyRequest
-	9,  // 32: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
-	11, // 33: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
-	13, // 34: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
-	15, // 35: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
-	21, // 36: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
-	17, // 37: cellar.v1.SandboxControl.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	23, // 38: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
-	25, // 39: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
-	27, // 40: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
-	29, // 41: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
-	30, // 42: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
-	19, // 43: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:output_type -> cellar.v1.ApplyNetworkPolicyResponse
-	32, // [32:44] is the sub-list for method output_type
-	20, // [20:32] is the sub-list for method input_type
+	8,  // 26: cellar.v1.SandboxAPI.Create:input_type -> cellar.v1.SandboxCreateRequest
+	10, // 27: cellar.v1.SandboxAPI.Stop:input_type -> cellar.v1.SandboxStopRequest
+	12, // 28: cellar.v1.SandboxAPI.Remove:input_type -> cellar.v1.SandboxRemoveRequest
+	14, // 29: cellar.v1.SandboxAPI.Get:input_type -> cellar.v1.SandboxGetRequest
+	20, // 30: cellar.v1.SandboxAPI.List:input_type -> cellar.v1.SandboxListRequest
+	16, // 31: cellar.v1.SandboxAPI.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	28, // 32: cellar.v1.SandboxAPI.Logs:input_type -> cellar.v1.SandboxLogsRequest
+	30, // 33: cellar.v1.SandboxAPI.Exec:input_type -> cellar.v1.SandboxExecMessage
+	22, // 34: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
+	24, // 35: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
+	26, // 36: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
+	28, // 37: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
+	30, // 38: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
+	18, // 39: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:input_type -> cellar.v1.ApplyNetworkPolicyRequest
+	9,  // 40: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
+	11, // 41: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
+	13, // 42: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
+	15, // 43: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
+	21, // 44: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
+	17, // 45: cellar.v1.SandboxControl.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	9,  // 46: cellar.v1.SandboxAPI.Create:output_type -> cellar.v1.SandboxCreateResponse
+	11, // 47: cellar.v1.SandboxAPI.Stop:output_type -> cellar.v1.SandboxStopResponse
+	13, // 48: cellar.v1.SandboxAPI.Remove:output_type -> cellar.v1.SandboxRemoveResponse
+	15, // 49: cellar.v1.SandboxAPI.Get:output_type -> cellar.v1.SandboxGetResponse
+	21, // 50: cellar.v1.SandboxAPI.List:output_type -> cellar.v1.SandboxListResponse
+	17, // 51: cellar.v1.SandboxAPI.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	29, // 52: cellar.v1.SandboxAPI.Logs:output_type -> cellar.v1.SandboxLogsChunk
+	30, // 53: cellar.v1.SandboxAPI.Exec:output_type -> cellar.v1.SandboxExecMessage
+	23, // 54: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
+	25, // 55: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
+	27, // 56: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
+	29, // 57: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
+	30, // 58: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
+	19, // 59: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:output_type -> cellar.v1.ApplyNetworkPolicyResponse
+	40, // [40:60] is the sub-list for method output_type
+	20, // [20:40] is the sub-list for method input_type
 	20, // [20:20] is the sub-list for extension type_name
 	20, // [20:20] is the sub-list for extension extendee
 	0,  // [0:20] is the sub-list for field type_name
@@ -2145,7 +2171,7 @@ func file_sandbox_proto_init() {
 			NumEnums:      0,
 			NumMessages:   33,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_sandbox_proto_goTypes,
 		DependencyIndexes: file_sandbox_proto_depIdxs,
