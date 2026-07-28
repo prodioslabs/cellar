@@ -330,21 +330,22 @@ func (d *Daemon) Leave(ctx context.Context, req *cellarv1.LeaveRequest) (*cellar
 		return nil, fmt.Errorf("leaving as a manager requires --force")
 	}
 
-	if role == node.RoleManager && force && raft != nil {
-		sole := raft.NumVoters() <= 1
-		if !sole {
-			addr := raft.LeaderGRPC()
-			if addr == "" {
-				addr = state.ManagerAddr
-			}
-			if addr == "" {
-				addr = state.AdvertiseAddr
-			}
-			if addr != "" {
-				if err := grpcapi.RaftLeave(ctx, addr, certPEM, keyPEM, caPEM, nodeID); err != nil {
-					log.Printf("raft leave: %v (continuing local wipe)", err)
-				}
-			}
+	// Ask the leader to drop Raft membership (managers) and the node record.
+	addr := ""
+	if raft != nil {
+		addr = raft.LeaderGRPC()
+	}
+	if addr == "" {
+		addr = state.ManagerAddr
+	}
+	if addr == "" {
+		addr = state.AdvertiseAddr
+	}
+	if role == node.RoleManager && force && raft != nil && raft.NumVoters() <= 1 {
+		// Sole voter: skip remote leave; local wipe abandons the cluster.
+	} else if addr != "" {
+		if err := grpcapi.RaftLeave(ctx, addr, certPEM, keyPEM, caPEM, nodeID); err != nil {
+			log.Printf("cluster leave unregister: %v (continuing local wipe)", err)
 		}
 	}
 
@@ -1043,6 +1044,24 @@ func (c *controlServer) APIKeyList(ctx context.Context, req *cellarv1.APIKeyList
 }
 func (c *controlServer) APIKeyDelete(ctx context.Context, req *cellarv1.APIKeyDeleteRequest) (*cellarv1.APIKeyDeleteResponse, error) {
 	return c.d.APIKeyDelete(ctx, req)
+}
+func (c *controlServer) NodeList(ctx context.Context, req *cellarv1.NodeListRequest) (*cellarv1.NodeListResponse, error) {
+	return c.d.NodeList(ctx, req)
+}
+func (c *controlServer) NodeInspect(ctx context.Context, req *cellarv1.NodeInspectRequest) (*cellarv1.NodeInspectResponse, error) {
+	return c.d.NodeInspect(ctx, req)
+}
+func (c *controlServer) NodePromote(ctx context.Context, req *cellarv1.NodePromoteRequest) (*cellarv1.NodePromoteResponse, error) {
+	return c.d.NodePromote(ctx, req)
+}
+func (c *controlServer) NodeDemote(ctx context.Context, req *cellarv1.NodeDemoteRequest) (*cellarv1.NodeDemoteResponse, error) {
+	return c.d.NodeDemote(ctx, req)
+}
+func (c *controlServer) NodeRemove(ctx context.Context, req *cellarv1.NodeRemoveRequest) (*cellarv1.NodeRemoveResponse, error) {
+	return c.d.NodeRemove(ctx, req)
+}
+func (c *controlServer) NodeUpdate(ctx context.Context, req *cellarv1.NodeUpdateRequest) (*cellarv1.NodeUpdateResponse, error) {
+	return c.d.NodeUpdate(ctx, req)
 }
 
 func defaultAdvertise(listen string) string {

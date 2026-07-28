@@ -206,6 +206,7 @@ func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 			protos = append(protos, sandbox.ToProto(sb))
 		}
 		d.cacheAssigned(protos)
+		d.maybeApplyDesiredRole(ctx, string(n.Role), false)
 		return nil
 	}
 
@@ -222,6 +223,7 @@ func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 		return err
 	}
 	d.cacheAssigned(resp.Assigned)
+	d.maybeApplyDesiredRole(ctx, resp.DesiredRole, resp.Removed)
 	return nil
 }
 

@@ -29,6 +29,8 @@ type RaftAdmin interface {
 	LeaderGRPC() string
 	AddVoter(ctx context.Context, peer raftstore.PeerInfo) error
 	RemoveServer(nodeID string) error
+	IsVoter(nodeID string) bool
+	DeletePeer(ctx context.Context, nodeID string) error
 	GRPCAdvertise() string
 }
 
@@ -137,8 +139,9 @@ func (s *CAServer) IssueNodeCertificate(ctx context.Context, req *cellarv1.Issue
 	}
 
 	var (
-		nodeID string
-		role   node.Role
+		nodeID   string
+		role     node.Role
+		existing *node.Node
 	)
 
 	switch {
@@ -158,7 +161,7 @@ func (s *CAServer) IssueNodeCertificate(ctx context.Context, req *cellarv1.Issue
 				return nil, status.Error(codes.PermissionDenied, "client cert CN does not match node_id")
 			}
 		}
-		existing, err := s.store.GetNode(ctx, req.NodeId)
+		existing, err = s.store.GetNode(ctx, req.NodeId)
 		if err != nil {
 			return nil, mapStoreErr(err)
 		}
@@ -189,6 +192,13 @@ func (s *CAServer) IssueNodeCertificate(ctx context.Context, req *cellarv1.Issue
 		IssuedAt:          issued.Cert.NotBefore.UTC(),
 		ExpiresAt:         issued.Cert.NotAfter.UTC(),
 		CertificatePEM:    string(issued.CertPEM),
+	}
+	if existing != nil {
+		rec.Availability = existing.Availability
+		rec.Labels = node.CloneLabels(existing.Labels)
+		rec.RuntimeGRPCAddr = existing.RuntimeGRPCAddr
+		rec.RuntimeHeartbeatAt = existing.RuntimeHeartbeatAt
+		rec.RuntimeSandboxCount = existing.RuntimeSandboxCount
 	}
 	if err := s.store.SaveNode(ctx, rec); err != nil {
 		return nil, mapStoreErr(err)
@@ -248,9 +258,6 @@ func (s *CAServer) Join(ctx context.Context, req *cellarv1.RaftJoinRequest) (*ce
 }
 
 func (s *CAServer) Leave(ctx context.Context, req *cellarv1.RaftLeaveRequest) (*cellarv1.RaftLeaveResponse, error) {
-	if err := requireManagerPeer(ctx); err != nil {
-		return nil, err
-	}
 	if s.raft == nil {
 		return nil, status.Error(codes.Unimplemented, "raft is not enabled")
 	}
@@ -260,7 +267,18 @@ func (s *CAServer) Leave(ctx context.Context, req *cellarv1.RaftLeaveRequest) (*
 	if req.NodeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "node_id is required")
 	}
-	if err := s.raft.RemoveServer(req.NodeId); err != nil {
+	if err := requireSelfOrManagerPeer(ctx, req.NodeId); err != nil {
+		return nil, err
+	}
+	if s.raft.IsVoter(req.NodeId) {
+		if err := s.raft.RemoveServer(req.NodeId); err != nil {
+			return nil, mapStoreErr(err)
+		}
+	}
+	if err := s.raft.DeletePeer(ctx, req.NodeId); err != nil {
+		return nil, mapStoreErr(err)
+	}
+	if err := s.store.DeleteNode(ctx, req.NodeId); err != nil && !errors.Is(err, store.ErrNodeNotFound) {
 		return nil, mapStoreErr(err)
 	}
 	return &cellarv1.RaftLeaveResponse{}, nil
@@ -322,6 +340,26 @@ func requireManagerPeer(ctx context.Context) error {
 	}
 	if !role.CanAccessControlPlane() {
 		return status.Error(codes.PermissionDenied, "workers cannot access raft membership")
+	}
+	return nil
+}
+
+// requireSelfOrManagerPeer allows a node to unregister itself, or any manager
+// to remove another node.
+func requireSelfOrManagerPeer(ctx context.Context, nodeID string) error {
+	cert := peerCertificate(ctx)
+	if cert == nil {
+		return status.Error(codes.Unauthenticated, "client certificate required")
+	}
+	if cert.Subject.CommonName == nodeID {
+		return nil
+	}
+	role, err := node.RoleFromCertificate(cert)
+	if err != nil {
+		return status.Error(codes.Unauthenticated, "invalid client certificate")
+	}
+	if !role.CanAccessControlPlane() {
+		return status.Error(codes.PermissionDenied, "only managers may remove other nodes")
 	}
 	return nil
 }

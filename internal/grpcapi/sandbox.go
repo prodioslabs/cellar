@@ -216,17 +216,9 @@ func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHear
 	n, err := s.store.GetNode(ctx, req.NodeId)
 	if err != nil {
 		if errors.Is(err, store.ErrNodeNotFound) {
-			// Accept heartbeat by creating a minimal node record for workers that
-			// already have certs (SaveNode during issue should exist; tolerate race).
-			role, _ := node.RoleFromCertificate(cert)
-			n = &node.Node{
-				ID:         req.NodeId,
-				Role:       role,
-				Membership: node.MembershipAccepted,
-			}
-		} else {
-			return nil, mapStoreErr(err)
+			return &cellarv1.RuntimeHeartbeatResponse{Removed: true}, nil
 		}
+		return nil, mapStoreErr(err)
 	}
 	n.RuntimeGRPCAddr = req.GrpcAddr
 	n.RuntimeHeartbeatAt = time.Now().UTC()
@@ -238,7 +230,9 @@ func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHear
 	if err != nil {
 		return nil, mapStoreErr(err)
 	}
-	resp := &cellarv1.RuntimeHeartbeatResponse{}
+	resp := &cellarv1.RuntimeHeartbeatResponse{
+		DesiredRole: string(n.Role),
+	}
 	for _, sb := range assigned {
 		resp.Assigned = append(resp.Assigned, sandbox.ToProto(sb))
 	}
