@@ -36,7 +36,27 @@ func (s *SandboxServer) requireLeader() error {
 	return nil
 }
 
+type internalCallKey struct{}
+
+// WithInternalCall marks ctx as an in-process control-plane call (skips peer cert check).
+func WithInternalCall(ctx context.Context) context.Context {
+	return context.WithValue(ctx, internalCallKey{}, true)
+}
+
+func requireClusterPeer(ctx context.Context) error {
+	if ctx.Value(internalCallKey{}) != nil {
+		return nil
+	}
+	if peerCertificate(ctx) == nil {
+		return status.Error(codes.Unauthenticated, "cluster client certificate required")
+	}
+	return nil
+}
+
 func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.requireLeader(); err != nil {
 		return nil, err
 	}
@@ -81,6 +101,9 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 }
 
 func (s *SandboxServer) Stop(ctx context.Context, req *cellarv1.SandboxStopRequest) (*cellarv1.SandboxStopResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.requireLeader(); err != nil {
 		return nil, err
 	}
@@ -97,6 +120,9 @@ func (s *SandboxServer) Stop(ctx context.Context, req *cellarv1.SandboxStopReque
 }
 
 func (s *SandboxServer) Remove(ctx context.Context, req *cellarv1.SandboxRemoveRequest) (*cellarv1.SandboxRemoveResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.requireLeader(); err != nil {
 		return nil, err
 	}
@@ -111,6 +137,9 @@ func (s *SandboxServer) Remove(ctx context.Context, req *cellarv1.SandboxRemoveR
 }
 
 func (s *SandboxServer) Get(ctx context.Context, req *cellarv1.SandboxGetRequest) (*cellarv1.SandboxGetResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
 	sb, err := s.store.GetSandbox(ctx, req.SandboxId)
 	if err != nil {
 		return nil, mapStoreErr(err)
@@ -119,6 +148,9 @@ func (s *SandboxServer) Get(ctx context.Context, req *cellarv1.SandboxGetRequest
 }
 
 func (s *SandboxServer) List(ctx context.Context, _ *cellarv1.SandboxListRequest) (*cellarv1.SandboxListResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
 	list, err := s.store.ListSandboxes(ctx)
 	if err != nil {
 		return nil, mapStoreErr(err)
@@ -133,6 +165,9 @@ func (s *SandboxServer) List(ctx context.Context, _ *cellarv1.SandboxListRequest
 // UpdateNetwork replaces the network policy of an existing sandbox. The write
 // is the source of truth; pushing it to the owning node is the caller's job.
 func (s *SandboxServer) UpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.requireLeader(); err != nil {
 		return nil, err
 	}
