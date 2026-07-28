@@ -289,7 +289,7 @@ func (d *Daemon) SandboxCreate(ctx context.Context, req *cellarv1.SandboxCreateR
 		if err := d.ensureSandboxCreateRuntime(ctx, raft, drv, runtimeErr); err != nil {
 			return nil, err
 		}
-		return sb.Create(ctx, req)
+		return sb.Create(grpcapi.WithInternalCall(ctx), req)
 	}
 	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
 	if err != nil {
@@ -304,7 +304,7 @@ func (d *Daemon) SandboxStop(ctx context.Context, req *cellarv1.SandboxStopReque
 	sb := d.sandboxServer
 	d.mu.Unlock()
 	if raft != nil && raft.IsLeader() && sb != nil {
-		return sb.Stop(ctx, req)
+		return sb.Stop(grpcapi.WithInternalCall(ctx), req)
 	}
 	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
 	if err != nil {
@@ -319,7 +319,7 @@ func (d *Daemon) SandboxRemove(ctx context.Context, req *cellarv1.SandboxRemoveR
 	sb := d.sandboxServer
 	d.mu.Unlock()
 	if raft != nil && raft.IsLeader() && sb != nil {
-		return sb.Remove(ctx, req)
+		return sb.Remove(grpcapi.WithInternalCall(ctx), req)
 	}
 	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
 	if err != nil {
@@ -337,7 +337,7 @@ func (d *Daemon) SandboxGet(ctx context.Context, req *cellarv1.SandboxGetRequest
 	sb := d.sandboxServer
 	d.mu.Unlock()
 	if raft != nil && sb != nil {
-		return sb.Get(ctx, req)
+		return sb.Get(grpcapi.WithInternalCall(ctx), req)
 	}
 	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
 	if err != nil {
@@ -352,7 +352,7 @@ func (d *Daemon) SandboxList(ctx context.Context, req *cellarv1.SandboxListReque
 	sb := d.sandboxServer
 	d.mu.Unlock()
 	if raft != nil && sb != nil {
-		return sb.List(ctx, req)
+		return sb.List(grpcapi.WithInternalCall(ctx), req)
 	}
 	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
 	if err != nil {
@@ -372,7 +372,7 @@ func (d *Daemon) SandboxUpdateNetwork(ctx context.Context, req *cellarv1.Sandbox
 	var resp *cellarv1.SandboxUpdateNetworkResponse
 	var err error
 	if raft != nil && raft.IsLeader() && srv != nil {
-		resp, err = srv.UpdateNetwork(ctx, req)
+		resp, err = srv.UpdateNetwork(grpcapi.WithInternalCall(ctx), req)
 	} else {
 		var addr string
 		var cert, key, ca []byte
