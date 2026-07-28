@@ -339,4 +339,4 @@ make clean
 
 ## License
 
-See repository license if present.
+MIT — see [LICENSE](LICENSE).

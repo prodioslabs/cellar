@@ -2,10 +2,11 @@
   "name": "@cellar/node",
   "version": "0.1.0",
   "description": "TypeScript SDK for Cellar SandboxAPI (Node.js and Bun)",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
   "main": "./dist/index.cjs",

@@ -58,3 +58,7 @@ bun run proto    # or: make sdk-node-proto (from repo root)
 bun run test
 bun run build
 ```
+
+## License
+
+MIT — see [LICENSE](../../LICENSE).
