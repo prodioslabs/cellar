@@ -36,6 +36,12 @@ const (
 	Control_APIKeyCreate_FullMethodName         = "/cellar.v1.Control/APIKeyCreate"
 	Control_APIKeyList_FullMethodName           = "/cellar.v1.Control/APIKeyList"
 	Control_APIKeyDelete_FullMethodName         = "/cellar.v1.Control/APIKeyDelete"
+	Control_NodeList_FullMethodName             = "/cellar.v1.Control/NodeList"
+	Control_NodeInspect_FullMethodName          = "/cellar.v1.Control/NodeInspect"
+	Control_NodePromote_FullMethodName          = "/cellar.v1.Control/NodePromote"
+	Control_NodeDemote_FullMethodName           = "/cellar.v1.Control/NodeDemote"
+	Control_NodeRemove_FullMethodName           = "/cellar.v1.Control/NodeRemove"
+	Control_NodeUpdate_FullMethodName           = "/cellar.v1.Control/NodeUpdate"
 )
 
 // ControlClient is the client API for Control service.
@@ -63,6 +69,13 @@ type ControlClient interface {
 	APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error)
 	APIKeyList(ctx context.Context, in *APIKeyListRequest, opts ...grpc.CallOption) (*APIKeyListResponse, error)
 	APIKeyDelete(ctx context.Context, in *APIKeyDeleteRequest, opts ...grpc.CallOption) (*APIKeyDeleteResponse, error)
+	// Cluster node management (reads on any manager; writes require Raft leader).
+	NodeList(ctx context.Context, in *NodeListRequest, opts ...grpc.CallOption) (*NodeListResponse, error)
+	NodeInspect(ctx context.Context, in *NodeInspectRequest, opts ...grpc.CallOption) (*NodeInspectResponse, error)
+	NodePromote(ctx context.Context, in *NodePromoteRequest, opts ...grpc.CallOption) (*NodePromoteResponse, error)
+	NodeDemote(ctx context.Context, in *NodeDemoteRequest, opts ...grpc.CallOption) (*NodeDemoteResponse, error)
+	NodeRemove(ctx context.Context, in *NodeRemoveRequest, opts ...grpc.CallOption) (*NodeRemoveResponse, error)
+	NodeUpdate(ctx context.Context, in *NodeUpdateRequest, opts ...grpc.CallOption) (*NodeUpdateResponse, error)
 }
 
 type controlClient struct {
@@ -255,6 +268,66 @@ func (c *controlClient) APIKeyDelete(ctx context.Context, in *APIKeyDeleteReques
 	return out, nil
 }
 
+func (c *controlClient) NodeList(ctx context.Context, in *NodeListRequest, opts ...grpc.CallOption) (*NodeListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodeListResponse)
+	err := c.cc.Invoke(ctx, Control_NodeList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) NodeInspect(ctx context.Context, in *NodeInspectRequest, opts ...grpc.CallOption) (*NodeInspectResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodeInspectResponse)
+	err := c.cc.Invoke(ctx, Control_NodeInspect_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) NodePromote(ctx context.Context, in *NodePromoteRequest, opts ...grpc.CallOption) (*NodePromoteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodePromoteResponse)
+	err := c.cc.Invoke(ctx, Control_NodePromote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) NodeDemote(ctx context.Context, in *NodeDemoteRequest, opts ...grpc.CallOption) (*NodeDemoteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodeDemoteResponse)
+	err := c.cc.Invoke(ctx, Control_NodeDemote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) NodeRemove(ctx context.Context, in *NodeRemoveRequest, opts ...grpc.CallOption) (*NodeRemoveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodeRemoveResponse)
+	err := c.cc.Invoke(ctx, Control_NodeRemove_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) NodeUpdate(ctx context.Context, in *NodeUpdateRequest, opts ...grpc.CallOption) (*NodeUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NodeUpdateResponse)
+	err := c.cc.Invoke(ctx, Control_NodeUpdate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServer is the server API for Control service.
 // All implementations must embed UnimplementedControlServer
 // for forward compatibility.
@@ -280,6 +353,13 @@ type ControlServer interface {
 	APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error)
 	APIKeyList(context.Context, *APIKeyListRequest) (*APIKeyListResponse, error)
 	APIKeyDelete(context.Context, *APIKeyDeleteRequest) (*APIKeyDeleteResponse, error)
+	// Cluster node management (reads on any manager; writes require Raft leader).
+	NodeList(context.Context, *NodeListRequest) (*NodeListResponse, error)
+	NodeInspect(context.Context, *NodeInspectRequest) (*NodeInspectResponse, error)
+	NodePromote(context.Context, *NodePromoteRequest) (*NodePromoteResponse, error)
+	NodeDemote(context.Context, *NodeDemoteRequest) (*NodeDemoteResponse, error)
+	NodeRemove(context.Context, *NodeRemoveRequest) (*NodeRemoveResponse, error)
+	NodeUpdate(context.Context, *NodeUpdateRequest) (*NodeUpdateResponse, error)
 	mustEmbedUnimplementedControlServer()
 }
 
@@ -340,6 +420,24 @@ func (UnimplementedControlServer) APIKeyList(context.Context, *APIKeyListRequest
 }
 func (UnimplementedControlServer) APIKeyDelete(context.Context, *APIKeyDeleteRequest) (*APIKeyDeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method APIKeyDelete not implemented")
+}
+func (UnimplementedControlServer) NodeList(context.Context, *NodeListRequest) (*NodeListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NodeList not implemented")
+}
+func (UnimplementedControlServer) NodeInspect(context.Context, *NodeInspectRequest) (*NodeInspectResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NodeInspect not implemented")
+}
+func (UnimplementedControlServer) NodePromote(context.Context, *NodePromoteRequest) (*NodePromoteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NodePromote not implemented")
+}
+func (UnimplementedControlServer) NodeDemote(context.Context, *NodeDemoteRequest) (*NodeDemoteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NodeDemote not implemented")
+}
+func (UnimplementedControlServer) NodeRemove(context.Context, *NodeRemoveRequest) (*NodeRemoveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NodeRemove not implemented")
+}
+func (UnimplementedControlServer) NodeUpdate(context.Context, *NodeUpdateRequest) (*NodeUpdateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NodeUpdate not implemented")
 }
 func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
 func (UnimplementedControlServer) testEmbeddedByValue()                 {}
@@ -650,6 +748,114 @@ func _Control_APIKeyDelete_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Control_NodeList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).NodeList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_NodeList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).NodeList(ctx, req.(*NodeListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_NodeInspect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInspectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).NodeInspect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_NodeInspect_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).NodeInspect(ctx, req.(*NodeInspectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_NodePromote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodePromoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).NodePromote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_NodePromote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).NodePromote(ctx, req.(*NodePromoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_NodeDemote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeDemoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).NodeDemote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_NodeDemote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).NodeDemote(ctx, req.(*NodeDemoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_NodeRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeRemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).NodeRemove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_NodeRemove_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).NodeRemove(ctx, req.(*NodeRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_NodeUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).NodeUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_NodeUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).NodeUpdate(ctx, req.(*NodeUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Control_ServiceDesc is the grpc.ServiceDesc for Control service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -716,6 +922,30 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "APIKeyDelete",
 			Handler:    _Control_APIKeyDelete_Handler,
+		},
+		{
+			MethodName: "NodeList",
+			Handler:    _Control_NodeList_Handler,
+		},
+		{
+			MethodName: "NodeInspect",
+			Handler:    _Control_NodeInspect_Handler,
+		},
+		{
+			MethodName: "NodePromote",
+			Handler:    _Control_NodePromote_Handler,
+		},
+		{
+			MethodName: "NodeDemote",
+			Handler:    _Control_NodeDemote_Handler,
+		},
+		{
+			MethodName: "NodeRemove",
+			Handler:    _Control_NodeRemove_Handler,
+		},
+		{
+			MethodName: "NodeUpdate",
+			Handler:    _Control_NodeUpdate_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

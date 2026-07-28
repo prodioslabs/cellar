@@ -1275,7 +1275,9 @@ func (x *RuntimeHeartbeatRequest) GetSandboxCount() int32 {
 
 type RuntimeHeartbeatResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Assigned      []*Sandbox             `protobuf:"bytes,1,rep,name=assigned,proto3" json:"assigned,omitempty"` // sandboxes currently assigned to this node
+	Assigned      []*Sandbox             `protobuf:"bytes,1,rep,name=assigned,proto3" json:"assigned,omitempty"`                          // sandboxes currently assigned to this node
+	DesiredRole   string                 `protobuf:"bytes,2,opt,name=desired_role,json=desiredRole,proto3" json:"desired_role,omitempty"` // store role; node applies promote/demote when mismatched
+	Removed       bool                   `protobuf:"varint,3,opt,name=removed,proto3" json:"removed,omitempty"`                           // node record deleted from cluster; wipe local identity
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1315,6 +1317,20 @@ func (x *RuntimeHeartbeatResponse) GetAssigned() []*Sandbox {
 		return x.Assigned
 	}
 	return nil
+}
+
+func (x *RuntimeHeartbeatResponse) GetDesiredRole() string {
+	if x != nil {
+		return x.DesiredRole
+	}
+	return ""
+}
+
+func (x *RuntimeHeartbeatResponse) GetRemoved() bool {
+	if x != nil {
+		return x.Removed
+	}
+	return false
 }
 
 type UpdateSandboxStatusRequest struct {
@@ -1968,9 +1984,11 @@ const file_sandbox_proto_rawDesc = "" +
 	"\x17RuntimeHeartbeatRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1b\n" +
 	"\tgrpc_addr\x18\x02 \x01(\tR\bgrpcAddr\x12#\n" +
-	"\rsandbox_count\x18\x03 \x01(\x05R\fsandboxCount\"J\n" +
+	"\rsandbox_count\x18\x03 \x01(\x05R\fsandboxCount\"\x87\x01\n" +
 	"\x18RuntimeHeartbeatResponse\x12.\n" +
-	"\bassigned\x18\x01 \x03(\v2\x12.cellar.v1.SandboxR\bassigned\"\x90\x01\n" +
+	"\bassigned\x18\x01 \x03(\v2\x12.cellar.v1.SandboxR\bassigned\x12!\n" +
+	"\fdesired_role\x18\x02 \x01(\tR\vdesiredRole\x12\x18\n" +
+	"\aremoved\x18\x03 \x01(\bR\aremoved\"\x90\x01\n" +
 	"\x1aUpdateSandboxStatusRequest\x12\x1d\n" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x120\n" +

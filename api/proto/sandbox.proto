@@ -166,6 +166,8 @@ message RuntimeHeartbeatRequest {
 
 message RuntimeHeartbeatResponse {
   repeated Sandbox assigned = 1; // sandboxes currently assigned to this node
+  string desired_role = 2;       // store role; node applies promote/demote when mismatched
+  bool removed = 3;              // node record deleted from cluster; wipe local identity
 }
 
 message UpdateSandboxStatusRequest {

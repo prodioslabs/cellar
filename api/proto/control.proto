@@ -29,6 +29,14 @@ service Control {
   rpc APIKeyCreate(APIKeyCreateRequest) returns (APIKeyCreateResponse);
   rpc APIKeyList(APIKeyListRequest) returns (APIKeyListResponse);
   rpc APIKeyDelete(APIKeyDeleteRequest) returns (APIKeyDeleteResponse);
+
+  // Cluster node management (reads on any manager; writes require Raft leader).
+  rpc NodeList(NodeListRequest) returns (NodeListResponse);
+  rpc NodeInspect(NodeInspectRequest) returns (NodeInspectResponse);
+  rpc NodePromote(NodePromoteRequest) returns (NodePromoteResponse);
+  rpc NodeDemote(NodeDemoteRequest) returns (NodeDemoteResponse);
+  rpc NodeRemove(NodeRemoveRequest) returns (NodeRemoveResponse);
+  rpc NodeUpdate(NodeUpdateRequest) returns (NodeUpdateResponse);
 }
 
 message InitRequest {
@@ -125,3 +133,65 @@ message APIKeyDeleteRequest {
 }
 
 message APIKeyDeleteResponse {}
+
+// NodeInfo is the Control-plane view of a cluster node (not the CA NodeRecord).
+message NodeInfo {
+  string node_id = 1;
+  string role = 2;                // worker | manager
+  string membership = 3;          // accepted | pending
+  string availability = 4;        // active | pause | drain
+  map<string, string> labels = 5;
+  string status = 6;              // ready | down (from heartbeat)
+  string manager_status = 7;      // leader | reachable | "" for workers
+  string runtime_grpc_addr = 8;
+  int64 runtime_heartbeat_unix_nano = 9;
+  int32 runtime_sandbox_count = 10;
+  string pub_key_fingerprint = 11;
+  int64 issued_at_unix_nano = 12;
+  int64 expires_at_unix_nano = 13;
+}
+
+message NodeListRequest {}
+
+message NodeListResponse {
+  repeated NodeInfo nodes = 1;
+}
+
+message NodeInspectRequest {
+  string node_id = 1;
+}
+
+message NodeInspectResponse {
+  NodeInfo node = 1;
+}
+
+message NodePromoteRequest {
+  string node_id = 1;
+}
+
+message NodePromoteResponse {}
+
+message NodeDemoteRequest {
+  string node_id = 1;
+}
+
+message NodeDemoteResponse {}
+
+message NodeRemoveRequest {
+  string node_id = 1;
+  bool force = 2; // required when the node has a fresh heartbeat
+}
+
+message NodeRemoveResponse {}
+
+message NodeUpdateRequest {
+  string node_id = 1;
+  string availability = 2;              // empty = unchanged; else active|pause|drain
+  map<string, string> label_add = 3;    // merge into labels
+  repeated string label_rm = 4;         // keys to delete
+  string role = 5;                      // empty = unchanged; else worker|manager (promote/demote)
+}
+
+message NodeUpdateResponse {
+  NodeInfo node = 1;
+}
