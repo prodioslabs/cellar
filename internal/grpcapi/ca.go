@@ -287,9 +287,16 @@ func mapStoreErr(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, store.ErrSandboxNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, store.ErrAPIKeyNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
+}
+
+// MapStoreErr maps store errors to gRPC status errors.
+func MapStoreErr(err error) error {
+	return mapStoreErr(err)
 }
 
 func peerCertificate(ctx context.Context) *x509.Certificate {
