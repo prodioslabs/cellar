@@ -9,7 +9,7 @@ This repository implements the **cluster identity layer** (mTLS gRPC, Raft-repli
 | Binary         | Role                                                                                                                                                                |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cellard`      | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
-| `cellar`       | CLI client (`init`, `join`, `join-token`, `status`, `ca-cert`, `api-key …`, `sandbox …`) talking to local `cellard`.                                                           |
+| `cellar`       | CLI client (`init`, `join`, `join-token`, `status`, `ca-cert`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                           |
 | `cellar-agent` | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                       |
 
 ## Roles
@@ -28,7 +28,7 @@ Defaults avoid Docker Swarm’s control-plane ports (`7946` gossip, `2377` manag
 
 | Listener    | Default                       | Auth                                                                           | Purpose                                                               |
 | ----------- | ----------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, local sandbox ops |
+| Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox ops |
 | Remote gRPC | `:17946`                      | Bootstrap insecure TLS + token digest; else mTLS **or** API key (`SandboxAPI`) | CA issue/renew, raft membership, public sandbox client API            |
 | Raft TCP    | `127.0.0.1:17947`             | Manager network                                                                | Consensus / CA key replication                                        |
 
@@ -99,14 +99,14 @@ The control socket is mode `0660` and owned by `cellar:cellar`. By default only 
 
 ## Sandboxes
 
-Requires Docker with the gVisor `[runsc](https://gvisor.dev/docs/user_guide/install/)` runtime registered. After `sudo runsc install`, enable host Unix-domain sockets so `cellar-agent` can expose its control socket on the bind-mounted sandbox dir (gVisor blocks this by default):
+Requires Docker with the gVisor `[runsc](https://gvisor.dev/docs/user_guide/install/)` runtime registered. After `sudo runsc install`, allow the guest to **create** host Unix-domain sockets so `cellar-agent` can bind its control socket at `/run/cellar/agent.sock` on the bind-mounted sandbox dir (gVisor blocks this by default). `--host-uds=create` is enough; `all` would also let the guest `connect()` to other host sockets visible via mounts:
 
 ```json
 {
   "runtimes": {
     "runsc": {
       "path": "/usr/bin/runsc",
-      "runtimeArgs": ["--host-uds=all"]
+      "runtimeArgs": ["--host-uds=create"]
     }
   }
 }
@@ -160,7 +160,31 @@ Runtime presets and their images:
 | `python-3.13` | `astral/uv:python3.13-alpine` |
 | `go-1.26`     | `golang:1.26-alpine`          |
 
-Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node.
+Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node
+(nodes with availability `pause` or `drain` are skipped).
+
+## Manage nodes
+
+Node writes (`promote`, `demote`, `rm`, `update`) must run on the **Raft leader**. Reads (`ls`, `inspect`) work on any manager.
+
+```bash
+sudo cellar node ls
+sudo cellar node inspect <id>
+
+# Role changes (target applies via heartbeat: re-issue cert + open/close Raft)
+sudo cellar node promote <worker-id>
+sudo cellar node demote <manager-id>
+
+sudo cellar node update <id> --availability drain
+sudo cellar node update <id> --label-add zone=a --label-rm zone
+sudo cellar node update <id> --role manager   # same as promote
+
+# Remove a down/orphaned node from cluster state (--force if still heartbeating)
+sudo cellar node rm <id>
+sudo cellar node rm --force <id>
+```
+
+`node rm` only deletes the Raft record (and Raft voter for managers). The remote daemon keeps its local identity until you run `cellar leave` there (or it observes `removed` on heartbeat and clears itself).
 
 ## Client API (remote apps)
 

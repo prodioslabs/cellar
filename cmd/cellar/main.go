@@ -49,6 +49,7 @@ Start cellard first, then use init / join / leave / join-token / status.`,
 	root.AddCommand(newCACertCmd())
 	root.AddCommand(newSandboxCmd())
 	root.AddCommand(newAPIKeyCmd())
+	root.AddCommand(newNodeCmd())
 	return root
 }
 
