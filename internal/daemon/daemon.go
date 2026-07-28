@@ -63,6 +63,7 @@ type Daemon struct {
 	caServer *grpcapi.CAServer
 
 	sandboxServer *grpcapi.SandboxServer
+	sandboxAPI    *grpcapi.SandboxAPIServer
 	runtimeSrv    *grpcapi.RuntimeServer
 	driver        *runtime.Driver
 	proxy         *egress.Proxy
@@ -174,6 +175,7 @@ func (d *Daemon) shutdown() {
 	d.agent = nil
 	d.caServer = nil
 	d.sandboxServer = nil
+	d.sandboxAPI = nil
 	d.runtimeSrv = nil
 	d.clusterCancel = nil
 	d.clusterCtx = nil
@@ -378,6 +380,7 @@ func (d *Daemon) stopClusterLocal() {
 	d.agent = nil
 	d.caServer = nil
 	d.sandboxServer = nil
+	d.sandboxAPI = nil
 	d.runtimeSrv = nil
 	d.runtimeErr = nil
 	d.lastAssigned = nil
@@ -450,6 +453,7 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	d.raft = rs
 	d.caServer = grpcapi.NewCAServer(rs, rs)
 	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
+	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 	_ = d.caServer.UpdateRootCA(ctx)
 	d.clusterWG.Add(1)
 	go func() {
@@ -599,6 +603,7 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 	d.raft = rs
 	d.caServer = grpcapi.NewCAServer(rs, rs)
 	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
+	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 
 	if err := rs.CreateCluster(ctx, store.ClusterConfig{
 		ClusterID:    clusterID,
@@ -670,9 +675,22 @@ func (d *Daemon) startRemoteGRPCLocked(listenAddr string) error {
 	if err != nil {
 		return fmt.Errorf("listen remote: %w", err)
 	}
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsCfg)))
+	opts := []grpc.ServerOption{grpc.Creds(credentials.NewTLS(tlsCfg))}
+	if d.raft != nil {
+		touch := func(id string) {
+			grpcapi.TouchAPIKeyBestEffort(d.raft, d.raft, id)
+		}
+		opts = append(opts,
+			grpc.UnaryInterceptor(grpcapi.APIKeyUnaryInterceptor(d.raft, touch)),
+			grpc.StreamInterceptor(grpcapi.APIKeyStreamInterceptor(d.raft, touch)),
+		)
+	}
+	s := grpc.NewServer(opts...)
 	if d.caServer != nil {
 		grpcapi.RegisterRemote(s, d.caServer, d.sandboxServer)
+	}
+	if d.sandboxAPI != nil {
+		grpcapi.RegisterSandboxAPI(s, d.sandboxAPI)
 	}
 	if d.runtimeSrv != nil {
 		grpcapi.RegisterRuntime(s, d.runtimeSrv)
@@ -794,6 +812,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		d.raft = rs
 		d.caServer = grpcapi.NewCAServer(rs, rs)
 		d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
+		d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 		_ = d.caServer.UpdateRootCA(ctx)
 		clusterCtx := d.ensureClusterCtxLocked()
 		d.clusterWG.Add(1)
@@ -1001,6 +1020,15 @@ func (c *controlServer) SandboxLogs(req *cellarv1.SandboxLogsRequest, stream cel
 }
 func (c *controlServer) SandboxExec(stream cellarv1.Control_SandboxExecServer) error {
 	return c.d.SandboxExec(stream)
+}
+func (c *controlServer) APIKeyCreate(ctx context.Context, req *cellarv1.APIKeyCreateRequest) (*cellarv1.APIKeyCreateResponse, error) {
+	return c.d.APIKeyCreate(ctx, req)
+}
+func (c *controlServer) APIKeyList(ctx context.Context, req *cellarv1.APIKeyListRequest) (*cellarv1.APIKeyListResponse, error) {
+	return c.d.APIKeyList(ctx, req)
+}
+func (c *controlServer) APIKeyDelete(ctx context.Context, req *cellarv1.APIKeyDeleteRequest) (*cellarv1.APIKeyDeleteResponse, error) {
+	return c.d.APIKeyDelete(ctx, req)
 }
 
 func defaultAdvertise(listen string) string {
