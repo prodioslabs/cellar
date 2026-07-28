@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/ca"
@@ -917,6 +919,15 @@ func (d *Daemon) Status(ctx context.Context, _ *cellarv1.StatusRequest) (*cellar
 	return resp, nil
 }
 
+func (d *Daemon) CACert(ctx context.Context, _ *cellarv1.CACertRequest) (*cellarv1.CACertResponse, error) {
+	_ = ctx
+	mat := d.idStore.Material()
+	if mat == nil || len(mat.CACert) == 0 {
+		return nil, status.Error(codes.FailedPrecondition, "node not joined to a cluster")
+	}
+	return &cellarv1.CACertResponse{Certificate: append([]byte(nil), mat.CACert...)}, nil
+}
+
 func (d *Daemon) renewLoop(ctx context.Context, managerAddr string) error {
 	for {
 		mat := d.idStore.Material()
@@ -996,6 +1007,9 @@ func (c *controlServer) JoinToken(ctx context.Context, req *cellarv1.JoinTokenRe
 }
 func (c *controlServer) Status(ctx context.Context, req *cellarv1.StatusRequest) (*cellarv1.StatusResponse, error) {
 	return c.d.Status(ctx, req)
+}
+func (c *controlServer) CACert(ctx context.Context, req *cellarv1.CACertRequest) (*cellarv1.CACertResponse, error) {
+	return c.d.CACert(ctx, req)
 }
 func (c *controlServer) SandboxCreate(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
 	return c.d.SandboxCreate(ctx, req)

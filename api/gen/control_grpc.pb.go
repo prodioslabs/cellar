@@ -24,6 +24,7 @@ const (
 	Control_Leave_FullMethodName                = "/cellar.v1.Control/Leave"
 	Control_JoinToken_FullMethodName            = "/cellar.v1.Control/JoinToken"
 	Control_Status_FullMethodName               = "/cellar.v1.Control/Status"
+	Control_CACert_FullMethodName               = "/cellar.v1.Control/CACert"
 	Control_SandboxCreate_FullMethodName        = "/cellar.v1.Control/SandboxCreate"
 	Control_SandboxStop_FullMethodName          = "/cellar.v1.Control/SandboxStop"
 	Control_SandboxRemove_FullMethodName        = "/cellar.v1.Control/SandboxRemove"
@@ -48,6 +49,7 @@ type ControlClient interface {
 	Leave(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*LeaveResponse, error)
 	JoinToken(ctx context.Context, in *JoinTokenRequest, opts ...grpc.CallOption) (*JoinTokenResponse, error)
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
+	CACert(ctx context.Context, in *CACertRequest, opts ...grpc.CallOption) (*CACertResponse, error)
 	// Sandbox ops (forwarded to a manager / leader when needed).
 	SandboxCreate(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error)
 	SandboxStop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error)
@@ -115,6 +117,16 @@ func (c *controlClient) Status(ctx context.Context, in *StatusRequest, opts ...g
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StatusResponse)
 	err := c.cc.Invoke(ctx, Control_Status_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) CACert(ctx context.Context, in *CACertRequest, opts ...grpc.CallOption) (*CACertResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CACertResponse)
+	err := c.cc.Invoke(ctx, Control_CACert_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -254,6 +266,7 @@ type ControlServer interface {
 	Leave(context.Context, *LeaveRequest) (*LeaveResponse, error)
 	JoinToken(context.Context, *JoinTokenRequest) (*JoinTokenResponse, error)
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
+	CACert(context.Context, *CACertRequest) (*CACertResponse, error)
 	// Sandbox ops (forwarded to a manager / leader when needed).
 	SandboxCreate(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error)
 	SandboxStop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error)
@@ -291,6 +304,9 @@ func (UnimplementedControlServer) JoinToken(context.Context, *JoinTokenRequest) 
 }
 func (UnimplementedControlServer) Status(context.Context, *StatusRequest) (*StatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Status not implemented")
+}
+func (UnimplementedControlServer) CACert(context.Context, *CACertRequest) (*CACertResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CACert not implemented")
 }
 func (UnimplementedControlServer) SandboxCreate(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SandboxCreate not implemented")
@@ -432,6 +448,24 @@ func _Control_Status_Handler(srv interface{}, ctx context.Context, dec func(inte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServer).Status(ctx, req.(*StatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_CACert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CACertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).CACert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_CACert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).CACert(ctx, req.(*CACertRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -642,6 +676,10 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Status",
 			Handler:    _Control_Status_Handler,
+		},
+		{
+			MethodName: "CACert",
+			Handler:    _Control_CACert_Handler,
 		},
 		{
 			MethodName: "SandboxCreate",
