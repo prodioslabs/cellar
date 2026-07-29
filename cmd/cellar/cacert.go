@@ -25,7 +25,8 @@ func newCACertCmd() *cobra.Command {
 		Short: "Print or write the cluster CA certificate (public PEM)",
 		Long: `Export the cluster Root CA certificate from the local cellard identity.
 
-Useful for CELLAR_CA_CERT when configuring remote clients. Never prints the CA private key.`,
+Useful for cellar-gateway (cluster CA to verify managers) and operational tooling.
+Public HTTP SDKs talk to the gateway and do not need this cert. Never prints the CA private key.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			format = strings.ToLower(strings.TrimSpace(format))

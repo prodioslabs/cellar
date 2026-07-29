@@ -1,0 +1,31 @@
+[Unit]
+Description=Cellar HTTP gateway
+Documentation=https://github.com/prodioslabs/cellar
+After=network-online.target cellard.service
+Wants=network-online.target
+Requires=cellard.service
+
+[Service]
+Type=simple
+User=cellar
+Group=cellar
+StateDirectory=cellar
+RuntimeDirectory=cellar
+ExecStart=/usr/local/bin/cellar-gateway \
+  --listen :8080 \
+  --data-dir /var/lib/cellar
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Hardened: read node state for cluster CA / manager discovery; no Docker/CAP_NET_ADMIN.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/var/lib/cellar
+ReadWritePaths=/run/cellar
+
+[Install]
+WantedBy=multi-user.target

@@ -8,15 +8,16 @@ Cellar is a Docker Swarm–style container orchestrator control plane for isolat
 This repository implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
 **sandbox lifecycle** (desired state in Raft, Docker + gVisor `runsc` on every node, userspace egress policy).
 
-Clients: Go [`pkg/client`](pkg/client) and TypeScript [`@cellar/node`](sdk/node) — see [Client API](#client-api-remote-apps) and [`sdk/node/README.md`](sdk/node/README.md).
+Clients: Go [`pkg/client`](pkg/client) and TypeScript [`@cellar/node`](sdk/node) talk to **`cellar-gateway`** over HTTPS — see [Client API](#client-api-remote-apps) and [`sdk/node/README.md`](sdk/node/README.md).
 
 ## Binaries
 
-| Binary         | Role                                                                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cellard`      | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
-| `cellar`       | CLI client (`init`, `join`, `join-token`, `status`, `ca-cert`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                           |
-| `cellar-agent` | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                       |
+| Binary           | Role                                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
+| `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `ca-cert`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                           |
+| `cellar-gateway` | HTTP/JSON front door (Gin). Runs beside `cellard` on manager or worker hosts; proxies to manager `SandboxAPI` with the caller’s API key. Default listen `:8080`. |
+| `cellar-agent`   | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                       |
 
 ## Roles
 
@@ -30,29 +31,31 @@ Local disk stores only this node’s leaf cert/key and the public CA cert.
 
 ## Ports / sockets
 
-| Listener    | Default                       | Auth                                                                           | Purpose                                                               |
-| ----------- | ----------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox ops |
-| Remote gRPC | `:17946`                      | Bootstrap insecure TLS + token digest; else mTLS **or** API key (`SandboxAPI`) | CA issue/renew, raft membership, public sandbox client API            |
-| Raft TCP    | `127.0.0.1:17947`             | Manager network                                                                | Consensus / CA key replication                                        |
+| Listener         | Default                       | Auth                                                                           | Purpose                                                               |
+| ---------------- | ----------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Unix socket      | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox ops |
+| Remote gRPC      | `:17946`                      | Bootstrap insecure TLS + token digest; else mTLS **or** API key (`SandboxAPI`) | CA issue/renew, raft membership, public sandbox client API            |
+| Gateway HTTP     | `:8080`                       | API key (`Authorization: Bearer` / `X-Api-Key`); terminate TLS at ALB/proxy    | Public JSON API for apps (`cellar-gateway`)                           |
+| Raft TCP         | `127.0.0.1:17947`             | Manager network                                                                | Consensus / CA key replication                                        |
 
 ## Build & install
 
 ```bash
-make build          # → bin/cellard, bin/cellar, bin/cellar-agent
-# or: make cellard / make cellar / make cellar-agent
+make build          # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway
+# or: make cellard / make cellar / make cellar-agent / make cellar-gateway
 
-sudo make install   # Linux: binaries → /usr/local/bin, plus systemd unit + sysusers from contrib/
+sudo make install   # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
 ```
 
 Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
 
-| Source                            | Destination                               |
-| --------------------------------- | ----------------------------------------- |
-| `contrib/systemd/cellard.service` | `/usr/lib/systemd/system/cellard.service` |
-| `contrib/systemd/cellar.sysusers` | `/usr/lib/sysusers.d/cellar.conf`         |
+| Source                                    | Destination                                       |
+| ----------------------------------------- | ------------------------------------------------- |
+| `contrib/systemd/cellard.service`         | `/usr/lib/systemd/system/cellard.service`         |
+| `contrib/systemd/cellar-gateway.service`  | `/usr/lib/systemd/system/cellar-gateway.service`  |
+| `contrib/systemd/cellar.sysusers`         | `/usr/lib/sysusers.d/cellar.conf`                 |
 
-`make install` does not enable or start the service. Use `make uninstall` to remove the installed files.
+`make install` does not enable or start the services. Use `make uninstall` to remove the installed files.
 
 ## Quick start
 
@@ -62,6 +65,7 @@ sudo make install
 sudo systemd-sysusers
 sudo systemctl daemon-reload
 sudo systemctl enable --now cellard
+sudo systemctl enable --now cellar-gateway   # optional: HTTP front door for apps
 
 # Host A — initialize cluster (first manager)
 # Use this host’s reachable address (defaults: data /var/lib/cellar, socket /var/run/cellar/cellar.sock)
@@ -192,8 +196,7 @@ sudo cellar node rm --force <id>
 
 ## Client API (remote apps)
 
-Apps talk to **managers** over gRPC (`SandboxAPI` on `:17946`) with a long-lived API key.
-Mint the key once with the CLI; do **not** run `cellar sandbox …` from application code.
+Apps talk to **`cellar-gateway`** over HTTPS (JSON). The gateway runs on manager or worker hosts, dials manager `SandboxAPI` with the cluster CA, and forwards each caller’s API key. Mint the key once with the CLI; do **not** run `cellar sandbox …` from application code.
 
 ### Create an API key
 
@@ -231,51 +234,69 @@ sudo cellar api-key ls
 sudo cellar api-key rm <id>   # revoke; also must run on the leader
 ```
 
-### Export the cluster CA
+### Run the gateway
 
-Clients need the **public** cluster CA cert (not the CA private key) to verify managers over TLS.
+On each node that should serve HTTP (typically every manager, optionally workers):
 
 ```bash
-# PEM to stdout (any joined manager or worker)
-sudo cellar ca-cert
-
-# Write PEM file
-sudo cellar ca-cert --out ca.crt
-
-# Base64 one-liner (for secret stores)
-sudo cellar ca-cert --format base64
-
-# Ready-to-paste .env line (\\n-escaped PEM)
-sudo cellar ca-cert --env
-# → CELLAR_CA_CERT="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"
-
-sudo cellar ca-cert --env --out cellar.ca.env
+sudo systemctl enable --now cellar-gateway
+# or manually:
+cellar-gateway --listen :8080 --data-dir /var/lib/cellar
+# optional: --upstreams 192.0.2.10:17946,192.0.2.11:17946
 ```
 
-You can still copy `/var/lib/cellar/ca.crt` from a node’s data dir directly.
+The gateway loads the cluster CA from `--data-dir`. Managers dial their advertise address; workers dial their stored manager address. Override with `--upstreams` for multi-manager failover.
+
+Health endpoints (no auth):
+
+| Path       | Meaning                                      |
+| ---------- | -------------------------------------------- |
+| `/healthz` | Process is up                                |
+| `/readyz`  | Can reach a manager `SandboxAPI`             |
+
+HTTP API (all require `Authorization: Bearer cellar_…` or `X-Api-Key`):
+
+| Method | Path                         | Notes                                      |
+| ------ | ---------------------------- | ------------------------------------------ |
+| POST   | `/v1/sandboxes`              | create                                     |
+| GET    | `/v1/sandboxes`              | list                                       |
+| GET    | `/v1/sandboxes/:id`          | get                                        |
+| DELETE | `/v1/sandboxes/:id`          | remove                                     |
+| POST   | `/v1/sandboxes/:id/stop`     | stop                                       |
+| PUT    | `/v1/sandboxes/:id/network`  | update network policy                      |
+| GET    | `/v1/sandboxes/:id/logs`     | NDJSON stream (`follow`, `tail`, `timestamps` query params) |
+| POST   | `/v1/sandboxes/:id/exec`     | `{"command":[…]}` → collected stdout/stderr/exitCode |
+
+### AWS load balancer
+
+Put an **Application Load Balancer** (HTTPS) in front of gateway instances:
+
+1. HTTPS listener with a publicly trusted certificate (ACM).
+2. Target group: HTTP → gateway `:8080` on manager/worker hosts.
+3. Health check: `GET /readyz` (mark unhealthy if SandboxAPI unreachable).
+4. **No stickiness** — unary routes are safe across instances; each log stream stays on one connection for its lifetime.
+5. Enable connection draining so in-flight log streams can finish on deregister.
+6. Raise the ALB idle timeout (e.g. 5–15 minutes) so collected `exec` and long `logs?follow=true` streams are not cut early.
+
+Keep Raft / gRPC advertise addresses as real node-reachable IPs — do not point intra-cluster traffic at the ALB.
 
 ### Configure the client
 
-| Variable | Required | Meaning |
-|----------|----------|---------|
-| `CELLAR_API_KEY` | yes | Raw key from `api-key create` (`cellar_…`) |
-| `CELLAR_ENDPOINTS` | yes | Comma-separated manager gRPC addrs (`host:17946`) |
-| `CELLAR_CA_CERT` | yes | File path, `\n`-escaped PEM (from `ca-cert --env`), or base64 of PEM |
+| Variable          | Required | Meaning                                      |
+| ----------------- | -------- | -------------------------------------------- |
+| `CELLAR_API_KEY`  | yes      | Raw key from `api-key create` (`cellar_…`)   |
+| `CELLAR_ENDPOINT` | yes      | Gateway base URL (`https://cellar.example.com`) |
 
 ```bash
 export CELLAR_API_KEY='cellar_…'
-export CELLAR_ENDPOINTS='192.0.2.10:17946,192.0.2.11:17946,192.0.2.12:17946'
-
-# Option A: path to PEM file
-export CELLAR_CA_CERT=/var/lib/cellar/ca.crt
-# Option B: paste output of `cellar ca-cert --env` into your .env
+export CELLAR_ENDPOINT='https://cellar.example.com'
 ```
 
-List every manager you want the client to fail over across. A single endpoint is fine; there is no in-tree network load balancer.
+Apps no longer need `CELLAR_CA_CERT` or direct manager gRPC addresses. The gateway holds the cluster CA and talks to managers privately.
 
 ### Use the Go client
 
-Package: `[pkg/client](pkg/client)`. Auth is sent as `Authorization: Bearer …` and `x-api-key`. The client round-robins endpoints and retries on dial / `Unavailable` / `DeadlineExceeded`. Non-leader managers forward writes to the Raft leader; Exec/Logs are proxied to the owning node.
+Package: [`pkg/client`](pkg/client). Auth is sent as `Authorization: Bearer …` and `X-Api-Key`.
 
 ```go
 package main
@@ -316,11 +337,11 @@ func main() {
 }
 ```
 
-Supported client ops: `Create`, `Stop`, `Remove`, `Get`, `List`, `UpdateNetwork`, `Exec` (and streaming Logs via the generated `SandboxAPI` stub if you dial directly).
+Supported client ops: `Create`, `Stop`, `Remove`, `Get`, `List`, `UpdateNetwork`, `Exec`, `Logs`.
 
 ### Use the TypeScript client
 
-Package: [`@cellar/node`](sdk/node) — full docs in [`sdk/node/README.md`](sdk/node/README.md). Works on **Node.js 18+** and **Bun**. Same env vars and auth as the Go client; TLS verifies managers with the cluster CA using SNI `cellar-manager`.
+Package: [`@cellar/node`](sdk/node) — full docs in [`sdk/node/README.md`](sdk/node/README.md). Works on **Node.js 18+** and **Bun**. Same env vars as the Go client.
 
 ```bash
 npm install @cellar/node
@@ -331,7 +352,7 @@ npm install @cellar/node
 import { Client } from '@cellar/node'
 
 const c = Client.fromEnv()
-// or: Client.create({ endpoints: ["192.0.2.10:17946"], apiKey: "cellar_…", caCertFile: "./ca.crt" })
+// or: Client.create({ endpoint: 'https://cellar.example.com', apiKey: 'cellar_…' })
 
 const sb = await c.create({
   spec: { image: 'alpine:3.20' },
@@ -344,7 +365,15 @@ console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`)
 await c.remove(sb.id)
 ```
 
-Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`. Regenerate stubs with `make sdk-node-proto`.
+Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`, `logs`. Regenerate stubs with `make sdk-node-proto`.
+
+### Cluster CA (ops / gateway)
+
+`cellar ca-cert` still exports the public cluster CA for gateway discovery and operational tooling. Public SDKs do not consume it.
+
+```bash
+sudo cellar ca-cert --out /var/lib/cellar/ca.crt
+```
 
 ### Rotation
 
