@@ -1,21 +1,13 @@
+/**
+ * Client talks to the Cellar HTTP gateway.
+ * Authenticate with CELLAR_API_KEY (or Config.apiKey). Point CELLAR_ENDPOINT /
+ * Config.endpoint at the gateway base URL.
+ */
 import {
-  ChannelCredentials,
-  Metadata,
-  status as grpcStatus,
-  type ServiceError,
-} from '@grpc/grpc-js'
-import { EnvAPIKey, EnvCACert, EnvEndpoints, resolveCACert } from './cacert.js'
-import {
-  SandboxAPIClient,
+  Sandbox,
   SandboxCreateRequest,
+  SandboxListResponse,
   SandboxUpdateNetworkRequest,
-  type Sandbox,
-  type SandboxCreateResponse,
-  type SandboxGetResponse,
-  type SandboxListResponse,
-  type SandboxRemoveResponse,
-  type SandboxStopResponse,
-  type SandboxUpdateNetworkResponse,
 } from './gen/sandbox.js'
 
 /** Nested partial request shape (proto zero-value semantics). */
@@ -27,22 +19,16 @@ export type DeepPartial<T> = {
       : T[P]
 }
 
-export const TLSServerName = 'cellar-manager'
-
-const defaultMaxAttempts = 3
-const unhealthyForMs = 5_000
+export const EnvAPIKey = 'CELLAR_API_KEY'
+export const EnvEndpoint = 'CELLAR_ENDPOINT'
 
 export interface Config {
-  /** Manager gRPC addresses (host:port). Required unless using fromEnv. */
-  endpoints: string[]
+  /** Gateway base URL (e.g. https://cellar.example.com). Required. */
+  endpoint: string
   /** cellar_… secret. Required. */
   apiKey: string
-  /** Cluster CA PEM used to verify managers. */
-  caCert?: Buffer | Uint8Array | string
-  /** Loads caCert from disk when caCert is empty. */
-  caCertFile?: string
-  /** Caps failover tries per RPC (default 3). */
-  maxAttempts?: number
+  /** Optional fetch implementation (defaults to global fetch). */
+  fetch?: typeof fetch
 }
 
 export interface ExecResult {
@@ -52,380 +38,220 @@ export interface ExecResult {
   error: string
 }
 
-/** @internal Exported for tests. */
-export function splitEndpoints(s: string): string[] {
-  return s
-    .split(',')
-    .map((p) => p.trim())
-    .filter((p) => p !== '')
+export interface LogsOptions {
+  follow?: boolean
+  tail?: number
+  timestamps?: boolean
 }
 
-/** @internal Exported for tests. */
-export function isRetryable(err: unknown): boolean {
-  if (err == null) {
-    return false
-  }
-  if (typeof err === 'object' && err !== null && 'code' in err) {
-    const code = (err as ServiceError).code
-    switch (code) {
-      case grpcStatus.UNAVAILABLE:
-      case grpcStatus.DEADLINE_EXCEEDED:
-      case grpcStatus.RESOURCE_EXHAUSTED:
-        return true
-      default:
-        // Non-gRPC or other status: only retry dial/transport-like failures.
-        // ServiceError always has a code; unknown transport may lack one.
-        if (typeof code === 'number') {
-          return false
-        }
-    }
-  }
-  // Dial / transport errors without a gRPC status.
-  return true
+export interface LogsChunk {
+  data: Buffer
 }
 
-/** @internal Exported for tests. */
-export function pickEndpointOrder(
-  endpoints: string[],
-  lastOK: string,
-  badUntil: Map<string, number>,
-  rrIndex: number,
-  now = Date.now(),
-): string[] {
-  const n = endpoints.length
-  const order: string[] = []
+export class APIError extends Error {
+  readonly status: number
+  readonly code: string
 
-  if (lastOK !== '') {
-    const until = badUntil.get(lastOK)
-    if (until === undefined || now >= until) {
-      order.push(lastOK)
-    }
+  constructor(status: number, message: string, code = '') {
+    super(code ? `${message} (${code})` : `${message} (HTTP ${status})`)
+    this.name = 'APIError'
+    this.status = status
+    this.code = code
   }
-
-  const start = ((rrIndex % n) + n) % n
-  for (let i = 0; i < n; i++) {
-    const addr = endpoints[(start + i) % n]!
-    if (addr === lastOK) {
-      continue
-    }
-    const until = badUntil.get(addr)
-    if (until !== undefined && now < until) {
-      continue
-    }
-    order.push(addr)
-  }
-
-  if (order.length === 0) {
-    return [...endpoints]
-  }
-  return order
 }
 
-function unaryCall<Req, Res>(
-  fn: (
-    request: Req,
-    metadata: Metadata,
-    callback: (error: ServiceError | null, response: Res) => void,
-  ) => unknown,
-  request: Req,
-  metadata: Metadata,
-): Promise<Res> {
-  return new Promise((resolve, reject) => {
-    fn(request, metadata, (err, res) => {
-      if (err) {
-        reject(err)
-        return
-      }
-      resolve(res)
-    })
-  })
+function normalizeEndpoint(endpoint: string): string {
+  const trimmed = endpoint.trim().replace(/\/+$/, '')
+  let u: URL
+  try {
+    u = new URL(trimmed)
+  } catch {
+    throw new Error(`invalid endpoint ${JSON.stringify(endpoint)}: need absolute URL with scheme and host`)
+  }
+  if (!u.protocol || !u.host) {
+    throw new Error(`invalid endpoint ${JSON.stringify(endpoint)}: need absolute URL with scheme and host`)
+  }
+  return trimmed
 }
 
-/**
- * Client talks to SandboxAPI with multi-endpoint failover.
- * Authenticate with CELLAR_API_KEY (or Config.apiKey). Dial one or more manager
- * gRPC addresses via CELLAR_ENDPOINTS / Config.endpoints.
- */
 export class Client {
-  private readonly endpoints: string[]
+  private readonly endpoint: string
   private readonly apiKey: string
-  private readonly maxAttempts: number
-  private readonly credentials: ChannelCredentials
-  private rr = 0
-  private lastOK = ''
-  private readonly badUntil = new Map<string, number>()
+  private readonly fetchImpl: typeof fetch
 
-  private constructor(
-    endpoints: string[],
-    apiKey: string,
-    maxAttempts: number,
-    credentials: ChannelCredentials,
-  ) {
-    this.endpoints = endpoints
+  private constructor(endpoint: string, apiKey: string, fetchImpl: typeof fetch) {
+    this.endpoint = endpoint
     this.apiKey = apiKey
-    this.maxAttempts = maxAttempts
-    this.credentials = credentials
+    this.fetchImpl = fetchImpl
   }
 
   /** Builds a client from CELLAR_* environment variables. */
-  static fromEnv(): Client {
+  static fromEnv(fetchImpl: typeof fetch = fetch): Client {
     return Client.create({
-      endpoints: splitEndpoints(process.env[EnvEndpoints] ?? ''),
+      endpoint: process.env[EnvEndpoint] ?? '',
       apiKey: process.env[EnvAPIKey] ?? '',
+      fetch: fetchImpl,
     })
   }
 
-  /** Creates a Client. */
   static create(cfg: Config): Client {
     if (!cfg.apiKey) {
       throw new Error(`API key is required (set ${EnvAPIKey})`)
     }
-    if (!cfg.endpoints || cfg.endpoints.length === 0) {
-      throw new Error(`at least one endpoint is required (set ${EnvEndpoints})`)
+    if (!cfg.endpoint) {
+      throw new Error(`endpoint is required (set ${EnvEndpoint})`)
     }
-
-    const endpoints = cfg.endpoints.map((e) => e.trim()).filter((e) => e !== '')
-    if (endpoints.length === 0) {
-      throw new Error(`at least one endpoint is required (set ${EnvEndpoints})`)
-    }
-
-    let caPEM: Buffer | undefined
-    if (cfg.caCert != null) {
-      caPEM = typeof cfg.caCert === 'string' ? Buffer.from(cfg.caCert) : Buffer.from(cfg.caCert)
-    }
-    if ((!caPEM || caPEM.length === 0) && cfg.caCertFile) {
-      caPEM = resolveCACert(cfg.caCertFile)
-    }
-    if ((!caPEM || caPEM.length === 0) && process.env[EnvCACert]) {
-      caPEM = resolveCACert(process.env[EnvCACert]!)
-    }
-    if (!caPEM || caPEM.length === 0) {
-      throw new Error(`CA certificate is required (set ${EnvCACert} or Config.caCert)`)
-    }
-    if (!caPEM.toString('utf8').includes('BEGIN CERTIFICATE')) {
-      throw new Error('failed to parse CA certificate PEM')
-    }
-
-    let maxAttempts = cfg.maxAttempts ?? defaultMaxAttempts
-    if (maxAttempts <= 0) {
-      maxAttempts = defaultMaxAttempts
-    }
-    if (maxAttempts > endpoints.length * 2) {
-      maxAttempts = endpoints.length * 2
-    }
-
-    const credentials = ChannelCredentials.createSsl(caPEM)
-    return new Client(endpoints, cfg.apiKey, maxAttempts, credentials)
+    return new Client(normalizeEndpoint(cfg.endpoint), cfg.apiKey, cfg.fetch ?? fetch)
   }
 
-  private authMetadata(): Metadata {
-    const md = new Metadata()
-    md.set('authorization', `Bearer ${this.apiKey}`)
-    md.set('x-api-key', this.apiKey)
-    return md
+  private authHeaders(extra?: Record<string, string>): Headers {
+    const h = new Headers(extra)
+    h.set('Authorization', `Bearer ${this.apiKey}`)
+    h.set('X-Api-Key', this.apiKey)
+    return h
   }
 
-  private markBad(addr: string): void {
-    this.badUntil.set(addr, Date.now() + unhealthyForMs)
-    if (this.lastOK === addr) {
-      this.lastOK = ''
+  private async parseError(res: Response): Promise<never> {
+    let message = res.statusText
+    let code = ''
+    try {
+      const body = (await res.json()) as { error?: string; code?: string }
+      if (body.error) message = body.error
+      if (body.code) code = body.code
+    } catch {
+      // ignore
     }
+    throw new APIError(res.status, message, code)
   }
 
-  private markOK(addr: string): void {
-    this.lastOK = addr
-    this.badUntil.delete(addr)
-  }
-
-  private pickOrder(): string[] {
-    const rrIndex = this.rr++
-    return pickEndpointOrder(this.endpoints, this.lastOK, this.badUntil, rrIndex)
-  }
-
-  private dial(addr: string): SandboxAPIClient {
-    return new SandboxAPIClient(addr, this.credentials, {
-      'grpc.ssl_target_name_override': TLSServerName,
-      'grpc.default_authority': TLSServerName,
+  private async doJSON(method: string, path: string, body?: unknown): Promise<unknown> {
+    const headers = this.authHeaders({ Accept: 'application/json' })
+    let payload: string | undefined
+    if (body !== undefined) {
+      headers.set('Content-Type', 'application/json')
+      payload = JSON.stringify(body)
+    }
+    const res = await this.fetchImpl(`${this.endpoint}${path}`, {
+      method,
+      headers,
+      body: payload,
     })
-  }
-
-  private async withConn<T>(
-    fn: (api: SandboxAPIClient, metadata: Metadata) => Promise<T>,
-  ): Promise<T> {
-    const metadata = this.authMetadata()
-    let lastErr: unknown
-    const order = this.pickOrder()
-    let attempts = 0
-
-    for (const addr of order) {
-      if (attempts >= this.maxAttempts) {
-        break
-      }
-      attempts++
-
-      let api: SandboxAPIClient
-      try {
-        api = this.dial(addr)
-      } catch (err) {
-        this.markBad(addr)
-        lastErr = err
-        continue
-      }
-
-      try {
-        const result = await fn(api, metadata)
-        this.markOK(addr)
-        api.close()
-        return result
-      } catch (err) {
-        api.close()
-        lastErr = err
-        if (isRetryable(err)) {
-          this.markBad(addr)
-          continue
-        }
-        throw err
-      }
+    if (res.status === 204) {
+      return undefined
     }
-
-    if (lastErr == null) {
-      throw new Error('no endpoints available')
+    if (!res.ok) {
+      await this.parseError(res)
     }
-    throw lastErr
+    if (method === 'DELETE') {
+      return undefined
+    }
+    const text = await res.text()
+    if (!text) {
+      return undefined
+    }
+    return JSON.parse(text)
   }
 
   /** Creates a sandbox. */
   async create(req: DeepPartial<SandboxCreateRequest>): Promise<Sandbox> {
-    const full = SandboxCreateRequest.fromPartial(req)
-    return this.withConn(async (api, md) => {
-      const resp = await unaryCall<typeof full, SandboxCreateResponse>(
-        (r, m, cb) => api.create(r, m, cb),
-        full,
-        md,
-      )
-      if (!resp.sandbox) {
-        throw new Error('Create returned empty sandbox')
-      }
-      return resp.sandbox
-    })
+    const full = SandboxCreateRequest.toJSON(SandboxCreateRequest.fromPartial(req))
+    const out = await this.doJSON('POST', '/v1/sandboxes', full)
+    return Sandbox.fromJSON(out)
   }
 
   /** Stops a sandbox. */
   async stop(id: string): Promise<Sandbox> {
-    return this.withConn(async (api, md) => {
-      const resp = await unaryCall<{ sandboxId: string }, SandboxStopResponse>(
-        (r, m, cb) => api.stop(r, m, cb),
-        { sandboxId: id },
-        md,
-      )
-      if (!resp.sandbox) {
-        throw new Error('Stop returned empty sandbox')
-      }
-      return resp.sandbox
-    })
+    const out = await this.doJSON('POST', `/v1/sandboxes/${encodeURIComponent(id)}/stop`)
+    return Sandbox.fromJSON(out)
   }
 
   /** Deletes a sandbox. */
   async remove(id: string): Promise<void> {
-    await this.withConn(async (api, md) => {
-      await unaryCall<{ sandboxId: string }, SandboxRemoveResponse>(
-        (r, m, cb) => api.remove(r, m, cb),
-        { sandboxId: id },
-        md,
-      )
-    })
+    await this.doJSON('DELETE', `/v1/sandboxes/${encodeURIComponent(id)}`)
   }
 
   /** Returns a sandbox. */
   async get(id: string): Promise<Sandbox> {
-    return this.withConn(async (api, md) => {
-      const resp = await unaryCall<{ sandboxId: string }, SandboxGetResponse>(
-        (r, m, cb) => api.get(r, m, cb),
-        { sandboxId: id },
-        md,
-      )
-      if (!resp.sandbox) {
-        throw new Error('Get returned empty sandbox')
-      }
-      return resp.sandbox
-    })
+    const out = await this.doJSON('GET', `/v1/sandboxes/${encodeURIComponent(id)}`)
+    return Sandbox.fromJSON(out)
   }
 
   /** Returns all sandboxes. */
   async list(): Promise<Sandbox[]> {
-    return this.withConn(async (api, md) => {
-      const resp = await unaryCall<Record<string, never>, SandboxListResponse>(
-        (r, m, cb) => api.list(r, m, cb),
-        {},
-        md,
-      )
-      return resp.sandboxes ?? []
-    })
+    const out = await this.doJSON('GET', '/v1/sandboxes')
+    return SandboxListResponse.fromJSON(out ?? {}).sandboxes ?? []
   }
 
   /** Replaces a sandbox network policy. */
   async updateNetwork(req: DeepPartial<SandboxUpdateNetworkRequest>): Promise<Sandbox> {
     const full = SandboxUpdateNetworkRequest.fromPartial(req)
-    return this.withConn(async (api, md) => {
-      const resp = await unaryCall<typeof full, SandboxUpdateNetworkResponse>(
-        (r, m, cb) => api.updateNetwork(r, m, cb),
-        full,
-        md,
-      )
-      if (!resp.sandbox) {
-        throw new Error('UpdateNetwork returned empty sandbox')
-      }
-      return resp.sandbox
+    if (!full.sandboxId) {
+      throw new Error('sandboxId is required')
+    }
+    const out = await this.doJSON(
+      'PUT',
+      `/v1/sandboxes/${encodeURIComponent(full.sandboxId)}/network`,
+      SandboxUpdateNetworkRequest.toJSON(full),
+    )
+    return Sandbox.fromJSON(out)
+  }
+
+  /** Streams sandbox logs as NDJSON chunks. */
+  async *logs(sandboxId: string, opt: LogsOptions = {}): AsyncGenerator<LogsChunk> {
+    const q = new URLSearchParams()
+    if (opt.follow) q.set('follow', 'true')
+    if (opt.timestamps) q.set('timestamps', 'true')
+    if (opt.tail != null && opt.tail !== 0) q.set('tail', String(opt.tail))
+    const qs = q.toString()
+    const path = `/v1/sandboxes/${encodeURIComponent(sandboxId)}/logs${qs ? `?${qs}` : ''}`
+    const res = await this.fetchImpl(`${this.endpoint}${path}`, {
+      method: 'GET',
+      headers: this.authHeaders({ Accept: 'application/x-ndjson' }),
     })
+    if (!res.ok) {
+      await this.parseError(res)
+    }
+    if (!res.body) {
+      return
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      let idx: number
+      while ((idx = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, idx).trim()
+        buf = buf.slice(idx + 1)
+        if (!line) continue
+        const row = JSON.parse(line) as { data?: string }
+        yield { data: Buffer.from(row.data ?? '', 'base64') }
+      }
+    }
+    const rest = buf.trim()
+    if (rest) {
+      const row = JSON.parse(rest) as { data?: string }
+      yield { data: Buffer.from(row.data ?? '', 'base64') }
+    }
   }
 
   /** Runs a command in a sandbox and collects output until exit. */
   async exec(sandboxId: string, command: string[]): Promise<ExecResult> {
-    return this.withConn(async (api, md) => {
-      const stream = api.exec(md)
-      const result: ExecResult = {
-        stdout: Buffer.alloc(0),
-        stderr: Buffer.alloc(0),
-        exitCode: 0,
-        error: '',
-      }
-
-      const done = new Promise<ExecResult>((resolve, reject) => {
-        stream.on(
-          'data',
-          (msg: {
-            stdout?: Buffer
-            stderr?: Buffer
-            exit?: { exitCode: number; error: string }
-          }) => {
-            if (msg.stdout) {
-              result.stdout = Buffer.concat([result.stdout, msg.stdout])
-            }
-            if (msg.stderr) {
-              result.stderr = Buffer.concat([result.stderr, msg.stderr])
-            }
-            if (msg.exit) {
-              result.exitCode = msg.exit.exitCode
-              result.error = msg.exit.error
-              resolve(result)
-            }
-          },
-        )
-        stream.on('error', reject)
-        stream.on('end', () => resolve(result))
-      })
-
-      stream.write({
-        start: {
-          sandboxId,
-          command,
-          tty: false,
-          stdin: false,
-        },
-      })
-      stream.end()
-
-      return done
-    })
+    const out = (await this.doJSON('POST', `/v1/sandboxes/${encodeURIComponent(sandboxId)}/exec`, {
+      command,
+    })) as {
+      stdout?: string
+      stderr?: string
+      exitCode?: number
+      error?: string
+    }
+    return {
+      stdout: Buffer.from(out?.stdout ?? '', 'utf8'),
+      stderr: Buffer.from(out?.stderr ?? '', 'utf8'),
+      exitCode: out?.exitCode ?? 0,
+      error: out?.error ?? '',
+    }
   }
 }

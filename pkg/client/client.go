@@ -1,71 +1,73 @@
-// Package client is the public Go SDK for Cellar's manager SandboxAPI.
+// Package client is the public Go SDK for Cellar’s HTTP gateway.
 //
-// Authenticate with CELLAR_API_KEY (or Config.APIKey). Dial one or more manager
-// gRPC addresses via CELLAR_ENDPOINTS / Config.Endpoints; the client round-robins
-// and fails over on dial errors and Unavailable/DeadlineExceeded.
+// Authenticate with CELLAR_API_KEY (or Config.APIKey). Point CELLAR_ENDPOINT /
+// Config.Endpoint at the gateway base URL (e.g. https://cellar.example.com).
 package client
 
 import (
+	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
-	"github.com/prodioslabs/cellar/internal/grpcapi"
 )
 
 const (
-	EnvAPIKey    = "CELLAR_API_KEY"
-	EnvEndpoints = "CELLAR_ENDPOINTS"
-	EnvCACert    = "CELLAR_CA_CERT"
+	EnvAPIKey   = "CELLAR_API_KEY"
+	EnvEndpoint = "CELLAR_ENDPOINT"
 
-	defaultMaxAttempts = 3
-	unhealthyFor       = 5 * time.Second
+	// Deprecated: use EnvEndpoint. Kept so old env dumps are recognizable.
+	EnvEndpoints = "CELLAR_ENDPOINTS"
+	// Deprecated: cluster CA is no longer required for HTTP clients.
+	EnvCACert = "CELLAR_CA_CERT"
+)
+
+var (
+	protoMarshal = protojson.MarshalOptions{
+		UseProtoNames:   false,
+		EmitUnpopulated: false,
+	}
+	protoUnmarshal = protojson.UnmarshalOptions{
+		DiscardUnknown: true,
+	}
 )
 
 // Config configures a Client.
 type Config struct {
-	// Endpoints are manager gRPC addresses (host:port). Required unless
-	Endpoints []string
+	// Endpoint is the gateway base URL (e.g. https://cellar.example.com).
+	Endpoint string
 	// APIKey is a cellar_… secret. Required.
 	APIKey string
-	// CACert is the cluster CA PEM used to verify managers.
-	CACert []byte
-	// CACertFile loads CACert from disk when CACert is empty.
-	CACertFile string
-	// MaxAttempts caps failover tries per RPC (default 3).
-	MaxAttempts int
+	// HTTPClient is used for requests; defaults to http.DefaultClient.
+	HTTPClient *http.Client
+	// Timeout applies when HTTPClient is nil (default 60s).
+	Timeout time.Duration
 }
 
-// Client talks to SandboxAPI with multi-endpoint failover.
+// Client talks to the Cellar HTTP gateway.
 type Client struct {
-	cfg     Config
-	tlsCfg  *tls.Config
-	rr      atomic.Uint64
-	mu      sync.Mutex
-	lastOK  string
-	badUntil map[string]time.Time
+	cfg    Config
+	http   *http.Client
+	base   string
 }
 
-// NewFromEnv builds a client from CELLAR_* environment variables.
-// CELLAR_CA_CERT may be a file path, \\n-escaped PEM, or base64 of PEM.
+// NewFromEnv builds a client from CELLAR_API_KEY and CELLAR_ENDPOINT.
 func NewFromEnv() (*Client, error) {
 	return New(Config{
-		Endpoints: splitEndpoints(os.Getenv(EnvEndpoints)),
-		APIKey:    os.Getenv(EnvAPIKey),
+		Endpoint: os.Getenv(EnvEndpoint),
+		APIKey:   os.Getenv(EnvAPIKey),
 	})
 }
 
@@ -74,261 +76,239 @@ func New(cfg Config) (*Client, error) {
 	if cfg.APIKey == "" {
 		return nil, fmt.Errorf("API key is required (set %s)", EnvAPIKey)
 	}
-	if len(cfg.Endpoints) == 0 {
-		return nil, fmt.Errorf("at least one endpoint is required (set %s)", EnvEndpoints)
+	endpoint := strings.TrimSpace(cfg.Endpoint)
+	if endpoint == "" {
+		return nil, fmt.Errorf("endpoint is required (set %s)", EnvEndpoint)
 	}
-	for i, e := range cfg.Endpoints {
-		cfg.Endpoints[i] = strings.TrimSpace(e)
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return nil, fmt.Errorf("invalid endpoint %q: need absolute URL with scheme and host", endpoint)
 	}
+	base := strings.TrimRight(endpoint, "/")
+	hc := cfg.HTTPClient
+	if hc == nil {
+		timeout := cfg.Timeout
+		if timeout <= 0 {
+			timeout = 60 * time.Second
+		}
+		hc = &http.Client{Timeout: timeout}
+	}
+	return &Client{cfg: cfg, http: hc, base: base}, nil
+}
 
-	caPEM := append([]byte(nil), cfg.CACert...)
-	if len(caPEM) == 0 && cfg.CACertFile != "" {
-		b, err := ResolveCACert(cfg.CACertFile)
+func (c *Client) authHeaders(h http.Header) {
+	h.Set("Authorization", "Bearer "+c.cfg.APIKey)
+	h.Set("X-Api-Key", c.cfg.APIKey)
+}
+
+type apiError struct {
+	Status int
+	Code   string
+	Msg    string
+}
+
+func (e *apiError) Error() string {
+	if e.Code != "" {
+		return fmt.Sprintf("cellar: %s (%s)", e.Msg, e.Code)
+	}
+	return fmt.Sprintf("cellar: %s (HTTP %d)", e.Msg, e.Status)
+}
+
+func (c *Client) doJSON(ctx context.Context, method, path string, body proto.Message, out proto.Message) error {
+	var rdr io.Reader
+	if body != nil {
+		b, err := protoMarshal.Marshal(body)
 		if err != nil {
-			return nil, fmt.Errorf("CA cert: %w", err)
+			return err
 		}
-		caPEM = b
+		rdr = bytes.NewReader(b)
 	}
-	if len(caPEM) == 0 {
-		if v := os.Getenv(EnvCACert); v != "" {
-			b, err := ResolveCACert(v)
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", EnvCACert, err)
-			}
-			caPEM = b
-		}
-	}
-	if len(caPEM) == 0 {
-		return nil, fmt.Errorf("CA certificate is required (set %s or Config.CACert)", EnvCACert)
-	}
-	if !strings.Contains(string(caPEM), "BEGIN CERTIFICATE") {
-		// Config.CACert may already be PEM bytes; if Resolve wasn't used, still validate.
-		return nil, fmt.Errorf("failed to parse CA certificate PEM")
-	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caPEM) {
-		return nil, fmt.Errorf("failed to parse CA certificate")
-	}
-	if cfg.MaxAttempts <= 0 {
-		cfg.MaxAttempts = defaultMaxAttempts
-	}
-	if cfg.MaxAttempts > len(cfg.Endpoints)*2 {
-		cfg.MaxAttempts = len(cfg.Endpoints) * 2
-	}
-	return &Client{
-		cfg: cfg,
-		tlsCfg: &tls.Config{
-			RootCAs:    pool,
-			ServerName: grpcapi.TLSServerName,
-			MinVersion: tls.VersionTLS12,
-		},
-		badUntil: make(map[string]time.Time),
-	}, nil
-}
-
-func splitEndpoints(s string) []string {
-	parts := strings.Split(s, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func (c *Client) withAuth(ctx context.Context) context.Context {
-	return metadata.AppendToOutgoingContext(ctx,
-		"authorization", "Bearer "+c.cfg.APIKey,
-		"x-api-key", c.cfg.APIKey,
-	)
-}
-
-func (c *Client) markBad(addr string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.badUntil[addr] = time.Now().Add(unhealthyFor)
-	if c.lastOK == addr {
-		c.lastOK = ""
-	}
-}
-
-func (c *Client) markOK(addr string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.lastOK = addr
-	delete(c.badUntil, addr)
-}
-
-func (c *Client) pickOrder() []string {
-	c.mu.Lock()
-	last := c.lastOK
-	now := time.Now()
-	n := len(c.cfg.Endpoints)
-	order := make([]string, 0, n)
-	if last != "" {
-		if until, bad := c.badUntil[last]; !bad || now.After(until) {
-			order = append(order, last)
-		}
-	}
-	start := int(c.rr.Add(1)-1) % n
-	for i := 0; i < n; i++ {
-		addr := c.cfg.Endpoints[(start+i)%n]
-		if addr == last {
-			continue
-		}
-		if until, bad := c.badUntil[addr]; bad && now.Before(until) {
-			continue
-		}
-		order = append(order, addr)
-	}
-	// If everything is marked bad, try all anyway.
-	if len(order) == 0 {
-		order = append(order, c.cfg.Endpoints...)
-	}
-	c.mu.Unlock()
-	return order
-}
-
-func retryable(err error) bool {
-	if err == nil {
-		return false
-	}
-	st, ok := status.FromError(err)
-	if !ok {
-		return true // dial / transport
-	}
-	switch st.Code() {
-	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
-		return true
-	default:
-		return false
-	}
-}
-
-func (c *Client) dial(addr string) (*grpc.ClientConn, error) {
-	return grpc.NewClient(normalizeAddr(addr), grpc.WithTransportCredentials(credentials.NewTLS(c.tlsCfg)))
-}
-
-func normalizeAddr(addr string) string {
-	if strings.HasPrefix(addr, "dns:///") || strings.Contains(addr, "://") {
-		return addr
-	}
-	return "dns:///" + addr
-}
-
-func (c *Client) withConn(ctx context.Context, fn func(ctx context.Context, api cellarv1.SandboxAPIClient) error) error {
-	ctx = c.withAuth(ctx)
-	var lastErr error
-	order := c.pickOrder()
-	attempts := 0
-	for _, addr := range order {
-		if attempts >= c.cfg.MaxAttempts {
-			break
-		}
-		attempts++
-		conn, err := c.dial(addr)
-		if err != nil {
-			c.markBad(addr)
-			lastErr = err
-			continue
-		}
-		err = fn(ctx, cellarv1.NewSandboxAPIClient(conn))
-		_ = conn.Close()
-		if err == nil {
-			c.markOK(addr)
-			return nil
-		}
-		lastErr = err
-		if retryable(err) {
-			c.markBad(addr)
-			continue
-		}
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, rdr)
+	if err != nil {
 		return err
 	}
-	if lastErr == nil {
-		lastErr = fmt.Errorf("no endpoints available")
+	c.authHeaders(req.Header)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
-	return lastErr
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return parseAPIError(resp.StatusCode, data)
+	}
+	if out == nil || len(data) == 0 {
+		return nil
+	}
+	return protoUnmarshal.Unmarshal(data, out)
+}
+
+func parseAPIError(status int, data []byte) error {
+	var eb struct {
+		Error string `json:"error"`
+		Code  string `json:"code"`
+	}
+	_ = json.Unmarshal(data, &eb)
+	msg := eb.Error
+	if msg == "" {
+		msg = strings.TrimSpace(string(data))
+	}
+	if msg == "" {
+		msg = http.StatusText(status)
+	}
+	return &apiError{Status: status, Code: eb.Code, Msg: msg}
 }
 
 // Create creates a sandbox.
 func (c *Client) Create(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.Sandbox, error) {
-	var out *cellarv1.Sandbox
-	err := c.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
-		resp, err := api.Create(ctx, req)
-		if err != nil {
-			return err
-		}
-		out = resp.Sandbox
-		return nil
-	})
-	return out, err
+	out := &cellarv1.Sandbox{}
+	if err := c.doJSON(ctx, http.MethodPost, "/v1/sandboxes", req, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // Stop stops a sandbox.
 func (c *Client) Stop(ctx context.Context, id string) (*cellarv1.Sandbox, error) {
-	var out *cellarv1.Sandbox
-	err := c.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
-		resp, err := api.Stop(ctx, &cellarv1.SandboxStopRequest{SandboxId: id})
-		if err != nil {
-			return err
-		}
-		out = resp.Sandbox
-		return nil
-	})
-	return out, err
+	out := &cellarv1.Sandbox{}
+	if err := c.doJSON(ctx, http.MethodPost, "/v1/sandboxes/"+url.PathEscape(id)+"/stop", nil, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // Remove deletes a sandbox.
 func (c *Client) Remove(ctx context.Context, id string) error {
-	return c.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
-		_, err := api.Remove(ctx, &cellarv1.SandboxRemoveRequest{SandboxId: id})
-		return err
-	})
+	return c.doJSON(ctx, http.MethodDelete, "/v1/sandboxes/"+url.PathEscape(id), nil, nil)
 }
 
 // Get returns a sandbox.
 func (c *Client) Get(ctx context.Context, id string) (*cellarv1.Sandbox, error) {
-	var out *cellarv1.Sandbox
-	err := c.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
-		resp, err := api.Get(ctx, &cellarv1.SandboxGetRequest{SandboxId: id})
-		if err != nil {
-			return err
-		}
-		out = resp.Sandbox
-		return nil
-	})
-	return out, err
+	out := &cellarv1.Sandbox{}
+	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes/"+url.PathEscape(id), nil, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // List returns all sandboxes.
 func (c *Client) List(ctx context.Context) ([]*cellarv1.Sandbox, error) {
-	var out []*cellarv1.Sandbox
-	err := c.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
-		resp, err := api.List(ctx, &cellarv1.SandboxListRequest{})
-		if err != nil {
-			return err
-		}
-		out = resp.Sandboxes
-		return nil
-	})
-	return out, err
+	out := &cellarv1.SandboxListResponse{}
+	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes", nil, out); err != nil {
+		return nil, err
+	}
+	return out.Sandboxes, nil
 }
 
 // UpdateNetwork replaces a sandbox network policy.
 func (c *Client) UpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.Sandbox, error) {
-	var out *cellarv1.Sandbox
-	err := c.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
-		resp, err := api.UpdateNetwork(ctx, req)
-		if err != nil {
-			return err
+	if req == nil || req.SandboxId == "" {
+		return nil, fmt.Errorf("sandbox_id is required")
+	}
+	id := req.SandboxId
+	out := &cellarv1.Sandbox{}
+	if err := c.doJSON(ctx, http.MethodPut, "/v1/sandboxes/"+url.PathEscape(id)+"/network", req, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LogsOptions configures a logs request.
+type LogsOptions struct {
+	Follow     bool
+	Tail       int64
+	Timestamps bool
+}
+
+// LogsChunk is one NDJSON log line from the gateway.
+type LogsChunk struct {
+	Data []byte
+}
+
+// Logs streams sandbox logs as NDJSON chunks until EOF or ctx cancel.
+func (c *Client) Logs(ctx context.Context, id string, opt LogsOptions) (<-chan LogsChunk, <-chan error) {
+	ch := make(chan LogsChunk)
+	errCh := make(chan error, 1)
+	go func() {
+		defer close(ch)
+		defer close(errCh)
+		q := url.Values{}
+		if opt.Follow {
+			q.Set("follow", "true")
 		}
-		out = resp.Sandbox
-		return nil
-	})
-	return out, err
+		if opt.Timestamps {
+			q.Set("timestamps", "true")
+		}
+		if opt.Tail != 0 {
+			q.Set("tail", strconv.FormatInt(opt.Tail, 10))
+		}
+		path := "/v1/sandboxes/" + url.PathEscape(id) + "/logs"
+		if enc := q.Encode(); enc != "" {
+			path += "?" + enc
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path, nil)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		c.authHeaders(req.Header)
+		req.Header.Set("Accept", "application/x-ndjson")
+
+		// Streaming must not use a client-wide Timeout that kills long follows.
+		hc := c.http
+		if hc.Timeout != 0 {
+			clone := *hc
+			clone.Timeout = 0
+			hc = &clone
+		}
+		resp, err := hc.Do(req)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			data, _ := io.ReadAll(resp.Body)
+			errCh <- parseAPIError(resp.StatusCode, data)
+			return
+		}
+		dec := json.NewDecoder(resp.Body)
+		for {
+			var row struct {
+				Data string `json:"data"`
+			}
+			if err := dec.Decode(&row); err != nil {
+				if err == io.EOF {
+					return
+				}
+				errCh <- err
+				return
+			}
+			raw, err := base64.StdEncoding.DecodeString(row.Data)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			select {
+			case ch <- LogsChunk{Data: raw}:
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			}
+		}
+	}()
+	return ch, errCh
 }
 
 // ExecResult is the outcome of a non-interactive exec.
@@ -341,44 +321,45 @@ type ExecResult struct {
 
 // Exec runs a command in a sandbox and collects output until exit.
 func (c *Client) Exec(ctx context.Context, sandboxID string, command []string) (*ExecResult, error) {
-	var result *ExecResult
-	err := c.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
-		stream, err := api.Exec(ctx)
-		if err != nil {
-			return err
-		}
-		if err := stream.Send(&cellarv1.SandboxExecMessage{
-			Payload: &cellarv1.SandboxExecMessage_Start{Start: &cellarv1.SandboxExecStart{
-				SandboxId: sandboxID,
-				Command:   command,
-			}},
-		}); err != nil {
-			return err
-		}
-		_ = stream.CloseSend()
-		res := &ExecResult{}
-		for {
-			msg, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			switch p := msg.Payload.(type) {
-			case *cellarv1.SandboxExecMessage_Stdout:
-				res.Stdout = append(res.Stdout, p.Stdout...)
-			case *cellarv1.SandboxExecMessage_Stderr:
-				res.Stderr = append(res.Stderr, p.Stderr...)
-			case *cellarv1.SandboxExecMessage_Exit:
-				res.ExitCode = p.Exit.ExitCode
-				res.Error = p.Exit.Error
-				result = res
-				return nil
-			}
-		}
-		result = res
-		return nil
-	})
-	return result, err
+	payload, err := json.Marshal(map[string]any{"command": command})
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.base+"/v1/sandboxes/"+url.PathEscape(sandboxID)+"/exec",
+		bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	c.authHeaders(req.Header)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, parseAPIError(resp.StatusCode, data)
+	}
+	var out struct {
+		Stdout   string `json:"stdout"`
+		Stderr   string `json:"stderr"`
+		ExitCode int32  `json:"exitCode"`
+		Error    string `json:"error"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil, err
+	}
+	return &ExecResult{
+		Stdout:   []byte(out.Stdout),
+		Stderr:   []byte(out.Stderr),
+		ExitCode: out.ExitCode,
+		Error:    out.Error,
+	}, nil
 }

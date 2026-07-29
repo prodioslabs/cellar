@@ -1,6 +1,14 @@
-export { EnvAPIKey, EnvCACert, EnvEndpoints, formatCACertEnv, resolveCACert } from './cacert.js'
-
-export { Client, TLSServerName, type Config, type DeepPartial, type ExecResult } from './client.js'
+export {
+  APIError,
+  Client,
+  EnvAPIKey,
+  EnvEndpoint,
+  type Config,
+  type DeepPartial,
+  type ExecResult,
+  type LogsChunk,
+  type LogsOptions,
+} from './client.js'
 
 export type {
   DNSPolicy,

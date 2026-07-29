@@ -1,73 +1,137 @@
-import { status as grpcStatus } from '@grpc/grpc-js'
-import { describe, expect, it } from 'vitest'
-import { isRetryable, pickEndpointOrder, splitEndpoints } from './client.js'
+import { describe, expect, it, vi } from 'vitest'
+import { APIError, Client, EnvAPIKey, EnvEndpoint } from './client.js'
 
-describe('splitEndpoints', () => {
-  it('splits and trims comma-separated addresses', () => {
-    expect(splitEndpoints('a:1, b:2 , ,c:3')).toEqual(['a:1', 'b:2', 'c:3'])
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+describe('Client.create', () => {
+  it('requires api key and endpoint', () => {
+    expect(() => Client.create({ endpoint: '', apiKey: '' })).toThrow(/API key/)
+    expect(() => Client.create({ endpoint: '', apiKey: 'k' })).toThrow(new RegExp(EnvEndpoint))
+    expect(() => Client.create({ endpoint: 'not-a-url', apiKey: 'k' })).toThrow(/invalid endpoint/)
   })
 
-  it('returns empty for blank', () => {
-    expect(splitEndpoints('')).toEqual([])
-    expect(splitEndpoints('  , , ')).toEqual([])
-  })
-})
-
-describe('isRetryable', () => {
-  it('retries unavailable / deadline / resource exhausted', () => {
-    expect(isRetryable({ code: grpcStatus.UNAVAILABLE })).toBe(true)
-    expect(isRetryable({ code: grpcStatus.DEADLINE_EXCEEDED })).toBe(true)
-    expect(isRetryable({ code: grpcStatus.RESOURCE_EXHAUSTED })).toBe(true)
-  })
-
-  it('does not retry permission denied / not found', () => {
-    expect(isRetryable({ code: grpcStatus.PERMISSION_DENIED })).toBe(false)
-    expect(isRetryable({ code: grpcStatus.NOT_FOUND })).toBe(false)
-    expect(isRetryable({ code: grpcStatus.INVALID_ARGUMENT })).toBe(false)
-  })
-
-  it('retries dial/transport errors without a gRPC code', () => {
-    expect(isRetryable(new Error('connect ECONNREFUSED'))).toBe(true)
-  })
-
-  it('returns false for null', () => {
-    expect(isRetryable(null)).toBe(false)
+  it('accepts absolute URLs', () => {
+    const c = Client.create({ endpoint: 'https://cellar.example.com/', apiKey: 'k' })
+    expect(c).toBeInstanceOf(Client)
   })
 })
 
-describe('pickEndpointOrder', () => {
-  const endpoints = ['a:1', 'b:2', 'c:3']
+describe('Client HTTP API', () => {
+  it('sends auth headers and maps CRUD', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const headers = new Headers(init?.headers)
+      expect(headers.get('Authorization')).toBe('Bearer cellar_secret')
+      expect(headers.get('X-Api-Key')).toBe('cellar_secret')
+      if (url.endsWith('/v1/sandboxes') && init?.method === 'POST') {
+        return jsonResponse(200, { id: 'sb1' })
+      }
+      if (url.endsWith('/v1/sandboxes/sb1') && init?.method === 'GET') {
+        return jsonResponse(200, { id: 'sb1' })
+      }
+      if (url.endsWith('/v1/sandboxes') && (!init?.method || init.method === 'GET')) {
+        return jsonResponse(200, { sandboxes: [{ id: 'sb1' }] })
+      }
+      if (url.endsWith('/stop')) {
+        return jsonResponse(200, { id: 'sb1' })
+      }
+      if (url.endsWith('/network')) {
+        return jsonResponse(200, { id: 'sb1' })
+      }
+      if (url.endsWith('/v1/sandboxes/sb1') && init?.method === 'DELETE') {
+        return new Response(null, { status: 204 })
+      }
+      return new Response('missing', { status: 404 })
+    })
 
-  it('prefers lastOK when healthy', () => {
-    const order = pickEndpointOrder(endpoints, 'b:2', new Map(), 0)
-    expect(order[0]).toBe('b:2')
-    expect(order).toContain('a:1')
-    expect(order).toContain('c:3')
-    expect(order).toHaveLength(3)
+    const c = Client.create({
+      endpoint: 'https://gw.example',
+      apiKey: 'cellar_secret',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    const created = await c.create({ spec: { image: 'alpine:3.20' } })
+    expect(created.id).toBe('sb1')
+    expect((await c.get('sb1')).id).toBe('sb1')
+    expect((await c.list()).map((s) => s.id)).toEqual(['sb1'])
+    expect((await c.stop('sb1')).id).toBe('sb1')
+    expect((await c.updateNetwork({ sandboxId: 'sb1', network: { mode: 'none' } })).id).toBe('sb1')
+    await c.remove('sb1')
   })
 
-  it('skips endpoints marked bad', () => {
-    const badUntil = new Map<string, number>([['a:1', Date.now() + 60_000]])
-    const order = pickEndpointOrder(endpoints, '', badUntil, 0)
-    expect(order).not.toContain('a:1')
-    expect(order).toEqual(['b:2', 'c:3'])
+  it('maps API errors', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(404, { error: 'missing', code: 'not_found' }))
+    const c = Client.create({
+      endpoint: 'https://gw.example',
+      apiKey: 'k',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    await expect(c.get('x')).rejects.toMatchObject({
+      name: 'APIError',
+      status: 404,
+      code: 'not_found',
+    } satisfies Partial<APIError>)
   })
 
-  it('falls back to all endpoints when everything is bad', () => {
-    const now = 1_000
-    const badUntil = new Map<string, number>([
-      ['a:1', now + 60_000],
-      ['b:2', now + 60_000],
-      ['c:3', now + 60_000],
-    ])
-    const order = pickEndpointOrder(endpoints, '', badUntil, 0, now)
-    expect(order).toEqual(endpoints)
+  it('exec collects JSON output', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { command: string[] }
+      expect(body.command).toEqual(['echo', 'hi'])
+      return jsonResponse(200, { stdout: 'hi\n', stderr: '', exitCode: 0 })
+    })
+    const c = Client.create({
+      endpoint: 'https://gw.example',
+      apiKey: 'k',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const res = await c.exec('sb1', ['echo', 'hi'])
+    expect(res.stdout.toString()).toBe('hi\n')
+    expect(res.exitCode).toBe(0)
   })
 
-  it('round-robins starting index', () => {
-    const order0 = pickEndpointOrder(endpoints, '', new Map(), 0)
-    const order1 = pickEndpointOrder(endpoints, '', new Map(), 1)
-    expect(order0[0]).toBe('a:1')
-    expect(order1[0]).toBe('b:2')
+  it('logs streams NDJSON', async () => {
+    const line1 = JSON.stringify({ data: Buffer.from('a\n').toString('base64') })
+    const line2 = JSON.stringify({ data: Buffer.from('b\n').toString('base64') })
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(`${line1}\n${line2}\n`))
+        controller.close()
+      },
+    })
+    const fetchMock = vi.fn(async () => new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'application/x-ndjson' },
+    }))
+    const c = Client.create({
+      endpoint: 'https://gw.example',
+      apiKey: 'k',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const chunks: string[] = []
+    for await (const ch of c.logs('sb1', { tail: 10 })) {
+      chunks.push(ch.data.toString())
+    }
+    expect(chunks.join('')).toBe('a\nb\n')
+  })
+
+  it('fromEnv reads CELLAR_ENDPOINT', () => {
+    const prevKey = process.env[EnvAPIKey]
+    const prevEp = process.env[EnvEndpoint]
+    process.env[EnvAPIKey] = 'cellar_x'
+    process.env[EnvEndpoint] = 'https://gw.example'
+    try {
+      const c = Client.fromEnv(async () => new Response('{}'))
+      expect(c).toBeInstanceOf(Client)
+    } finally {
+      if (prevKey === undefined) delete process.env[EnvAPIKey]
+      else process.env[EnvAPIKey] = prevKey
+      if (prevEp === undefined) delete process.env[EnvEndpoint]
+      else process.env[EnvEndpoint] = prevEp
+    }
   })
 })

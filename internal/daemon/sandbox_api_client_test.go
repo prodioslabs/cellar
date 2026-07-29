@@ -2,17 +2,17 @@ package daemon_test
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/daemon"
+	"github.com/prodioslabs/cellar/internal/gateway"
 	"github.com/prodioslabs/cellar/pkg/client"
 )
 
-func TestSandboxAPIClientFailover(t *testing.T) {
+func TestSandboxAPIClientViaGatewayFailover(t *testing.T) {
 	base := t.TempDir()
 	listenA := freePort(t)
 	raftA := freePort(t)
@@ -97,7 +97,6 @@ func TestSandboxAPIClientFailover(t *testing.T) {
 		t.Fatal("empty raw key")
 	}
 
-	// Key must be visible on followers before we use SandboxAPI against them.
 	deadline := time.Now().Add(15 * time.Second)
 	for {
 		conn, err := daemon.DialLocal(sockB)
@@ -115,16 +114,42 @@ func TestSandboxAPIClientFailover(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	caPEM, err := os.ReadFile(filepath.Join(base, "a", "ca.crt"))
+	gwListen := freePort(t)
+	gw, err := gateway.New(gateway.Config{
+		ListenAddr: gwListen,
+		DataDir:    filepath.Join(base, "a"),
+		Upstreams:  []string{listenA, listenB, listenC},
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	gwCtx, gwCancel := context.WithCancel(context.Background())
+	defer gwCancel()
+	go func() { _ = gw.Run(gwCtx) }()
+
+	// Wait for gateway readiness.
+	deadline = time.Now().Add(15 * time.Second)
+	for {
+		cli, err := client.New(client.Config{
+			Endpoint: "http://" + gwListen,
+			APIKey:   keyResp.Key,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = cli.List(ctx)
+		if err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("gateway not ready: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	cli, err := client.New(client.Config{
-		Endpoints:   []string{listenA, listenB, listenC},
-		APIKey:      keyResp.Key,
-		CACert:      caPEM,
-		MaxAttempts: 6,
+		Endpoint: "http://" + gwListen,
+		APIKey:   keyResp.Key,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +165,6 @@ func TestSandboxAPIClientFailover(t *testing.T) {
 		t.Fatal("empty sandbox id")
 	}
 
-	// Confirm replication to B via local Control before killing A.
 	deadline = time.Now().Add(15 * time.Second)
 	for {
 		conn, err := daemon.DialLocal(sockB)
@@ -160,7 +184,6 @@ func TestSandboxAPIClientFailover(t *testing.T) {
 
 	cancelA()
 
-	// Wait until B or C is leader.
 	deadline = time.Now().Add(45 * time.Second)
 	var leaderSock string
 	for {
