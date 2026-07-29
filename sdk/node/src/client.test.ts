@@ -103,10 +103,13 @@ describe('Client HTTP API', () => {
         controller.close()
       },
     })
-    const fetchMock = vi.fn(async () => new Response(stream, {
-      status: 200,
-      headers: { 'Content-Type': 'application/x-ndjson' },
-    }))
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'application/x-ndjson' },
+        }),
+    )
     const c = Client.create({
       endpoint: 'https://gw.example',
       apiKey: 'k',

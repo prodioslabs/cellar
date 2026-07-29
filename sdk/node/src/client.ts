@@ -66,10 +66,14 @@ function normalizeEndpoint(endpoint: string): string {
   try {
     u = new URL(trimmed)
   } catch {
-    throw new Error(`invalid endpoint ${JSON.stringify(endpoint)}: need absolute URL with scheme and host`)
+    throw new Error(
+      `invalid endpoint ${JSON.stringify(endpoint)}: need absolute URL with scheme and host`,
+    )
   }
   if (!u.protocol || !u.host) {
-    throw new Error(`invalid endpoint ${JSON.stringify(endpoint)}: need absolute URL with scheme and host`)
+    throw new Error(
+      `invalid endpoint ${JSON.stringify(endpoint)}: need absolute URL with scheme and host`,
+    )
   }
   return trimmed
 }
@@ -124,7 +128,7 @@ export class Client {
     throw new APIError(res.status, message, code)
   }
 
-  private async doJSON(method: string, path: string, body?: unknown): Promise<unknown> {
+  private async requestJSON(method: string, path: string, body?: unknown): Promise<unknown> {
     const headers = this.authHeaders({ Accept: 'application/json' })
     let payload: string | undefined
     if (body !== undefined) {
@@ -155,30 +159,30 @@ export class Client {
   /** Creates a sandbox. */
   async create(req: DeepPartial<SandboxCreateRequest>): Promise<Sandbox> {
     const full = SandboxCreateRequest.toJSON(SandboxCreateRequest.fromPartial(req))
-    const out = await this.doJSON('POST', '/v1/sandboxes', full)
+    const out = await this.requestJSON('POST', '/v1/sandboxes', full)
     return Sandbox.fromJSON(out)
   }
 
   /** Stops a sandbox. */
   async stop(id: string): Promise<Sandbox> {
-    const out = await this.doJSON('POST', `/v1/sandboxes/${encodeURIComponent(id)}/stop`)
+    const out = await this.requestJSON('POST', `/v1/sandboxes/${encodeURIComponent(id)}/stop`)
     return Sandbox.fromJSON(out)
   }
 
   /** Deletes a sandbox. */
   async remove(id: string): Promise<void> {
-    await this.doJSON('DELETE', `/v1/sandboxes/${encodeURIComponent(id)}`)
+    await this.requestJSON('DELETE', `/v1/sandboxes/${encodeURIComponent(id)}`)
   }
 
   /** Returns a sandbox. */
   async get(id: string): Promise<Sandbox> {
-    const out = await this.doJSON('GET', `/v1/sandboxes/${encodeURIComponent(id)}`)
+    const out = await this.requestJSON('GET', `/v1/sandboxes/${encodeURIComponent(id)}`)
     return Sandbox.fromJSON(out)
   }
 
   /** Returns all sandboxes. */
   async list(): Promise<Sandbox[]> {
-    const out = await this.doJSON('GET', '/v1/sandboxes')
+    const out = await this.requestJSON('GET', '/v1/sandboxes')
     return SandboxListResponse.fromJSON(out ?? {}).sandboxes ?? []
   }
 
@@ -188,7 +192,7 @@ export class Client {
     if (!full.sandboxId) {
       throw new Error('sandboxId is required')
     }
-    const out = await this.doJSON(
+    const out = await this.requestJSON(
       'PUT',
       `/v1/sandboxes/${encodeURIComponent(full.sandboxId)}/network`,
       SandboxUpdateNetworkRequest.toJSON(full),
@@ -239,9 +243,13 @@ export class Client {
 
   /** Runs a command in a sandbox and collects output until exit. */
   async exec(sandboxId: string, command: string[]): Promise<ExecResult> {
-    const out = (await this.doJSON('POST', `/v1/sandboxes/${encodeURIComponent(sandboxId)}/exec`, {
-      command,
-    })) as {
+    const out = (await this.requestJSON(
+      'POST',
+      `/v1/sandboxes/${encodeURIComponent(sandboxId)}/exec`,
+      {
+        command,
+      },
+    )) as {
       stdout?: string
       stderr?: string
       exitCode?: number

@@ -5,175 +5,167 @@
 // source: sandbox.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire'
 
 export interface Mount {
-  source: string;
-  target: string;
-  readOnly: boolean;
+  source: string
+  target: string
+  readOnly: boolean
 }
 
 export interface Resources {
-  cpuNanoCores: number;
-  memoryBytes: number;
+  cpuNanoCores: number
+  memoryBytes: number
 }
 
 export interface NetworkRule {
-  hosts: string[];
-  ports: number[];
-  protocols: string[];
+  hosts: string[]
+  ports: number[]
+  protocols: string[]
 }
 
 export interface DNSPolicy {
   /** none | allowlist | denylist */
-  mode: string;
-  names: string[];
+  mode: string
+  names: string[]
 }
 
 export interface NetworkPolicy {
   /** none | allowlist | denylist */
-  mode: string;
-  dns: DNSPolicy | undefined;
-  rules: NetworkRule[];
+  mode: string
+  dns: DNSPolicy | undefined
+  rules: NetworkRule[]
 }
 
 export interface SandboxSpec {
   /** custom image; XOR with runtime */
-  image: string;
-  command: string[];
-  args: string[];
-  env: string[];
-  workingDir: string;
-  mounts: Mount[];
-  resources: Resources | undefined;
-  network:
-    | NetworkPolicy
-    | undefined;
+  image: string
+  command: string[]
+  args: string[]
+  env: string[]
+  workingDir: string
+  mounts: Mount[]
+  resources: Resources | undefined
+  network: NetworkPolicy | undefined
   /** language preset (node-26, bun-1.3, python-3.13, go-1.26) */
-  runtime: string;
+  runtime: string
 }
 
 export interface SandboxStatus {
-  phase: string;
-  containerId: string;
-  exitCode: number;
-  message: string;
-  startedAtUnixNano: number;
-  finishedAtUnixNano: number;
-  updatedAtUnixNano: number;
+  phase: string
+  containerId: string
+  exitCode: number
+  message: string
+  startedAtUnixNano: number
+  finishedAtUnixNano: number
+  updatedAtUnixNano: number
 }
 
 export interface Sandbox {
-  id: string;
-  spec: SandboxSpec | undefined;
-  nodeId: string;
-  desiredState: string;
-  status: SandboxStatus | undefined;
-  createdAtUnixNano: number;
-  updatedAtUnixNano: number;
+  id: string
+  spec: SandboxSpec | undefined
+  nodeId: string
+  desiredState: string
+  status: SandboxStatus | undefined
+  createdAtUnixNano: number
+  updatedAtUnixNano: number
 }
 
 export interface SandboxCreateRequest {
-  spec:
-    | SandboxSpec
-    | undefined;
+  spec: SandboxSpec | undefined
   /** optional; generated if empty */
-  sandboxId: string;
+  sandboxId: string
 }
 
 export interface SandboxCreateResponse {
-  sandbox: Sandbox | undefined;
+  sandbox: Sandbox | undefined
 }
 
 export interface SandboxStopRequest {
-  sandboxId: string;
+  sandboxId: string
 }
 
 export interface SandboxStopResponse {
-  sandbox: Sandbox | undefined;
+  sandbox: Sandbox | undefined
 }
 
 export interface SandboxRemoveRequest {
-  sandboxId: string;
+  sandboxId: string
 }
 
-export interface SandboxRemoveResponse {
-}
+export interface SandboxRemoveResponse {}
 
 export interface SandboxGetRequest {
-  sandboxId: string;
+  sandboxId: string
 }
 
 export interface SandboxGetResponse {
-  sandbox: Sandbox | undefined;
+  sandbox: Sandbox | undefined
 }
 
 export interface SandboxUpdateNetworkRequest {
-  sandboxId: string;
-  network: NetworkPolicy | undefined;
+  sandboxId: string
+  network: NetworkPolicy | undefined
 }
 
 export interface SandboxUpdateNetworkResponse {
-  sandbox: Sandbox | undefined;
+  sandbox: Sandbox | undefined
 }
 
 export interface ApplyNetworkPolicyRequest {
-  sandboxId: string;
-  network: NetworkPolicy | undefined;
+  sandboxId: string
+  network: NetworkPolicy | undefined
 }
 
-export interface ApplyNetworkPolicyResponse {
-}
+export interface ApplyNetworkPolicyResponse {}
 
-export interface SandboxListRequest {
-}
+export interface SandboxListRequest {}
 
 export interface SandboxListResponse {
-  sandboxes: Sandbox[];
+  sandboxes: Sandbox[]
 }
 
 export interface RuntimeHeartbeatRequest {
-  nodeId: string;
-  grpcAddr: string;
-  sandboxCount: number;
+  nodeId: string
+  grpcAddr: string
+  sandboxCount: number
 }
 
 export interface RuntimeHeartbeatResponse {
   /** sandboxes currently assigned to this node */
-  assigned: Sandbox[];
+  assigned: Sandbox[]
   /** store role; node applies promote/demote when mismatched */
-  desiredRole: string;
+  desiredRole: string
   /** node record deleted from cluster; wipe local identity */
-  removed: boolean;
+  removed: boolean
 }
 
 export interface UpdateSandboxStatusRequest {
-  sandboxId: string;
-  status: SandboxStatus | undefined;
-  containerId: string;
+  sandboxId: string
+  status: SandboxStatus | undefined
+  containerId: string
 }
 
-export interface UpdateSandboxStatusResponse {
-}
+export interface UpdateSandboxStatusResponse {}
 
 export interface ListNodeSandboxesRequest {
-  nodeId: string;
+  nodeId: string
 }
 
 export interface ListNodeSandboxesResponse {
-  sandboxes: Sandbox[];
+  sandboxes: Sandbox[]
 }
 
 export interface SandboxLogsRequest {
-  sandboxId: string;
-  follow: boolean;
+  sandboxId: string
+  follow: boolean
   /** lines; 0 = all */
-  tail: number;
-  timestamps: boolean;
+  tail: number
+  timestamps: boolean
 }
 
 export interface SandboxLogsChunk {
-  data: Buffer;
+  data: Buffer
 }
 
 /**
@@ -181,167 +173,167 @@ export interface SandboxLogsChunk {
  * Server sends stdout/stderr/exit.
  */
 export interface SandboxExecMessage {
-  start?: SandboxExecStart | undefined;
-  stdin?: Buffer | undefined;
-  stdout?: Buffer | undefined;
-  stderr?: Buffer | undefined;
-  exit?: SandboxExecExit | undefined;
-  stdinClosed?: boolean | undefined;
+  start?: SandboxExecStart | undefined
+  stdin?: Buffer | undefined
+  stdout?: Buffer | undefined
+  stderr?: Buffer | undefined
+  exit?: SandboxExecExit | undefined
+  stdinClosed?: boolean | undefined
 }
 
 export interface SandboxExecStart {
-  sandboxId: string;
-  command: string[];
-  tty: boolean;
-  stdin: boolean;
+  sandboxId: string
+  command: string[]
+  tty: boolean
+  stdin: boolean
 }
 
 export interface SandboxExecExit {
-  exitCode: number;
-  error: string;
+  exitCode: number
+  error: string
 }
 
 function createBaseMount(): Mount {
-  return { source: "", target: "", readOnly: false };
+  return { source: '', target: '', readOnly: false }
 }
 
 export const Mount: MessageFns<Mount> = {
   encode(message: Mount, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.source !== "") {
-      writer.uint32(10).string(message.source);
+    if (message.source !== '') {
+      writer.uint32(10).string(message.source)
     }
-    if (message.target !== "") {
-      writer.uint32(18).string(message.target);
+    if (message.target !== '') {
+      writer.uint32(18).string(message.target)
     }
     if (message.readOnly !== false) {
-      writer.uint32(24).bool(message.readOnly);
+      writer.uint32(24).bool(message.readOnly)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Mount {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseMount();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseMount()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.source = reader.string();
-          continue;
+          message.source = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.target = reader.string();
-          continue;
+          message.target = reader.string()
+          continue
         }
         case 3: {
           if (tag !== 24) {
-            break;
+            break
           }
 
-          message.readOnly = reader.bool();
-          continue;
+          message.readOnly = reader.bool()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): Mount {
     return {
-      source: isSet(object.source) ? globalThis.String(object.source) : "",
-      target: isSet(object.target) ? globalThis.String(object.target) : "",
+      source: isSet(object.source) ? globalThis.String(object.source) : '',
+      target: isSet(object.target) ? globalThis.String(object.target) : '',
       readOnly: isSet(object.readOnly)
         ? globalThis.Boolean(object.readOnly)
         : isSet(object.read_only)
-        ? globalThis.Boolean(object.read_only)
-        : false,
-    };
+          ? globalThis.Boolean(object.read_only)
+          : false,
+    }
   },
 
   toJSON(message: Mount): unknown {
-    const obj: any = {};
-    if (message.source !== "") {
-      obj.source = message.source;
+    const obj: any = {}
+    if (message.source !== '') {
+      obj.source = message.source
     }
-    if (message.target !== "") {
-      obj.target = message.target;
+    if (message.target !== '') {
+      obj.target = message.target
     }
     if (message.readOnly !== false) {
-      obj.readOnly = message.readOnly;
+      obj.readOnly = message.readOnly
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<Mount>): Mount {
-    return Mount.fromPartial(base ?? {});
+    return Mount.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<Mount>): Mount {
-    const message = createBaseMount();
-    message.source = object.source ?? "";
-    message.target = object.target ?? "";
-    message.readOnly = object.readOnly ?? false;
-    return message;
+    const message = createBaseMount()
+    message.source = object.source ?? ''
+    message.target = object.target ?? ''
+    message.readOnly = object.readOnly ?? false
+    return message
   },
-};
+}
 
 function createBaseResources(): Resources {
-  return { cpuNanoCores: 0, memoryBytes: 0 };
+  return { cpuNanoCores: 0, memoryBytes: 0 }
 }
 
 export const Resources: MessageFns<Resources> = {
   encode(message: Resources, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.cpuNanoCores !== 0) {
-      writer.uint32(8).int64(message.cpuNanoCores);
+      writer.uint32(8).int64(message.cpuNanoCores)
     }
     if (message.memoryBytes !== 0) {
-      writer.uint32(16).int64(message.memoryBytes);
+      writer.uint32(16).int64(message.memoryBytes)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Resources {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseResources();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseResources()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 8) {
-            break;
+            break
           }
 
-          message.cpuNanoCores = longToNumber(reader.int64());
-          continue;
+          message.cpuNanoCores = longToNumber(reader.int64())
+          continue
         }
         case 2: {
           if (tag !== 16) {
-            break;
+            break
           }
 
-          message.memoryBytes = longToNumber(reader.int64());
-          continue;
+          message.memoryBytes = longToNumber(reader.int64())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): Resources {
@@ -349,931 +341,954 @@ export const Resources: MessageFns<Resources> = {
       cpuNanoCores: isSet(object.cpuNanoCores)
         ? globalThis.Number(object.cpuNanoCores)
         : isSet(object.cpu_nano_cores)
-        ? globalThis.Number(object.cpu_nano_cores)
-        : 0,
+          ? globalThis.Number(object.cpu_nano_cores)
+          : 0,
       memoryBytes: isSet(object.memoryBytes)
         ? globalThis.Number(object.memoryBytes)
         : isSet(object.memory_bytes)
-        ? globalThis.Number(object.memory_bytes)
-        : 0,
-    };
+          ? globalThis.Number(object.memory_bytes)
+          : 0,
+    }
   },
 
   toJSON(message: Resources): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.cpuNanoCores !== 0) {
-      obj.cpuNanoCores = Math.round(message.cpuNanoCores);
+      obj.cpuNanoCores = Math.round(message.cpuNanoCores)
     }
     if (message.memoryBytes !== 0) {
-      obj.memoryBytes = Math.round(message.memoryBytes);
+      obj.memoryBytes = Math.round(message.memoryBytes)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<Resources>): Resources {
-    return Resources.fromPartial(base ?? {});
+    return Resources.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<Resources>): Resources {
-    const message = createBaseResources();
-    message.cpuNanoCores = object.cpuNanoCores ?? 0;
-    message.memoryBytes = object.memoryBytes ?? 0;
-    return message;
+    const message = createBaseResources()
+    message.cpuNanoCores = object.cpuNanoCores ?? 0
+    message.memoryBytes = object.memoryBytes ?? 0
+    return message
   },
-};
+}
 
 function createBaseNetworkRule(): NetworkRule {
-  return { hosts: [], ports: [], protocols: [] };
+  return { hosts: [], ports: [], protocols: [] }
 }
 
 export const NetworkRule: MessageFns<NetworkRule> = {
   encode(message: NetworkRule, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.hosts) {
-      writer.uint32(10).string(v!);
+      writer.uint32(10).string(v!)
     }
-    writer.uint32(18).fork();
+    writer.uint32(18).fork()
     for (const v of message.ports) {
-      writer.uint32(v);
+      writer.uint32(v)
     }
-    writer.join();
+    writer.join()
     for (const v of message.protocols) {
-      writer.uint32(26).string(v!);
+      writer.uint32(26).string(v!)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): NetworkRule {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseNetworkRule();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseNetworkRule()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.hosts.push(reader.string());
-          continue;
+          message.hosts.push(reader.string())
+          continue
         }
         case 2: {
           if (tag === 16) {
-            message.ports.push(reader.uint32());
+            message.ports.push(reader.uint32())
 
-            continue;
+            continue
           }
 
           if (tag === 18) {
-            const end2 = reader.uint32() + reader.pos;
+            const end2 = reader.uint32() + reader.pos
             while (reader.pos < end2) {
-              message.ports.push(reader.uint32());
+              message.ports.push(reader.uint32())
             }
 
-            continue;
+            continue
           }
 
-          break;
+          break
         }
         case 3: {
           if (tag !== 26) {
-            break;
+            break
           }
 
-          message.protocols.push(reader.string());
-          continue;
+          message.protocols.push(reader.string())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): NetworkRule {
     return {
-      hosts: globalThis.Array.isArray(object?.hosts) ? object.hosts.map((e: any) => globalThis.String(e)) : [],
-      ports: globalThis.Array.isArray(object?.ports) ? object.ports.map((e: any) => globalThis.Number(e)) : [],
+      hosts: globalThis.Array.isArray(object?.hosts)
+        ? object.hosts.map((e: any) => globalThis.String(e))
+        : [],
+      ports: globalThis.Array.isArray(object?.ports)
+        ? object.ports.map((e: any) => globalThis.Number(e))
+        : [],
       protocols: globalThis.Array.isArray(object?.protocols)
         ? object.protocols.map((e: any) => globalThis.String(e))
         : [],
-    };
+    }
   },
 
   toJSON(message: NetworkRule): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.hosts?.length) {
-      obj.hosts = message.hosts;
+      obj.hosts = message.hosts
     }
     if (message.ports?.length) {
-      obj.ports = message.ports.map((e) => Math.round(e));
+      obj.ports = message.ports.map((e) => Math.round(e))
     }
     if (message.protocols?.length) {
-      obj.protocols = message.protocols;
+      obj.protocols = message.protocols
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<NetworkRule>): NetworkRule {
-    return NetworkRule.fromPartial(base ?? {});
+    return NetworkRule.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<NetworkRule>): NetworkRule {
-    const message = createBaseNetworkRule();
-    message.hosts = object.hosts?.map((e) => e) || [];
-    message.ports = object.ports?.map((e) => e) || [];
-    message.protocols = object.protocols?.map((e) => e) || [];
-    return message;
+    const message = createBaseNetworkRule()
+    message.hosts = object.hosts?.map((e) => e) || []
+    message.ports = object.ports?.map((e) => e) || []
+    message.protocols = object.protocols?.map((e) => e) || []
+    return message
   },
-};
+}
 
 function createBaseDNSPolicy(): DNSPolicy {
-  return { mode: "", names: [] };
+  return { mode: '', names: [] }
 }
 
 export const DNSPolicy: MessageFns<DNSPolicy> = {
   encode(message: DNSPolicy, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.mode !== "") {
-      writer.uint32(10).string(message.mode);
+    if (message.mode !== '') {
+      writer.uint32(10).string(message.mode)
     }
     for (const v of message.names) {
-      writer.uint32(18).string(v!);
+      writer.uint32(18).string(v!)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): DNSPolicy {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseDNSPolicy();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseDNSPolicy()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.mode = reader.string();
-          continue;
+          message.mode = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.names.push(reader.string());
-          continue;
+          message.names.push(reader.string())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): DNSPolicy {
     return {
-      mode: isSet(object.mode) ? globalThis.String(object.mode) : "",
-      names: globalThis.Array.isArray(object?.names) ? object.names.map((e: any) => globalThis.String(e)) : [],
-    };
+      mode: isSet(object.mode) ? globalThis.String(object.mode) : '',
+      names: globalThis.Array.isArray(object?.names)
+        ? object.names.map((e: any) => globalThis.String(e))
+        : [],
+    }
   },
 
   toJSON(message: DNSPolicy): unknown {
-    const obj: any = {};
-    if (message.mode !== "") {
-      obj.mode = message.mode;
+    const obj: any = {}
+    if (message.mode !== '') {
+      obj.mode = message.mode
     }
     if (message.names?.length) {
-      obj.names = message.names;
+      obj.names = message.names
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<DNSPolicy>): DNSPolicy {
-    return DNSPolicy.fromPartial(base ?? {});
+    return DNSPolicy.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<DNSPolicy>): DNSPolicy {
-    const message = createBaseDNSPolicy();
-    message.mode = object.mode ?? "";
-    message.names = object.names?.map((e) => e) || [];
-    return message;
+    const message = createBaseDNSPolicy()
+    message.mode = object.mode ?? ''
+    message.names = object.names?.map((e) => e) || []
+    return message
   },
-};
+}
 
 function createBaseNetworkPolicy(): NetworkPolicy {
-  return { mode: "", dns: undefined, rules: [] };
+  return { mode: '', dns: undefined, rules: [] }
 }
 
 export const NetworkPolicy: MessageFns<NetworkPolicy> = {
   encode(message: NetworkPolicy, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.mode !== "") {
-      writer.uint32(10).string(message.mode);
+    if (message.mode !== '') {
+      writer.uint32(10).string(message.mode)
     }
     if (message.dns !== undefined) {
-      DNSPolicy.encode(message.dns, writer.uint32(18).fork()).join();
+      DNSPolicy.encode(message.dns, writer.uint32(18).fork()).join()
     }
     for (const v of message.rules) {
-      NetworkRule.encode(v!, writer.uint32(26).fork()).join();
+      NetworkRule.encode(v!, writer.uint32(26).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): NetworkPolicy {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseNetworkPolicy();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseNetworkPolicy()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.mode = reader.string();
-          continue;
+          message.mode = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.dns = DNSPolicy.decode(reader, reader.uint32());
-          continue;
+          message.dns = DNSPolicy.decode(reader, reader.uint32())
+          continue
         }
         case 3: {
           if (tag !== 26) {
-            break;
+            break
           }
 
-          message.rules.push(NetworkRule.decode(reader, reader.uint32()));
-          continue;
+          message.rules.push(NetworkRule.decode(reader, reader.uint32()))
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): NetworkPolicy {
     return {
-      mode: isSet(object.mode) ? globalThis.String(object.mode) : "",
+      mode: isSet(object.mode) ? globalThis.String(object.mode) : '',
       dns: isSet(object.dns) ? DNSPolicy.fromJSON(object.dns) : undefined,
-      rules: globalThis.Array.isArray(object?.rules) ? object.rules.map((e: any) => NetworkRule.fromJSON(e)) : [],
-    };
+      rules: globalThis.Array.isArray(object?.rules)
+        ? object.rules.map((e: any) => NetworkRule.fromJSON(e))
+        : [],
+    }
   },
 
   toJSON(message: NetworkPolicy): unknown {
-    const obj: any = {};
-    if (message.mode !== "") {
-      obj.mode = message.mode;
+    const obj: any = {}
+    if (message.mode !== '') {
+      obj.mode = message.mode
     }
     if (message.dns !== undefined) {
-      obj.dns = DNSPolicy.toJSON(message.dns);
+      obj.dns = DNSPolicy.toJSON(message.dns)
     }
     if (message.rules?.length) {
-      obj.rules = message.rules.map((e) => NetworkRule.toJSON(e));
+      obj.rules = message.rules.map((e) => NetworkRule.toJSON(e))
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<NetworkPolicy>): NetworkPolicy {
-    return NetworkPolicy.fromPartial(base ?? {});
+    return NetworkPolicy.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<NetworkPolicy>): NetworkPolicy {
-    const message = createBaseNetworkPolicy();
-    message.mode = object.mode ?? "";
-    message.dns = (object.dns !== undefined && object.dns !== null) ? DNSPolicy.fromPartial(object.dns) : undefined;
-    message.rules = object.rules?.map((e) => NetworkRule.fromPartial(e)) || [];
-    return message;
+    const message = createBaseNetworkPolicy()
+    message.mode = object.mode ?? ''
+    message.dns =
+      object.dns !== undefined && object.dns !== null
+        ? DNSPolicy.fromPartial(object.dns)
+        : undefined
+    message.rules = object.rules?.map((e) => NetworkRule.fromPartial(e)) || []
+    return message
   },
-};
+}
 
 function createBaseSandboxSpec(): SandboxSpec {
   return {
-    image: "",
+    image: '',
     command: [],
     args: [],
     env: [],
-    workingDir: "",
+    workingDir: '',
     mounts: [],
     resources: undefined,
     network: undefined,
-    runtime: "",
-  };
+    runtime: '',
+  }
 }
 
 export const SandboxSpec: MessageFns<SandboxSpec> = {
   encode(message: SandboxSpec, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.image !== "") {
-      writer.uint32(10).string(message.image);
+    if (message.image !== '') {
+      writer.uint32(10).string(message.image)
     }
     for (const v of message.command) {
-      writer.uint32(18).string(v!);
+      writer.uint32(18).string(v!)
     }
     for (const v of message.args) {
-      writer.uint32(26).string(v!);
+      writer.uint32(26).string(v!)
     }
     for (const v of message.env) {
-      writer.uint32(34).string(v!);
+      writer.uint32(34).string(v!)
     }
-    if (message.workingDir !== "") {
-      writer.uint32(42).string(message.workingDir);
+    if (message.workingDir !== '') {
+      writer.uint32(42).string(message.workingDir)
     }
     for (const v of message.mounts) {
-      Mount.encode(v!, writer.uint32(50).fork()).join();
+      Mount.encode(v!, writer.uint32(50).fork()).join()
     }
     if (message.resources !== undefined) {
-      Resources.encode(message.resources, writer.uint32(58).fork()).join();
+      Resources.encode(message.resources, writer.uint32(58).fork()).join()
     }
     if (message.network !== undefined) {
-      NetworkPolicy.encode(message.network, writer.uint32(66).fork()).join();
+      NetworkPolicy.encode(message.network, writer.uint32(66).fork()).join()
     }
-    if (message.runtime !== "") {
-      writer.uint32(74).string(message.runtime);
+    if (message.runtime !== '') {
+      writer.uint32(74).string(message.runtime)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxSpec {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxSpec();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxSpec()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.image = reader.string();
-          continue;
+          message.image = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.command.push(reader.string());
-          continue;
+          message.command.push(reader.string())
+          continue
         }
         case 3: {
           if (tag !== 26) {
-            break;
+            break
           }
 
-          message.args.push(reader.string());
-          continue;
+          message.args.push(reader.string())
+          continue
         }
         case 4: {
           if (tag !== 34) {
-            break;
+            break
           }
 
-          message.env.push(reader.string());
-          continue;
+          message.env.push(reader.string())
+          continue
         }
         case 5: {
           if (tag !== 42) {
-            break;
+            break
           }
 
-          message.workingDir = reader.string();
-          continue;
+          message.workingDir = reader.string()
+          continue
         }
         case 6: {
           if (tag !== 50) {
-            break;
+            break
           }
 
-          message.mounts.push(Mount.decode(reader, reader.uint32()));
-          continue;
+          message.mounts.push(Mount.decode(reader, reader.uint32()))
+          continue
         }
         case 7: {
           if (tag !== 58) {
-            break;
+            break
           }
 
-          message.resources = Resources.decode(reader, reader.uint32());
-          continue;
+          message.resources = Resources.decode(reader, reader.uint32())
+          continue
         }
         case 8: {
           if (tag !== 66) {
-            break;
+            break
           }
 
-          message.network = NetworkPolicy.decode(reader, reader.uint32());
-          continue;
+          message.network = NetworkPolicy.decode(reader, reader.uint32())
+          continue
         }
         case 9: {
           if (tag !== 74) {
-            break;
+            break
           }
 
-          message.runtime = reader.string();
-          continue;
+          message.runtime = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxSpec {
     return {
-      image: isSet(object.image) ? globalThis.String(object.image) : "",
-      command: globalThis.Array.isArray(object?.command) ? object.command.map((e: any) => globalThis.String(e)) : [],
-      args: globalThis.Array.isArray(object?.args) ? object.args.map((e: any) => globalThis.String(e)) : [],
-      env: globalThis.Array.isArray(object?.env) ? object.env.map((e: any) => globalThis.String(e)) : [],
+      image: isSet(object.image) ? globalThis.String(object.image) : '',
+      command: globalThis.Array.isArray(object?.command)
+        ? object.command.map((e: any) => globalThis.String(e))
+        : [],
+      args: globalThis.Array.isArray(object?.args)
+        ? object.args.map((e: any) => globalThis.String(e))
+        : [],
+      env: globalThis.Array.isArray(object?.env)
+        ? object.env.map((e: any) => globalThis.String(e))
+        : [],
       workingDir: isSet(object.workingDir)
         ? globalThis.String(object.workingDir)
         : isSet(object.working_dir)
-        ? globalThis.String(object.working_dir)
-        : "",
-      mounts: globalThis.Array.isArray(object?.mounts) ? object.mounts.map((e: any) => Mount.fromJSON(e)) : [],
+          ? globalThis.String(object.working_dir)
+          : '',
+      mounts: globalThis.Array.isArray(object?.mounts)
+        ? object.mounts.map((e: any) => Mount.fromJSON(e))
+        : [],
       resources: isSet(object.resources) ? Resources.fromJSON(object.resources) : undefined,
       network: isSet(object.network) ? NetworkPolicy.fromJSON(object.network) : undefined,
-      runtime: isSet(object.runtime) ? globalThis.String(object.runtime) : "",
-    };
+      runtime: isSet(object.runtime) ? globalThis.String(object.runtime) : '',
+    }
   },
 
   toJSON(message: SandboxSpec): unknown {
-    const obj: any = {};
-    if (message.image !== "") {
-      obj.image = message.image;
+    const obj: any = {}
+    if (message.image !== '') {
+      obj.image = message.image
     }
     if (message.command?.length) {
-      obj.command = message.command;
+      obj.command = message.command
     }
     if (message.args?.length) {
-      obj.args = message.args;
+      obj.args = message.args
     }
     if (message.env?.length) {
-      obj.env = message.env;
+      obj.env = message.env
     }
-    if (message.workingDir !== "") {
-      obj.workingDir = message.workingDir;
+    if (message.workingDir !== '') {
+      obj.workingDir = message.workingDir
     }
     if (message.mounts?.length) {
-      obj.mounts = message.mounts.map((e) => Mount.toJSON(e));
+      obj.mounts = message.mounts.map((e) => Mount.toJSON(e))
     }
     if (message.resources !== undefined) {
-      obj.resources = Resources.toJSON(message.resources);
+      obj.resources = Resources.toJSON(message.resources)
     }
     if (message.network !== undefined) {
-      obj.network = NetworkPolicy.toJSON(message.network);
+      obj.network = NetworkPolicy.toJSON(message.network)
     }
-    if (message.runtime !== "") {
-      obj.runtime = message.runtime;
+    if (message.runtime !== '') {
+      obj.runtime = message.runtime
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxSpec>): SandboxSpec {
-    return SandboxSpec.fromPartial(base ?? {});
+    return SandboxSpec.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxSpec>): SandboxSpec {
-    const message = createBaseSandboxSpec();
-    message.image = object.image ?? "";
-    message.command = object.command?.map((e) => e) || [];
-    message.args = object.args?.map((e) => e) || [];
-    message.env = object.env?.map((e) => e) || [];
-    message.workingDir = object.workingDir ?? "";
-    message.mounts = object.mounts?.map((e) => Mount.fromPartial(e)) || [];
-    message.resources = (object.resources !== undefined && object.resources !== null)
-      ? Resources.fromPartial(object.resources)
-      : undefined;
-    message.network = (object.network !== undefined && object.network !== null)
-      ? NetworkPolicy.fromPartial(object.network)
-      : undefined;
-    message.runtime = object.runtime ?? "";
-    return message;
+    const message = createBaseSandboxSpec()
+    message.image = object.image ?? ''
+    message.command = object.command?.map((e) => e) || []
+    message.args = object.args?.map((e) => e) || []
+    message.env = object.env?.map((e) => e) || []
+    message.workingDir = object.workingDir ?? ''
+    message.mounts = object.mounts?.map((e) => Mount.fromPartial(e)) || []
+    message.resources =
+      object.resources !== undefined && object.resources !== null
+        ? Resources.fromPartial(object.resources)
+        : undefined
+    message.network =
+      object.network !== undefined && object.network !== null
+        ? NetworkPolicy.fromPartial(object.network)
+        : undefined
+    message.runtime = object.runtime ?? ''
+    return message
   },
-};
+}
 
 function createBaseSandboxStatus(): SandboxStatus {
   return {
-    phase: "",
-    containerId: "",
+    phase: '',
+    containerId: '',
     exitCode: 0,
-    message: "",
+    message: '',
     startedAtUnixNano: 0,
     finishedAtUnixNano: 0,
     updatedAtUnixNano: 0,
-  };
+  }
 }
 
 export const SandboxStatus: MessageFns<SandboxStatus> = {
   encode(message: SandboxStatus, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.phase !== "") {
-      writer.uint32(10).string(message.phase);
+    if (message.phase !== '') {
+      writer.uint32(10).string(message.phase)
     }
-    if (message.containerId !== "") {
-      writer.uint32(18).string(message.containerId);
+    if (message.containerId !== '') {
+      writer.uint32(18).string(message.containerId)
     }
     if (message.exitCode !== 0) {
-      writer.uint32(24).int32(message.exitCode);
+      writer.uint32(24).int32(message.exitCode)
     }
-    if (message.message !== "") {
-      writer.uint32(34).string(message.message);
+    if (message.message !== '') {
+      writer.uint32(34).string(message.message)
     }
     if (message.startedAtUnixNano !== 0) {
-      writer.uint32(40).int64(message.startedAtUnixNano);
+      writer.uint32(40).int64(message.startedAtUnixNano)
     }
     if (message.finishedAtUnixNano !== 0) {
-      writer.uint32(48).int64(message.finishedAtUnixNano);
+      writer.uint32(48).int64(message.finishedAtUnixNano)
     }
     if (message.updatedAtUnixNano !== 0) {
-      writer.uint32(56).int64(message.updatedAtUnixNano);
+      writer.uint32(56).int64(message.updatedAtUnixNano)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxStatus {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxStatus();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxStatus()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.phase = reader.string();
-          continue;
+          message.phase = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.containerId = reader.string();
-          continue;
+          message.containerId = reader.string()
+          continue
         }
         case 3: {
           if (tag !== 24) {
-            break;
+            break
           }
 
-          message.exitCode = reader.int32();
-          continue;
+          message.exitCode = reader.int32()
+          continue
         }
         case 4: {
           if (tag !== 34) {
-            break;
+            break
           }
 
-          message.message = reader.string();
-          continue;
+          message.message = reader.string()
+          continue
         }
         case 5: {
           if (tag !== 40) {
-            break;
+            break
           }
 
-          message.startedAtUnixNano = longToNumber(reader.int64());
-          continue;
+          message.startedAtUnixNano = longToNumber(reader.int64())
+          continue
         }
         case 6: {
           if (tag !== 48) {
-            break;
+            break
           }
 
-          message.finishedAtUnixNano = longToNumber(reader.int64());
-          continue;
+          message.finishedAtUnixNano = longToNumber(reader.int64())
+          continue
         }
         case 7: {
           if (tag !== 56) {
-            break;
+            break
           }
 
-          message.updatedAtUnixNano = longToNumber(reader.int64());
-          continue;
+          message.updatedAtUnixNano = longToNumber(reader.int64())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxStatus {
     return {
-      phase: isSet(object.phase) ? globalThis.String(object.phase) : "",
+      phase: isSet(object.phase) ? globalThis.String(object.phase) : '',
       containerId: isSet(object.containerId)
         ? globalThis.String(object.containerId)
         : isSet(object.container_id)
-        ? globalThis.String(object.container_id)
-        : "",
+          ? globalThis.String(object.container_id)
+          : '',
       exitCode: isSet(object.exitCode)
         ? globalThis.Number(object.exitCode)
         : isSet(object.exit_code)
-        ? globalThis.Number(object.exit_code)
-        : 0,
-      message: isSet(object.message) ? globalThis.String(object.message) : "",
+          ? globalThis.Number(object.exit_code)
+          : 0,
+      message: isSet(object.message) ? globalThis.String(object.message) : '',
       startedAtUnixNano: isSet(object.startedAtUnixNano)
         ? globalThis.Number(object.startedAtUnixNano)
         : isSet(object.started_at_unix_nano)
-        ? globalThis.Number(object.started_at_unix_nano)
-        : 0,
+          ? globalThis.Number(object.started_at_unix_nano)
+          : 0,
       finishedAtUnixNano: isSet(object.finishedAtUnixNano)
         ? globalThis.Number(object.finishedAtUnixNano)
         : isSet(object.finished_at_unix_nano)
-        ? globalThis.Number(object.finished_at_unix_nano)
-        : 0,
+          ? globalThis.Number(object.finished_at_unix_nano)
+          : 0,
       updatedAtUnixNano: isSet(object.updatedAtUnixNano)
         ? globalThis.Number(object.updatedAtUnixNano)
         : isSet(object.updated_at_unix_nano)
-        ? globalThis.Number(object.updated_at_unix_nano)
-        : 0,
-    };
+          ? globalThis.Number(object.updated_at_unix_nano)
+          : 0,
+    }
   },
 
   toJSON(message: SandboxStatus): unknown {
-    const obj: any = {};
-    if (message.phase !== "") {
-      obj.phase = message.phase;
+    const obj: any = {}
+    if (message.phase !== '') {
+      obj.phase = message.phase
     }
-    if (message.containerId !== "") {
-      obj.containerId = message.containerId;
+    if (message.containerId !== '') {
+      obj.containerId = message.containerId
     }
     if (message.exitCode !== 0) {
-      obj.exitCode = Math.round(message.exitCode);
+      obj.exitCode = Math.round(message.exitCode)
     }
-    if (message.message !== "") {
-      obj.message = message.message;
+    if (message.message !== '') {
+      obj.message = message.message
     }
     if (message.startedAtUnixNano !== 0) {
-      obj.startedAtUnixNano = Math.round(message.startedAtUnixNano);
+      obj.startedAtUnixNano = Math.round(message.startedAtUnixNano)
     }
     if (message.finishedAtUnixNano !== 0) {
-      obj.finishedAtUnixNano = Math.round(message.finishedAtUnixNano);
+      obj.finishedAtUnixNano = Math.round(message.finishedAtUnixNano)
     }
     if (message.updatedAtUnixNano !== 0) {
-      obj.updatedAtUnixNano = Math.round(message.updatedAtUnixNano);
+      obj.updatedAtUnixNano = Math.round(message.updatedAtUnixNano)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxStatus>): SandboxStatus {
-    return SandboxStatus.fromPartial(base ?? {});
+    return SandboxStatus.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxStatus>): SandboxStatus {
-    const message = createBaseSandboxStatus();
-    message.phase = object.phase ?? "";
-    message.containerId = object.containerId ?? "";
-    message.exitCode = object.exitCode ?? 0;
-    message.message = object.message ?? "";
-    message.startedAtUnixNano = object.startedAtUnixNano ?? 0;
-    message.finishedAtUnixNano = object.finishedAtUnixNano ?? 0;
-    message.updatedAtUnixNano = object.updatedAtUnixNano ?? 0;
-    return message;
+    const message = createBaseSandboxStatus()
+    message.phase = object.phase ?? ''
+    message.containerId = object.containerId ?? ''
+    message.exitCode = object.exitCode ?? 0
+    message.message = object.message ?? ''
+    message.startedAtUnixNano = object.startedAtUnixNano ?? 0
+    message.finishedAtUnixNano = object.finishedAtUnixNano ?? 0
+    message.updatedAtUnixNano = object.updatedAtUnixNano ?? 0
+    return message
   },
-};
+}
 
 function createBaseSandbox(): Sandbox {
   return {
-    id: "",
+    id: '',
     spec: undefined,
-    nodeId: "",
-    desiredState: "",
+    nodeId: '',
+    desiredState: '',
     status: undefined,
     createdAtUnixNano: 0,
     updatedAtUnixNano: 0,
-  };
+  }
 }
 
 export const Sandbox: MessageFns<Sandbox> = {
   encode(message: Sandbox, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
-      writer.uint32(10).string(message.id);
+    if (message.id !== '') {
+      writer.uint32(10).string(message.id)
     }
     if (message.spec !== undefined) {
-      SandboxSpec.encode(message.spec, writer.uint32(18).fork()).join();
+      SandboxSpec.encode(message.spec, writer.uint32(18).fork()).join()
     }
-    if (message.nodeId !== "") {
-      writer.uint32(26).string(message.nodeId);
+    if (message.nodeId !== '') {
+      writer.uint32(26).string(message.nodeId)
     }
-    if (message.desiredState !== "") {
-      writer.uint32(34).string(message.desiredState);
+    if (message.desiredState !== '') {
+      writer.uint32(34).string(message.desiredState)
     }
     if (message.status !== undefined) {
-      SandboxStatus.encode(message.status, writer.uint32(42).fork()).join();
+      SandboxStatus.encode(message.status, writer.uint32(42).fork()).join()
     }
     if (message.createdAtUnixNano !== 0) {
-      writer.uint32(48).int64(message.createdAtUnixNano);
+      writer.uint32(48).int64(message.createdAtUnixNano)
     }
     if (message.updatedAtUnixNano !== 0) {
-      writer.uint32(56).int64(message.updatedAtUnixNano);
+      writer.uint32(56).int64(message.updatedAtUnixNano)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Sandbox {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandbox();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandbox()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.id = reader.string();
-          continue;
+          message.id = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.spec = SandboxSpec.decode(reader, reader.uint32());
-          continue;
+          message.spec = SandboxSpec.decode(reader, reader.uint32())
+          continue
         }
         case 3: {
           if (tag !== 26) {
-            break;
+            break
           }
 
-          message.nodeId = reader.string();
-          continue;
+          message.nodeId = reader.string()
+          continue
         }
         case 4: {
           if (tag !== 34) {
-            break;
+            break
           }
 
-          message.desiredState = reader.string();
-          continue;
+          message.desiredState = reader.string()
+          continue
         }
         case 5: {
           if (tag !== 42) {
-            break;
+            break
           }
 
-          message.status = SandboxStatus.decode(reader, reader.uint32());
-          continue;
+          message.status = SandboxStatus.decode(reader, reader.uint32())
+          continue
         }
         case 6: {
           if (tag !== 48) {
-            break;
+            break
           }
 
-          message.createdAtUnixNano = longToNumber(reader.int64());
-          continue;
+          message.createdAtUnixNano = longToNumber(reader.int64())
+          continue
         }
         case 7: {
           if (tag !== 56) {
-            break;
+            break
           }
 
-          message.updatedAtUnixNano = longToNumber(reader.int64());
-          continue;
+          message.updatedAtUnixNano = longToNumber(reader.int64())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): Sandbox {
     return {
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
       spec: isSet(object.spec) ? SandboxSpec.fromJSON(object.spec) : undefined,
       nodeId: isSet(object.nodeId)
         ? globalThis.String(object.nodeId)
         : isSet(object.node_id)
-        ? globalThis.String(object.node_id)
-        : "",
+          ? globalThis.String(object.node_id)
+          : '',
       desiredState: isSet(object.desiredState)
         ? globalThis.String(object.desiredState)
         : isSet(object.desired_state)
-        ? globalThis.String(object.desired_state)
-        : "",
+          ? globalThis.String(object.desired_state)
+          : '',
       status: isSet(object.status) ? SandboxStatus.fromJSON(object.status) : undefined,
       createdAtUnixNano: isSet(object.createdAtUnixNano)
         ? globalThis.Number(object.createdAtUnixNano)
         : isSet(object.created_at_unix_nano)
-        ? globalThis.Number(object.created_at_unix_nano)
-        : 0,
+          ? globalThis.Number(object.created_at_unix_nano)
+          : 0,
       updatedAtUnixNano: isSet(object.updatedAtUnixNano)
         ? globalThis.Number(object.updatedAtUnixNano)
         : isSet(object.updated_at_unix_nano)
-        ? globalThis.Number(object.updated_at_unix_nano)
-        : 0,
-    };
+          ? globalThis.Number(object.updated_at_unix_nano)
+          : 0,
+    }
   },
 
   toJSON(message: Sandbox): unknown {
-    const obj: any = {};
-    if (message.id !== "") {
-      obj.id = message.id;
+    const obj: any = {}
+    if (message.id !== '') {
+      obj.id = message.id
     }
     if (message.spec !== undefined) {
-      obj.spec = SandboxSpec.toJSON(message.spec);
+      obj.spec = SandboxSpec.toJSON(message.spec)
     }
-    if (message.nodeId !== "") {
-      obj.nodeId = message.nodeId;
+    if (message.nodeId !== '') {
+      obj.nodeId = message.nodeId
     }
-    if (message.desiredState !== "") {
-      obj.desiredState = message.desiredState;
+    if (message.desiredState !== '') {
+      obj.desiredState = message.desiredState
     }
     if (message.status !== undefined) {
-      obj.status = SandboxStatus.toJSON(message.status);
+      obj.status = SandboxStatus.toJSON(message.status)
     }
     if (message.createdAtUnixNano !== 0) {
-      obj.createdAtUnixNano = Math.round(message.createdAtUnixNano);
+      obj.createdAtUnixNano = Math.round(message.createdAtUnixNano)
     }
     if (message.updatedAtUnixNano !== 0) {
-      obj.updatedAtUnixNano = Math.round(message.updatedAtUnixNano);
+      obj.updatedAtUnixNano = Math.round(message.updatedAtUnixNano)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<Sandbox>): Sandbox {
-    return Sandbox.fromPartial(base ?? {});
+    return Sandbox.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<Sandbox>): Sandbox {
-    const message = createBaseSandbox();
-    message.id = object.id ?? "";
-    message.spec = (object.spec !== undefined && object.spec !== null)
-      ? SandboxSpec.fromPartial(object.spec)
-      : undefined;
-    message.nodeId = object.nodeId ?? "";
-    message.desiredState = object.desiredState ?? "";
-    message.status = (object.status !== undefined && object.status !== null)
-      ? SandboxStatus.fromPartial(object.status)
-      : undefined;
-    message.createdAtUnixNano = object.createdAtUnixNano ?? 0;
-    message.updatedAtUnixNano = object.updatedAtUnixNano ?? 0;
-    return message;
+    const message = createBaseSandbox()
+    message.id = object.id ?? ''
+    message.spec =
+      object.spec !== undefined && object.spec !== null
+        ? SandboxSpec.fromPartial(object.spec)
+        : undefined
+    message.nodeId = object.nodeId ?? ''
+    message.desiredState = object.desiredState ?? ''
+    message.status =
+      object.status !== undefined && object.status !== null
+        ? SandboxStatus.fromPartial(object.status)
+        : undefined
+    message.createdAtUnixNano = object.createdAtUnixNano ?? 0
+    message.updatedAtUnixNano = object.updatedAtUnixNano ?? 0
+    return message
   },
-};
+}
 
 function createBaseSandboxCreateRequest(): SandboxCreateRequest {
-  return { spec: undefined, sandboxId: "" };
+  return { spec: undefined, sandboxId: '' }
 }
 
 export const SandboxCreateRequest: MessageFns<SandboxCreateRequest> = {
   encode(message: SandboxCreateRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.spec !== undefined) {
-      SandboxSpec.encode(message.spec, writer.uint32(10).fork()).join();
+      SandboxSpec.encode(message.spec, writer.uint32(10).fork()).join()
     }
-    if (message.sandboxId !== "") {
-      writer.uint32(18).string(message.sandboxId);
+    if (message.sandboxId !== '') {
+      writer.uint32(18).string(message.sandboxId)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxCreateRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxCreateRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxCreateRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.spec = SandboxSpec.decode(reader, reader.uint32());
-          continue;
+          message.spec = SandboxSpec.decode(reader, reader.uint32())
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxCreateRequest {
@@ -1282,129 +1297,131 @@ export const SandboxCreateRequest: MessageFns<SandboxCreateRequest> = {
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
-    };
+          ? globalThis.String(object.sandbox_id)
+          : '',
+    }
   },
 
   toJSON(message: SandboxCreateRequest): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.spec !== undefined) {
-      obj.spec = SandboxSpec.toJSON(message.spec);
+      obj.spec = SandboxSpec.toJSON(message.spec)
     }
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxCreateRequest>): SandboxCreateRequest {
-    return SandboxCreateRequest.fromPartial(base ?? {});
+    return SandboxCreateRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxCreateRequest>): SandboxCreateRequest {
-    const message = createBaseSandboxCreateRequest();
-    message.spec = (object.spec !== undefined && object.spec !== null)
-      ? SandboxSpec.fromPartial(object.spec)
-      : undefined;
-    message.sandboxId = object.sandboxId ?? "";
-    return message;
+    const message = createBaseSandboxCreateRequest()
+    message.spec =
+      object.spec !== undefined && object.spec !== null
+        ? SandboxSpec.fromPartial(object.spec)
+        : undefined
+    message.sandboxId = object.sandboxId ?? ''
+    return message
   },
-};
+}
 
 function createBaseSandboxCreateResponse(): SandboxCreateResponse {
-  return { sandbox: undefined };
+  return { sandbox: undefined }
 }
 
 export const SandboxCreateResponse: MessageFns<SandboxCreateResponse> = {
   encode(message: SandboxCreateResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.sandbox !== undefined) {
-      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join();
+      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxCreateResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxCreateResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxCreateResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandbox = Sandbox.decode(reader, reader.uint32());
-          continue;
+          message.sandbox = Sandbox.decode(reader, reader.uint32())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxCreateResponse {
-    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined };
+    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined }
   },
 
   toJSON(message: SandboxCreateResponse): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.sandbox !== undefined) {
-      obj.sandbox = Sandbox.toJSON(message.sandbox);
+      obj.sandbox = Sandbox.toJSON(message.sandbox)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxCreateResponse>): SandboxCreateResponse {
-    return SandboxCreateResponse.fromPartial(base ?? {});
+    return SandboxCreateResponse.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxCreateResponse>): SandboxCreateResponse {
-    const message = createBaseSandboxCreateResponse();
-    message.sandbox = (object.sandbox !== undefined && object.sandbox !== null)
-      ? Sandbox.fromPartial(object.sandbox)
-      : undefined;
-    return message;
+    const message = createBaseSandboxCreateResponse()
+    message.sandbox =
+      object.sandbox !== undefined && object.sandbox !== null
+        ? Sandbox.fromPartial(object.sandbox)
+        : undefined
+    return message
   },
-};
+}
 
 function createBaseSandboxStopRequest(): SandboxStopRequest {
-  return { sandboxId: "" };
+  return { sandboxId: '' }
 }
 
 export const SandboxStopRequest: MessageFns<SandboxStopRequest> = {
   encode(message: SandboxStopRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxStopRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxStopRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxStopRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxStopRequest {
@@ -1412,123 +1429,124 @@ export const SandboxStopRequest: MessageFns<SandboxStopRequest> = {
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
-    };
+          ? globalThis.String(object.sandbox_id)
+          : '',
+    }
   },
 
   toJSON(message: SandboxStopRequest): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxStopRequest>): SandboxStopRequest {
-    return SandboxStopRequest.fromPartial(base ?? {});
+    return SandboxStopRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxStopRequest>): SandboxStopRequest {
-    const message = createBaseSandboxStopRequest();
-    message.sandboxId = object.sandboxId ?? "";
-    return message;
+    const message = createBaseSandboxStopRequest()
+    message.sandboxId = object.sandboxId ?? ''
+    return message
   },
-};
+}
 
 function createBaseSandboxStopResponse(): SandboxStopResponse {
-  return { sandbox: undefined };
+  return { sandbox: undefined }
 }
 
 export const SandboxStopResponse: MessageFns<SandboxStopResponse> = {
   encode(message: SandboxStopResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.sandbox !== undefined) {
-      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join();
+      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxStopResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxStopResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxStopResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandbox = Sandbox.decode(reader, reader.uint32());
-          continue;
+          message.sandbox = Sandbox.decode(reader, reader.uint32())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxStopResponse {
-    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined };
+    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined }
   },
 
   toJSON(message: SandboxStopResponse): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.sandbox !== undefined) {
-      obj.sandbox = Sandbox.toJSON(message.sandbox);
+      obj.sandbox = Sandbox.toJSON(message.sandbox)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxStopResponse>): SandboxStopResponse {
-    return SandboxStopResponse.fromPartial(base ?? {});
+    return SandboxStopResponse.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxStopResponse>): SandboxStopResponse {
-    const message = createBaseSandboxStopResponse();
-    message.sandbox = (object.sandbox !== undefined && object.sandbox !== null)
-      ? Sandbox.fromPartial(object.sandbox)
-      : undefined;
-    return message;
+    const message = createBaseSandboxStopResponse()
+    message.sandbox =
+      object.sandbox !== undefined && object.sandbox !== null
+        ? Sandbox.fromPartial(object.sandbox)
+        : undefined
+    return message
   },
-};
+}
 
 function createBaseSandboxRemoveRequest(): SandboxRemoveRequest {
-  return { sandboxId: "" };
+  return { sandboxId: '' }
 }
 
 export const SandboxRemoveRequest: MessageFns<SandboxRemoveRequest> = {
   encode(message: SandboxRemoveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxRemoveRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxRemoveRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxRemoveRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxRemoveRequest {
@@ -1536,106 +1554,106 @@ export const SandboxRemoveRequest: MessageFns<SandboxRemoveRequest> = {
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
-    };
+          ? globalThis.String(object.sandbox_id)
+          : '',
+    }
   },
 
   toJSON(message: SandboxRemoveRequest): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxRemoveRequest>): SandboxRemoveRequest {
-    return SandboxRemoveRequest.fromPartial(base ?? {});
+    return SandboxRemoveRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxRemoveRequest>): SandboxRemoveRequest {
-    const message = createBaseSandboxRemoveRequest();
-    message.sandboxId = object.sandboxId ?? "";
-    return message;
+    const message = createBaseSandboxRemoveRequest()
+    message.sandboxId = object.sandboxId ?? ''
+    return message
   },
-};
+}
 
 function createBaseSandboxRemoveResponse(): SandboxRemoveResponse {
-  return {};
+  return {}
 }
 
 export const SandboxRemoveResponse: MessageFns<SandboxRemoveResponse> = {
   encode(_: SandboxRemoveResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxRemoveResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxRemoveResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxRemoveResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(_: any): SandboxRemoveResponse {
-    return {};
+    return {}
   },
 
   toJSON(_: SandboxRemoveResponse): unknown {
-    const obj: any = {};
-    return obj;
+    const obj: any = {}
+    return obj
   },
 
   create(base?: DeepPartial<SandboxRemoveResponse>): SandboxRemoveResponse {
-    return SandboxRemoveResponse.fromPartial(base ?? {});
+    return SandboxRemoveResponse.fromPartial(base ?? {})
   },
   fromPartial(_: DeepPartial<SandboxRemoveResponse>): SandboxRemoveResponse {
-    const message = createBaseSandboxRemoveResponse();
-    return message;
+    const message = createBaseSandboxRemoveResponse()
+    return message
   },
-};
+}
 
 function createBaseSandboxGetRequest(): SandboxGetRequest {
-  return { sandboxId: "" };
+  return { sandboxId: '' }
 }
 
 export const SandboxGetRequest: MessageFns<SandboxGetRequest> = {
   encode(message: SandboxGetRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxGetRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxGetRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxGetRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxGetRequest {
@@ -1643,134 +1661,138 @@ export const SandboxGetRequest: MessageFns<SandboxGetRequest> = {
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
-    };
+          ? globalThis.String(object.sandbox_id)
+          : '',
+    }
   },
 
   toJSON(message: SandboxGetRequest): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxGetRequest>): SandboxGetRequest {
-    return SandboxGetRequest.fromPartial(base ?? {});
+    return SandboxGetRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxGetRequest>): SandboxGetRequest {
-    const message = createBaseSandboxGetRequest();
-    message.sandboxId = object.sandboxId ?? "";
-    return message;
+    const message = createBaseSandboxGetRequest()
+    message.sandboxId = object.sandboxId ?? ''
+    return message
   },
-};
+}
 
 function createBaseSandboxGetResponse(): SandboxGetResponse {
-  return { sandbox: undefined };
+  return { sandbox: undefined }
 }
 
 export const SandboxGetResponse: MessageFns<SandboxGetResponse> = {
   encode(message: SandboxGetResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.sandbox !== undefined) {
-      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join();
+      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxGetResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxGetResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxGetResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandbox = Sandbox.decode(reader, reader.uint32());
-          continue;
+          message.sandbox = Sandbox.decode(reader, reader.uint32())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxGetResponse {
-    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined };
+    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined }
   },
 
   toJSON(message: SandboxGetResponse): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.sandbox !== undefined) {
-      obj.sandbox = Sandbox.toJSON(message.sandbox);
+      obj.sandbox = Sandbox.toJSON(message.sandbox)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxGetResponse>): SandboxGetResponse {
-    return SandboxGetResponse.fromPartial(base ?? {});
+    return SandboxGetResponse.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxGetResponse>): SandboxGetResponse {
-    const message = createBaseSandboxGetResponse();
-    message.sandbox = (object.sandbox !== undefined && object.sandbox !== null)
-      ? Sandbox.fromPartial(object.sandbox)
-      : undefined;
-    return message;
+    const message = createBaseSandboxGetResponse()
+    message.sandbox =
+      object.sandbox !== undefined && object.sandbox !== null
+        ? Sandbox.fromPartial(object.sandbox)
+        : undefined
+    return message
   },
-};
+}
 
 function createBaseSandboxUpdateNetworkRequest(): SandboxUpdateNetworkRequest {
-  return { sandboxId: "", network: undefined };
+  return { sandboxId: '', network: undefined }
 }
 
 export const SandboxUpdateNetworkRequest: MessageFns<SandboxUpdateNetworkRequest> = {
-  encode(message: SandboxUpdateNetworkRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+  encode(
+    message: SandboxUpdateNetworkRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
     if (message.network !== undefined) {
-      NetworkPolicy.encode(message.network, writer.uint32(18).fork()).join();
+      NetworkPolicy.encode(message.network, writer.uint32(18).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxUpdateNetworkRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxUpdateNetworkRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxUpdateNetworkRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.network = NetworkPolicy.decode(reader, reader.uint32());
-          continue;
+          message.network = NetworkPolicy.decode(reader, reader.uint32())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxUpdateNetworkRequest {
@@ -1778,141 +1800,149 @@ export const SandboxUpdateNetworkRequest: MessageFns<SandboxUpdateNetworkRequest
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
+          ? globalThis.String(object.sandbox_id)
+          : '',
       network: isSet(object.network) ? NetworkPolicy.fromJSON(object.network) : undefined,
-    };
+    }
   },
 
   toJSON(message: SandboxUpdateNetworkRequest): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
     if (message.network !== undefined) {
-      obj.network = NetworkPolicy.toJSON(message.network);
+      obj.network = NetworkPolicy.toJSON(message.network)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxUpdateNetworkRequest>): SandboxUpdateNetworkRequest {
-    return SandboxUpdateNetworkRequest.fromPartial(base ?? {});
+    return SandboxUpdateNetworkRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxUpdateNetworkRequest>): SandboxUpdateNetworkRequest {
-    const message = createBaseSandboxUpdateNetworkRequest();
-    message.sandboxId = object.sandboxId ?? "";
-    message.network = (object.network !== undefined && object.network !== null)
-      ? NetworkPolicy.fromPartial(object.network)
-      : undefined;
-    return message;
+    const message = createBaseSandboxUpdateNetworkRequest()
+    message.sandboxId = object.sandboxId ?? ''
+    message.network =
+      object.network !== undefined && object.network !== null
+        ? NetworkPolicy.fromPartial(object.network)
+        : undefined
+    return message
   },
-};
+}
 
 function createBaseSandboxUpdateNetworkResponse(): SandboxUpdateNetworkResponse {
-  return { sandbox: undefined };
+  return { sandbox: undefined }
 }
 
 export const SandboxUpdateNetworkResponse: MessageFns<SandboxUpdateNetworkResponse> = {
-  encode(message: SandboxUpdateNetworkResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: SandboxUpdateNetworkResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.sandbox !== undefined) {
-      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join();
+      Sandbox.encode(message.sandbox, writer.uint32(10).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxUpdateNetworkResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxUpdateNetworkResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxUpdateNetworkResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandbox = Sandbox.decode(reader, reader.uint32());
-          continue;
+          message.sandbox = Sandbox.decode(reader, reader.uint32())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxUpdateNetworkResponse {
-    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined };
+    return { sandbox: isSet(object.sandbox) ? Sandbox.fromJSON(object.sandbox) : undefined }
   },
 
   toJSON(message: SandboxUpdateNetworkResponse): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.sandbox !== undefined) {
-      obj.sandbox = Sandbox.toJSON(message.sandbox);
+      obj.sandbox = Sandbox.toJSON(message.sandbox)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxUpdateNetworkResponse>): SandboxUpdateNetworkResponse {
-    return SandboxUpdateNetworkResponse.fromPartial(base ?? {});
+    return SandboxUpdateNetworkResponse.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxUpdateNetworkResponse>): SandboxUpdateNetworkResponse {
-    const message = createBaseSandboxUpdateNetworkResponse();
-    message.sandbox = (object.sandbox !== undefined && object.sandbox !== null)
-      ? Sandbox.fromPartial(object.sandbox)
-      : undefined;
-    return message;
+    const message = createBaseSandboxUpdateNetworkResponse()
+    message.sandbox =
+      object.sandbox !== undefined && object.sandbox !== null
+        ? Sandbox.fromPartial(object.sandbox)
+        : undefined
+    return message
   },
-};
+}
 
 function createBaseApplyNetworkPolicyRequest(): ApplyNetworkPolicyRequest {
-  return { sandboxId: "", network: undefined };
+  return { sandboxId: '', network: undefined }
 }
 
 export const ApplyNetworkPolicyRequest: MessageFns<ApplyNetworkPolicyRequest> = {
-  encode(message: ApplyNetworkPolicyRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+  encode(
+    message: ApplyNetworkPolicyRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
     if (message.network !== undefined) {
-      NetworkPolicy.encode(message.network, writer.uint32(18).fork()).join();
+      NetworkPolicy.encode(message.network, writer.uint32(18).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): ApplyNetworkPolicyRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseApplyNetworkPolicyRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseApplyNetworkPolicyRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.network = NetworkPolicy.decode(reader, reader.uint32());
-          continue;
+          message.network = NetworkPolicy.decode(reader, reader.uint32())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): ApplyNetworkPolicyRequest {
@@ -1920,156 +1950,157 @@ export const ApplyNetworkPolicyRequest: MessageFns<ApplyNetworkPolicyRequest> = 
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
+          ? globalThis.String(object.sandbox_id)
+          : '',
       network: isSet(object.network) ? NetworkPolicy.fromJSON(object.network) : undefined,
-    };
+    }
   },
 
   toJSON(message: ApplyNetworkPolicyRequest): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
     if (message.network !== undefined) {
-      obj.network = NetworkPolicy.toJSON(message.network);
+      obj.network = NetworkPolicy.toJSON(message.network)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<ApplyNetworkPolicyRequest>): ApplyNetworkPolicyRequest {
-    return ApplyNetworkPolicyRequest.fromPartial(base ?? {});
+    return ApplyNetworkPolicyRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<ApplyNetworkPolicyRequest>): ApplyNetworkPolicyRequest {
-    const message = createBaseApplyNetworkPolicyRequest();
-    message.sandboxId = object.sandboxId ?? "";
-    message.network = (object.network !== undefined && object.network !== null)
-      ? NetworkPolicy.fromPartial(object.network)
-      : undefined;
-    return message;
+    const message = createBaseApplyNetworkPolicyRequest()
+    message.sandboxId = object.sandboxId ?? ''
+    message.network =
+      object.network !== undefined && object.network !== null
+        ? NetworkPolicy.fromPartial(object.network)
+        : undefined
+    return message
   },
-};
+}
 
 function createBaseApplyNetworkPolicyResponse(): ApplyNetworkPolicyResponse {
-  return {};
+  return {}
 }
 
 export const ApplyNetworkPolicyResponse: MessageFns<ApplyNetworkPolicyResponse> = {
   encode(_: ApplyNetworkPolicyResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): ApplyNetworkPolicyResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseApplyNetworkPolicyResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseApplyNetworkPolicyResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(_: any): ApplyNetworkPolicyResponse {
-    return {};
+    return {}
   },
 
   toJSON(_: ApplyNetworkPolicyResponse): unknown {
-    const obj: any = {};
-    return obj;
+    const obj: any = {}
+    return obj
   },
 
   create(base?: DeepPartial<ApplyNetworkPolicyResponse>): ApplyNetworkPolicyResponse {
-    return ApplyNetworkPolicyResponse.fromPartial(base ?? {});
+    return ApplyNetworkPolicyResponse.fromPartial(base ?? {})
   },
   fromPartial(_: DeepPartial<ApplyNetworkPolicyResponse>): ApplyNetworkPolicyResponse {
-    const message = createBaseApplyNetworkPolicyResponse();
-    return message;
+    const message = createBaseApplyNetworkPolicyResponse()
+    return message
   },
-};
+}
 
 function createBaseSandboxListRequest(): SandboxListRequest {
-  return {};
+  return {}
 }
 
 export const SandboxListRequest: MessageFns<SandboxListRequest> = {
   encode(_: SandboxListRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxListRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxListRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxListRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(_: any): SandboxListRequest {
-    return {};
+    return {}
   },
 
   toJSON(_: SandboxListRequest): unknown {
-    const obj: any = {};
-    return obj;
+    const obj: any = {}
+    return obj
   },
 
   create(base?: DeepPartial<SandboxListRequest>): SandboxListRequest {
-    return SandboxListRequest.fromPartial(base ?? {});
+    return SandboxListRequest.fromPartial(base ?? {})
   },
   fromPartial(_: DeepPartial<SandboxListRequest>): SandboxListRequest {
-    const message = createBaseSandboxListRequest();
-    return message;
+    const message = createBaseSandboxListRequest()
+    return message
   },
-};
+}
 
 function createBaseSandboxListResponse(): SandboxListResponse {
-  return { sandboxes: [] };
+  return { sandboxes: [] }
 }
 
 export const SandboxListResponse: MessageFns<SandboxListResponse> = {
   encode(message: SandboxListResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     for (const v of message.sandboxes) {
-      Sandbox.encode(v!, writer.uint32(10).fork()).join();
+      Sandbox.encode(v!, writer.uint32(10).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxListResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxListResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxListResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxes.push(Sandbox.decode(reader, reader.uint32()));
-          continue;
+          message.sandboxes.push(Sandbox.decode(reader, reader.uint32()))
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxListResponse {
@@ -2077,83 +2108,86 @@ export const SandboxListResponse: MessageFns<SandboxListResponse> = {
       sandboxes: globalThis.Array.isArray(object?.sandboxes)
         ? object.sandboxes.map((e: any) => Sandbox.fromJSON(e))
         : [],
-    };
+    }
   },
 
   toJSON(message: SandboxListResponse): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.sandboxes?.length) {
-      obj.sandboxes = message.sandboxes.map((e) => Sandbox.toJSON(e));
+      obj.sandboxes = message.sandboxes.map((e) => Sandbox.toJSON(e))
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxListResponse>): SandboxListResponse {
-    return SandboxListResponse.fromPartial(base ?? {});
+    return SandboxListResponse.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxListResponse>): SandboxListResponse {
-    const message = createBaseSandboxListResponse();
-    message.sandboxes = object.sandboxes?.map((e) => Sandbox.fromPartial(e)) || [];
-    return message;
+    const message = createBaseSandboxListResponse()
+    message.sandboxes = object.sandboxes?.map((e) => Sandbox.fromPartial(e)) || []
+    return message
   },
-};
+}
 
 function createBaseRuntimeHeartbeatRequest(): RuntimeHeartbeatRequest {
-  return { nodeId: "", grpcAddr: "", sandboxCount: 0 };
+  return { nodeId: '', grpcAddr: '', sandboxCount: 0 }
 }
 
 export const RuntimeHeartbeatRequest: MessageFns<RuntimeHeartbeatRequest> = {
-  encode(message: RuntimeHeartbeatRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.nodeId !== "") {
-      writer.uint32(10).string(message.nodeId);
+  encode(
+    message: RuntimeHeartbeatRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.nodeId !== '') {
+      writer.uint32(10).string(message.nodeId)
     }
-    if (message.grpcAddr !== "") {
-      writer.uint32(18).string(message.grpcAddr);
+    if (message.grpcAddr !== '') {
+      writer.uint32(18).string(message.grpcAddr)
     }
     if (message.sandboxCount !== 0) {
-      writer.uint32(24).int32(message.sandboxCount);
+      writer.uint32(24).int32(message.sandboxCount)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): RuntimeHeartbeatRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseRuntimeHeartbeatRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseRuntimeHeartbeatRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.nodeId = reader.string();
-          continue;
+          message.nodeId = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.grpcAddr = reader.string();
-          continue;
+          message.grpcAddr = reader.string()
+          continue
         }
         case 3: {
           if (tag !== 24) {
-            break;
+            break
           }
 
-          message.sandboxCount = reader.int32();
-          continue;
+          message.sandboxCount = reader.int32()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): RuntimeHeartbeatRequest {
@@ -2161,199 +2195,207 @@ export const RuntimeHeartbeatRequest: MessageFns<RuntimeHeartbeatRequest> = {
       nodeId: isSet(object.nodeId)
         ? globalThis.String(object.nodeId)
         : isSet(object.node_id)
-        ? globalThis.String(object.node_id)
-        : "",
+          ? globalThis.String(object.node_id)
+          : '',
       grpcAddr: isSet(object.grpcAddr)
         ? globalThis.String(object.grpcAddr)
         : isSet(object.grpc_addr)
-        ? globalThis.String(object.grpc_addr)
-        : "",
+          ? globalThis.String(object.grpc_addr)
+          : '',
       sandboxCount: isSet(object.sandboxCount)
         ? globalThis.Number(object.sandboxCount)
         : isSet(object.sandbox_count)
-        ? globalThis.Number(object.sandbox_count)
-        : 0,
-    };
+          ? globalThis.Number(object.sandbox_count)
+          : 0,
+    }
   },
 
   toJSON(message: RuntimeHeartbeatRequest): unknown {
-    const obj: any = {};
-    if (message.nodeId !== "") {
-      obj.nodeId = message.nodeId;
+    const obj: any = {}
+    if (message.nodeId !== '') {
+      obj.nodeId = message.nodeId
     }
-    if (message.grpcAddr !== "") {
-      obj.grpcAddr = message.grpcAddr;
+    if (message.grpcAddr !== '') {
+      obj.grpcAddr = message.grpcAddr
     }
     if (message.sandboxCount !== 0) {
-      obj.sandboxCount = Math.round(message.sandboxCount);
+      obj.sandboxCount = Math.round(message.sandboxCount)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<RuntimeHeartbeatRequest>): RuntimeHeartbeatRequest {
-    return RuntimeHeartbeatRequest.fromPartial(base ?? {});
+    return RuntimeHeartbeatRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<RuntimeHeartbeatRequest>): RuntimeHeartbeatRequest {
-    const message = createBaseRuntimeHeartbeatRequest();
-    message.nodeId = object.nodeId ?? "";
-    message.grpcAddr = object.grpcAddr ?? "";
-    message.sandboxCount = object.sandboxCount ?? 0;
-    return message;
+    const message = createBaseRuntimeHeartbeatRequest()
+    message.nodeId = object.nodeId ?? ''
+    message.grpcAddr = object.grpcAddr ?? ''
+    message.sandboxCount = object.sandboxCount ?? 0
+    return message
   },
-};
+}
 
 function createBaseRuntimeHeartbeatResponse(): RuntimeHeartbeatResponse {
-  return { assigned: [], desiredRole: "", removed: false };
+  return { assigned: [], desiredRole: '', removed: false }
 }
 
 export const RuntimeHeartbeatResponse: MessageFns<RuntimeHeartbeatResponse> = {
-  encode(message: RuntimeHeartbeatResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: RuntimeHeartbeatResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     for (const v of message.assigned) {
-      Sandbox.encode(v!, writer.uint32(10).fork()).join();
+      Sandbox.encode(v!, writer.uint32(10).fork()).join()
     }
-    if (message.desiredRole !== "") {
-      writer.uint32(18).string(message.desiredRole);
+    if (message.desiredRole !== '') {
+      writer.uint32(18).string(message.desiredRole)
     }
     if (message.removed !== false) {
-      writer.uint32(24).bool(message.removed);
+      writer.uint32(24).bool(message.removed)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): RuntimeHeartbeatResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseRuntimeHeartbeatResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseRuntimeHeartbeatResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.assigned.push(Sandbox.decode(reader, reader.uint32()));
-          continue;
+          message.assigned.push(Sandbox.decode(reader, reader.uint32()))
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.desiredRole = reader.string();
-          continue;
+          message.desiredRole = reader.string()
+          continue
         }
         case 3: {
           if (tag !== 24) {
-            break;
+            break
           }
 
-          message.removed = reader.bool();
-          continue;
+          message.removed = reader.bool()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): RuntimeHeartbeatResponse {
     return {
-      assigned: globalThis.Array.isArray(object?.assigned) ? object.assigned.map((e: any) => Sandbox.fromJSON(e)) : [],
+      assigned: globalThis.Array.isArray(object?.assigned)
+        ? object.assigned.map((e: any) => Sandbox.fromJSON(e))
+        : [],
       desiredRole: isSet(object.desiredRole)
         ? globalThis.String(object.desiredRole)
         : isSet(object.desired_role)
-        ? globalThis.String(object.desired_role)
-        : "",
+          ? globalThis.String(object.desired_role)
+          : '',
       removed: isSet(object.removed) ? globalThis.Boolean(object.removed) : false,
-    };
+    }
   },
 
   toJSON(message: RuntimeHeartbeatResponse): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.assigned?.length) {
-      obj.assigned = message.assigned.map((e) => Sandbox.toJSON(e));
+      obj.assigned = message.assigned.map((e) => Sandbox.toJSON(e))
     }
-    if (message.desiredRole !== "") {
-      obj.desiredRole = message.desiredRole;
+    if (message.desiredRole !== '') {
+      obj.desiredRole = message.desiredRole
     }
     if (message.removed !== false) {
-      obj.removed = message.removed;
+      obj.removed = message.removed
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<RuntimeHeartbeatResponse>): RuntimeHeartbeatResponse {
-    return RuntimeHeartbeatResponse.fromPartial(base ?? {});
+    return RuntimeHeartbeatResponse.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<RuntimeHeartbeatResponse>): RuntimeHeartbeatResponse {
-    const message = createBaseRuntimeHeartbeatResponse();
-    message.assigned = object.assigned?.map((e) => Sandbox.fromPartial(e)) || [];
-    message.desiredRole = object.desiredRole ?? "";
-    message.removed = object.removed ?? false;
-    return message;
+    const message = createBaseRuntimeHeartbeatResponse()
+    message.assigned = object.assigned?.map((e) => Sandbox.fromPartial(e)) || []
+    message.desiredRole = object.desiredRole ?? ''
+    message.removed = object.removed ?? false
+    return message
   },
-};
+}
 
 function createBaseUpdateSandboxStatusRequest(): UpdateSandboxStatusRequest {
-  return { sandboxId: "", status: undefined, containerId: "" };
+  return { sandboxId: '', status: undefined, containerId: '' }
 }
 
 export const UpdateSandboxStatusRequest: MessageFns<UpdateSandboxStatusRequest> = {
-  encode(message: UpdateSandboxStatusRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+  encode(
+    message: UpdateSandboxStatusRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
     if (message.status !== undefined) {
-      SandboxStatus.encode(message.status, writer.uint32(18).fork()).join();
+      SandboxStatus.encode(message.status, writer.uint32(18).fork()).join()
     }
-    if (message.containerId !== "") {
-      writer.uint32(26).string(message.containerId);
+    if (message.containerId !== '') {
+      writer.uint32(26).string(message.containerId)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): UpdateSandboxStatusRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseUpdateSandboxStatusRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseUpdateSandboxStatusRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.status = SandboxStatus.decode(reader, reader.uint32());
-          continue;
+          message.status = SandboxStatus.decode(reader, reader.uint32())
+          continue
         }
         case 3: {
           if (tag !== 26) {
-            break;
+            break
           }
 
-          message.containerId = reader.string();
-          continue;
+          message.containerId = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): UpdateSandboxStatusRequest {
@@ -2361,122 +2403,126 @@ export const UpdateSandboxStatusRequest: MessageFns<UpdateSandboxStatusRequest> 
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
+          ? globalThis.String(object.sandbox_id)
+          : '',
       status: isSet(object.status) ? SandboxStatus.fromJSON(object.status) : undefined,
       containerId: isSet(object.containerId)
         ? globalThis.String(object.containerId)
         : isSet(object.container_id)
-        ? globalThis.String(object.container_id)
-        : "",
-    };
+          ? globalThis.String(object.container_id)
+          : '',
+    }
   },
 
   toJSON(message: UpdateSandboxStatusRequest): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
     if (message.status !== undefined) {
-      obj.status = SandboxStatus.toJSON(message.status);
+      obj.status = SandboxStatus.toJSON(message.status)
     }
-    if (message.containerId !== "") {
-      obj.containerId = message.containerId;
+    if (message.containerId !== '') {
+      obj.containerId = message.containerId
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<UpdateSandboxStatusRequest>): UpdateSandboxStatusRequest {
-    return UpdateSandboxStatusRequest.fromPartial(base ?? {});
+    return UpdateSandboxStatusRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<UpdateSandboxStatusRequest>): UpdateSandboxStatusRequest {
-    const message = createBaseUpdateSandboxStatusRequest();
-    message.sandboxId = object.sandboxId ?? "";
-    message.status = (object.status !== undefined && object.status !== null)
-      ? SandboxStatus.fromPartial(object.status)
-      : undefined;
-    message.containerId = object.containerId ?? "";
-    return message;
+    const message = createBaseUpdateSandboxStatusRequest()
+    message.sandboxId = object.sandboxId ?? ''
+    message.status =
+      object.status !== undefined && object.status !== null
+        ? SandboxStatus.fromPartial(object.status)
+        : undefined
+    message.containerId = object.containerId ?? ''
+    return message
   },
-};
+}
 
 function createBaseUpdateSandboxStatusResponse(): UpdateSandboxStatusResponse {
-  return {};
+  return {}
 }
 
 export const UpdateSandboxStatusResponse: MessageFns<UpdateSandboxStatusResponse> = {
   encode(_: UpdateSandboxStatusResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): UpdateSandboxStatusResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseUpdateSandboxStatusResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseUpdateSandboxStatusResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(_: any): UpdateSandboxStatusResponse {
-    return {};
+    return {}
   },
 
   toJSON(_: UpdateSandboxStatusResponse): unknown {
-    const obj: any = {};
-    return obj;
+    const obj: any = {}
+    return obj
   },
 
   create(base?: DeepPartial<UpdateSandboxStatusResponse>): UpdateSandboxStatusResponse {
-    return UpdateSandboxStatusResponse.fromPartial(base ?? {});
+    return UpdateSandboxStatusResponse.fromPartial(base ?? {})
   },
   fromPartial(_: DeepPartial<UpdateSandboxStatusResponse>): UpdateSandboxStatusResponse {
-    const message = createBaseUpdateSandboxStatusResponse();
-    return message;
+    const message = createBaseUpdateSandboxStatusResponse()
+    return message
   },
-};
+}
 
 function createBaseListNodeSandboxesRequest(): ListNodeSandboxesRequest {
-  return { nodeId: "" };
+  return { nodeId: '' }
 }
 
 export const ListNodeSandboxesRequest: MessageFns<ListNodeSandboxesRequest> = {
-  encode(message: ListNodeSandboxesRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.nodeId !== "") {
-      writer.uint32(10).string(message.nodeId);
+  encode(
+    message: ListNodeSandboxesRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.nodeId !== '') {
+      writer.uint32(10).string(message.nodeId)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): ListNodeSandboxesRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseListNodeSandboxesRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseListNodeSandboxesRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.nodeId = reader.string();
-          continue;
+          message.nodeId = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): ListNodeSandboxesRequest {
@@ -2484,63 +2530,66 @@ export const ListNodeSandboxesRequest: MessageFns<ListNodeSandboxesRequest> = {
       nodeId: isSet(object.nodeId)
         ? globalThis.String(object.nodeId)
         : isSet(object.node_id)
-        ? globalThis.String(object.node_id)
-        : "",
-    };
+          ? globalThis.String(object.node_id)
+          : '',
+    }
   },
 
   toJSON(message: ListNodeSandboxesRequest): unknown {
-    const obj: any = {};
-    if (message.nodeId !== "") {
-      obj.nodeId = message.nodeId;
+    const obj: any = {}
+    if (message.nodeId !== '') {
+      obj.nodeId = message.nodeId
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<ListNodeSandboxesRequest>): ListNodeSandboxesRequest {
-    return ListNodeSandboxesRequest.fromPartial(base ?? {});
+    return ListNodeSandboxesRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<ListNodeSandboxesRequest>): ListNodeSandboxesRequest {
-    const message = createBaseListNodeSandboxesRequest();
-    message.nodeId = object.nodeId ?? "";
-    return message;
+    const message = createBaseListNodeSandboxesRequest()
+    message.nodeId = object.nodeId ?? ''
+    return message
   },
-};
+}
 
 function createBaseListNodeSandboxesResponse(): ListNodeSandboxesResponse {
-  return { sandboxes: [] };
+  return { sandboxes: [] }
 }
 
 export const ListNodeSandboxesResponse: MessageFns<ListNodeSandboxesResponse> = {
-  encode(message: ListNodeSandboxesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ListNodeSandboxesResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     for (const v of message.sandboxes) {
-      Sandbox.encode(v!, writer.uint32(10).fork()).join();
+      Sandbox.encode(v!, writer.uint32(10).fork()).join()
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): ListNodeSandboxesResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseListNodeSandboxesResponse();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseListNodeSandboxesResponse()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxes.push(Sandbox.decode(reader, reader.uint32()));
-          continue;
+          message.sandboxes.push(Sandbox.decode(reader, reader.uint32()))
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): ListNodeSandboxesResponse {
@@ -2548,94 +2597,94 @@ export const ListNodeSandboxesResponse: MessageFns<ListNodeSandboxesResponse> = 
       sandboxes: globalThis.Array.isArray(object?.sandboxes)
         ? object.sandboxes.map((e: any) => Sandbox.fromJSON(e))
         : [],
-    };
+    }
   },
 
   toJSON(message: ListNodeSandboxesResponse): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.sandboxes?.length) {
-      obj.sandboxes = message.sandboxes.map((e) => Sandbox.toJSON(e));
+      obj.sandboxes = message.sandboxes.map((e) => Sandbox.toJSON(e))
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<ListNodeSandboxesResponse>): ListNodeSandboxesResponse {
-    return ListNodeSandboxesResponse.fromPartial(base ?? {});
+    return ListNodeSandboxesResponse.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<ListNodeSandboxesResponse>): ListNodeSandboxesResponse {
-    const message = createBaseListNodeSandboxesResponse();
-    message.sandboxes = object.sandboxes?.map((e) => Sandbox.fromPartial(e)) || [];
-    return message;
+    const message = createBaseListNodeSandboxesResponse()
+    message.sandboxes = object.sandboxes?.map((e) => Sandbox.fromPartial(e)) || []
+    return message
   },
-};
+}
 
 function createBaseSandboxLogsRequest(): SandboxLogsRequest {
-  return { sandboxId: "", follow: false, tail: 0, timestamps: false };
+  return { sandboxId: '', follow: false, tail: 0, timestamps: false }
 }
 
 export const SandboxLogsRequest: MessageFns<SandboxLogsRequest> = {
   encode(message: SandboxLogsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
     if (message.follow !== false) {
-      writer.uint32(16).bool(message.follow);
+      writer.uint32(16).bool(message.follow)
     }
     if (message.tail !== 0) {
-      writer.uint32(24).int64(message.tail);
+      writer.uint32(24).int64(message.tail)
     }
     if (message.timestamps !== false) {
-      writer.uint32(32).bool(message.timestamps);
+      writer.uint32(32).bool(message.timestamps)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxLogsRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxLogsRequest();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxLogsRequest()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 16) {
-            break;
+            break
           }
 
-          message.follow = reader.bool();
-          continue;
+          message.follow = reader.bool()
+          continue
         }
         case 3: {
           if (tag !== 24) {
-            break;
+            break
           }
 
-          message.tail = longToNumber(reader.int64());
-          continue;
+          message.tail = longToNumber(reader.int64())
+          continue
         }
         case 4: {
           if (tag !== 32) {
-            break;
+            break
           }
 
-          message.timestamps = reader.bool();
-          continue;
+          message.timestamps = reader.bool()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxLogsRequest {
@@ -2643,101 +2692,103 @@ export const SandboxLogsRequest: MessageFns<SandboxLogsRequest> = {
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
+          ? globalThis.String(object.sandbox_id)
+          : '',
       follow: isSet(object.follow) ? globalThis.Boolean(object.follow) : false,
       tail: isSet(object.tail) ? globalThis.Number(object.tail) : 0,
       timestamps: isSet(object.timestamps) ? globalThis.Boolean(object.timestamps) : false,
-    };
+    }
   },
 
   toJSON(message: SandboxLogsRequest): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
     if (message.follow !== false) {
-      obj.follow = message.follow;
+      obj.follow = message.follow
     }
     if (message.tail !== 0) {
-      obj.tail = Math.round(message.tail);
+      obj.tail = Math.round(message.tail)
     }
     if (message.timestamps !== false) {
-      obj.timestamps = message.timestamps;
+      obj.timestamps = message.timestamps
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxLogsRequest>): SandboxLogsRequest {
-    return SandboxLogsRequest.fromPartial(base ?? {});
+    return SandboxLogsRequest.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxLogsRequest>): SandboxLogsRequest {
-    const message = createBaseSandboxLogsRequest();
-    message.sandboxId = object.sandboxId ?? "";
-    message.follow = object.follow ?? false;
-    message.tail = object.tail ?? 0;
-    message.timestamps = object.timestamps ?? false;
-    return message;
+    const message = createBaseSandboxLogsRequest()
+    message.sandboxId = object.sandboxId ?? ''
+    message.follow = object.follow ?? false
+    message.tail = object.tail ?? 0
+    message.timestamps = object.timestamps ?? false
+    return message
   },
-};
+}
 
 function createBaseSandboxLogsChunk(): SandboxLogsChunk {
-  return { data: Buffer.alloc(0) };
+  return { data: Buffer.alloc(0) }
 }
 
 export const SandboxLogsChunk: MessageFns<SandboxLogsChunk> = {
   encode(message: SandboxLogsChunk, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.data.length !== 0) {
-      writer.uint32(10).bytes(message.data);
+      writer.uint32(10).bytes(message.data)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxLogsChunk {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxLogsChunk();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxLogsChunk()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.data = Buffer.from(reader.bytes());
-          continue;
+          message.data = Buffer.from(reader.bytes())
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxLogsChunk {
-    return { data: isSet(object.data) ? Buffer.from(bytesFromBase64(object.data)) : Buffer.alloc(0) };
+    return {
+      data: isSet(object.data) ? Buffer.from(bytesFromBase64(object.data)) : Buffer.alloc(0),
+    }
   },
 
   toJSON(message: SandboxLogsChunk): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.data.length !== 0) {
-      obj.data = base64FromBytes(message.data);
+      obj.data = base64FromBytes(message.data)
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxLogsChunk>): SandboxLogsChunk {
-    return SandboxLogsChunk.fromPartial(base ?? {});
+    return SandboxLogsChunk.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxLogsChunk>): SandboxLogsChunk {
-    const message = createBaseSandboxLogsChunk();
-    message.data = object.data ?? Buffer.alloc(0);
-    return message;
+    const message = createBaseSandboxLogsChunk()
+    message.data = object.data ?? Buffer.alloc(0)
+    return message
   },
-};
+}
 
 function createBaseSandboxExecMessage(): SandboxExecMessage {
   return {
@@ -2747,94 +2798,94 @@ function createBaseSandboxExecMessage(): SandboxExecMessage {
     stderr: undefined,
     exit: undefined,
     stdinClosed: undefined,
-  };
+  }
 }
 
 export const SandboxExecMessage: MessageFns<SandboxExecMessage> = {
   encode(message: SandboxExecMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.start !== undefined) {
-      SandboxExecStart.encode(message.start, writer.uint32(10).fork()).join();
+      SandboxExecStart.encode(message.start, writer.uint32(10).fork()).join()
     }
     if (message.stdin !== undefined) {
-      writer.uint32(18).bytes(message.stdin);
+      writer.uint32(18).bytes(message.stdin)
     }
     if (message.stdout !== undefined) {
-      writer.uint32(26).bytes(message.stdout);
+      writer.uint32(26).bytes(message.stdout)
     }
     if (message.stderr !== undefined) {
-      writer.uint32(34).bytes(message.stderr);
+      writer.uint32(34).bytes(message.stderr)
     }
     if (message.exit !== undefined) {
-      SandboxExecExit.encode(message.exit, writer.uint32(42).fork()).join();
+      SandboxExecExit.encode(message.exit, writer.uint32(42).fork()).join()
     }
     if (message.stdinClosed !== undefined) {
-      writer.uint32(48).bool(message.stdinClosed);
+      writer.uint32(48).bool(message.stdinClosed)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxExecMessage {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxExecMessage();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxExecMessage()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.start = SandboxExecStart.decode(reader, reader.uint32());
-          continue;
+          message.start = SandboxExecStart.decode(reader, reader.uint32())
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.stdin = Buffer.from(reader.bytes());
-          continue;
+          message.stdin = Buffer.from(reader.bytes())
+          continue
         }
         case 3: {
           if (tag !== 26) {
-            break;
+            break
           }
 
-          message.stdout = Buffer.from(reader.bytes());
-          continue;
+          message.stdout = Buffer.from(reader.bytes())
+          continue
         }
         case 4: {
           if (tag !== 34) {
-            break;
+            break
           }
 
-          message.stderr = Buffer.from(reader.bytes());
-          continue;
+          message.stderr = Buffer.from(reader.bytes())
+          continue
         }
         case 5: {
           if (tag !== 42) {
-            break;
+            break
           }
 
-          message.exit = SandboxExecExit.decode(reader, reader.uint32());
-          continue;
+          message.exit = SandboxExecExit.decode(reader, reader.uint32())
+          continue
         }
         case 6: {
           if (tag !== 48) {
-            break;
+            break
           }
 
-          message.stdinClosed = reader.bool();
-          continue;
+          message.stdinClosed = reader.bool()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxExecMessage {
@@ -2847,120 +2898,122 @@ export const SandboxExecMessage: MessageFns<SandboxExecMessage> = {
       stdinClosed: isSet(object.stdinClosed)
         ? globalThis.Boolean(object.stdinClosed)
         : isSet(object.stdin_closed)
-        ? globalThis.Boolean(object.stdin_closed)
-        : undefined,
-    };
+          ? globalThis.Boolean(object.stdin_closed)
+          : undefined,
+    }
   },
 
   toJSON(message: SandboxExecMessage): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.start !== undefined) {
-      obj.start = SandboxExecStart.toJSON(message.start);
+      obj.start = SandboxExecStart.toJSON(message.start)
     }
     if (message.stdin !== undefined) {
-      obj.stdin = base64FromBytes(message.stdin);
+      obj.stdin = base64FromBytes(message.stdin)
     }
     if (message.stdout !== undefined) {
-      obj.stdout = base64FromBytes(message.stdout);
+      obj.stdout = base64FromBytes(message.stdout)
     }
     if (message.stderr !== undefined) {
-      obj.stderr = base64FromBytes(message.stderr);
+      obj.stderr = base64FromBytes(message.stderr)
     }
     if (message.exit !== undefined) {
-      obj.exit = SandboxExecExit.toJSON(message.exit);
+      obj.exit = SandboxExecExit.toJSON(message.exit)
     }
     if (message.stdinClosed !== undefined) {
-      obj.stdinClosed = message.stdinClosed;
+      obj.stdinClosed = message.stdinClosed
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxExecMessage>): SandboxExecMessage {
-    return SandboxExecMessage.fromPartial(base ?? {});
+    return SandboxExecMessage.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxExecMessage>): SandboxExecMessage {
-    const message = createBaseSandboxExecMessage();
-    message.start = (object.start !== undefined && object.start !== null)
-      ? SandboxExecStart.fromPartial(object.start)
-      : undefined;
-    message.stdin = object.stdin ?? undefined;
-    message.stdout = object.stdout ?? undefined;
-    message.stderr = object.stderr ?? undefined;
-    message.exit = (object.exit !== undefined && object.exit !== null)
-      ? SandboxExecExit.fromPartial(object.exit)
-      : undefined;
-    message.stdinClosed = object.stdinClosed ?? undefined;
-    return message;
+    const message = createBaseSandboxExecMessage()
+    message.start =
+      object.start !== undefined && object.start !== null
+        ? SandboxExecStart.fromPartial(object.start)
+        : undefined
+    message.stdin = object.stdin ?? undefined
+    message.stdout = object.stdout ?? undefined
+    message.stderr = object.stderr ?? undefined
+    message.exit =
+      object.exit !== undefined && object.exit !== null
+        ? SandboxExecExit.fromPartial(object.exit)
+        : undefined
+    message.stdinClosed = object.stdinClosed ?? undefined
+    return message
   },
-};
+}
 
 function createBaseSandboxExecStart(): SandboxExecStart {
-  return { sandboxId: "", command: [], tty: false, stdin: false };
+  return { sandboxId: '', command: [], tty: false, stdin: false }
 }
 
 export const SandboxExecStart: MessageFns<SandboxExecStart> = {
   encode(message: SandboxExecStart, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.sandboxId !== "") {
-      writer.uint32(10).string(message.sandboxId);
+    if (message.sandboxId !== '') {
+      writer.uint32(10).string(message.sandboxId)
     }
     for (const v of message.command) {
-      writer.uint32(18).string(v!);
+      writer.uint32(18).string(v!)
     }
     if (message.tty !== false) {
-      writer.uint32(24).bool(message.tty);
+      writer.uint32(24).bool(message.tty)
     }
     if (message.stdin !== false) {
-      writer.uint32(32).bool(message.stdin);
+      writer.uint32(32).bool(message.stdin)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxExecStart {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxExecStart();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxExecStart()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 10) {
-            break;
+            break
           }
 
-          message.sandboxId = reader.string();
-          continue;
+          message.sandboxId = reader.string()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.command.push(reader.string());
-          continue;
+          message.command.push(reader.string())
+          continue
         }
         case 3: {
           if (tag !== 24) {
-            break;
+            break
           }
 
-          message.tty = reader.bool();
-          continue;
+          message.tty = reader.bool()
+          continue
         }
         case 4: {
           if (tag !== 32) {
-            break;
+            break
           }
 
-          message.stdin = reader.bool();
-          continue;
+          message.stdin = reader.bool()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxExecStart {
@@ -2968,89 +3021,91 @@ export const SandboxExecStart: MessageFns<SandboxExecStart> = {
       sandboxId: isSet(object.sandboxId)
         ? globalThis.String(object.sandboxId)
         : isSet(object.sandbox_id)
-        ? globalThis.String(object.sandbox_id)
-        : "",
-      command: globalThis.Array.isArray(object?.command) ? object.command.map((e: any) => globalThis.String(e)) : [],
+          ? globalThis.String(object.sandbox_id)
+          : '',
+      command: globalThis.Array.isArray(object?.command)
+        ? object.command.map((e: any) => globalThis.String(e))
+        : [],
       tty: isSet(object.tty) ? globalThis.Boolean(object.tty) : false,
       stdin: isSet(object.stdin) ? globalThis.Boolean(object.stdin) : false,
-    };
+    }
   },
 
   toJSON(message: SandboxExecStart): unknown {
-    const obj: any = {};
-    if (message.sandboxId !== "") {
-      obj.sandboxId = message.sandboxId;
+    const obj: any = {}
+    if (message.sandboxId !== '') {
+      obj.sandboxId = message.sandboxId
     }
     if (message.command?.length) {
-      obj.command = message.command;
+      obj.command = message.command
     }
     if (message.tty !== false) {
-      obj.tty = message.tty;
+      obj.tty = message.tty
     }
     if (message.stdin !== false) {
-      obj.stdin = message.stdin;
+      obj.stdin = message.stdin
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxExecStart>): SandboxExecStart {
-    return SandboxExecStart.fromPartial(base ?? {});
+    return SandboxExecStart.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxExecStart>): SandboxExecStart {
-    const message = createBaseSandboxExecStart();
-    message.sandboxId = object.sandboxId ?? "";
-    message.command = object.command?.map((e) => e) || [];
-    message.tty = object.tty ?? false;
-    message.stdin = object.stdin ?? false;
-    return message;
+    const message = createBaseSandboxExecStart()
+    message.sandboxId = object.sandboxId ?? ''
+    message.command = object.command?.map((e) => e) || []
+    message.tty = object.tty ?? false
+    message.stdin = object.stdin ?? false
+    return message
   },
-};
+}
 
 function createBaseSandboxExecExit(): SandboxExecExit {
-  return { exitCode: 0, error: "" };
+  return { exitCode: 0, error: '' }
 }
 
 export const SandboxExecExit: MessageFns<SandboxExecExit> = {
   encode(message: SandboxExecExit, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.exitCode !== 0) {
-      writer.uint32(8).int32(message.exitCode);
+      writer.uint32(8).int32(message.exitCode)
     }
-    if (message.error !== "") {
-      writer.uint32(18).string(message.error);
+    if (message.error !== '') {
+      writer.uint32(18).string(message.error)
     }
-    return writer;
+    return writer
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): SandboxExecExit {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSandboxExecExit();
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input)
+    const end = length === undefined ? reader.len : reader.pos + length
+    const message = createBaseSandboxExecExit()
     while (reader.pos < end) {
-      const tag = reader.uint32();
+      const tag = reader.uint32()
       switch (tag >>> 3) {
         case 1: {
           if (tag !== 8) {
-            break;
+            break
           }
 
-          message.exitCode = reader.int32();
-          continue;
+          message.exitCode = reader.int32()
+          continue
         }
         case 2: {
           if (tag !== 18) {
-            break;
+            break
           }
 
-          message.error = reader.string();
-          continue;
+          message.error = reader.string()
+          continue
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
-        break;
+        break
       }
-      reader.skip(tag & 7);
+      reader.skip(tag & 7)
     }
-    return message;
+    return message
   },
 
   fromJSON(object: any): SandboxExecExit {
@@ -3058,70 +3113,74 @@ export const SandboxExecExit: MessageFns<SandboxExecExit> = {
       exitCode: isSet(object.exitCode)
         ? globalThis.Number(object.exitCode)
         : isSet(object.exit_code)
-        ? globalThis.Number(object.exit_code)
-        : 0,
-      error: isSet(object.error) ? globalThis.String(object.error) : "",
-    };
+          ? globalThis.Number(object.exit_code)
+          : 0,
+      error: isSet(object.error) ? globalThis.String(object.error) : '',
+    }
   },
 
   toJSON(message: SandboxExecExit): unknown {
-    const obj: any = {};
+    const obj: any = {}
     if (message.exitCode !== 0) {
-      obj.exitCode = Math.round(message.exitCode);
+      obj.exitCode = Math.round(message.exitCode)
     }
-    if (message.error !== "") {
-      obj.error = message.error;
+    if (message.error !== '') {
+      obj.error = message.error
     }
-    return obj;
+    return obj
   },
 
   create(base?: DeepPartial<SandboxExecExit>): SandboxExecExit {
-    return SandboxExecExit.fromPartial(base ?? {});
+    return SandboxExecExit.fromPartial(base ?? {})
   },
   fromPartial(object: DeepPartial<SandboxExecExit>): SandboxExecExit {
-    const message = createBaseSandboxExecExit();
-    message.exitCode = object.exitCode ?? 0;
-    message.error = object.error ?? "";
-    return message;
+    const message = createBaseSandboxExecExit()
+    message.exitCode = object.exitCode ?? 0
+    message.error = object.error ?? ''
+    return message
   },
-};
+}
 
 function bytesFromBase64(b64: string): Uint8Array {
-  return Uint8Array.from(globalThis.Buffer.from(b64, "base64"));
+  return Uint8Array.from(globalThis.Buffer.from(b64, 'base64'))
 }
 
 function base64FromBytes(arr: Uint8Array): string {
-  return globalThis.Buffer.from(arr).toString("base64");
+  return globalThis.Buffer.from(arr).toString('base64')
 }
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined
 
-type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;
+type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>
 
 function longToNumber(int64: { toString(): string }): number {
-  const num = globalThis.Number(int64.toString());
+  const num = globalThis.Number(int64.toString())
   if (num > globalThis.Number.MAX_SAFE_INTEGER) {
-    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+    throw new globalThis.Error('Value is larger than Number.MAX_SAFE_INTEGER')
   }
   if (num < globalThis.Number.MIN_SAFE_INTEGER) {
-    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+    throw new globalThis.Error('Value is smaller than Number.MIN_SAFE_INTEGER')
   }
-  return num;
+  return num
 }
 
 function isSet(value: any): boolean {
-  return value !== null && value !== undefined;
+  return value !== null && value !== undefined
 }
 
 interface MessageFns<T> {
-  encode(message: T, writer?: BinaryWriter): BinaryWriter;
-  decode(input: BinaryReader | Uint8Array, length?: number): T;
-  fromJSON(object: any): T;
-  toJSON(message: T): unknown;
-  create(base?: DeepPartial<T>): T;
-  fromPartial(object: DeepPartial<T>): T;
+  encode(message: T, writer?: BinaryWriter): BinaryWriter
+  decode(input: BinaryReader | Uint8Array, length?: number): T
+  fromJSON(object: any): T
+  toJSON(message: T): unknown
+  create(base?: DeepPartial<T>): T
+  fromPartial(object: DeepPartial<T>): T
 }

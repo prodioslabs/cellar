@@ -17,10 +17,10 @@ npm install @cellar/node
 
 ## Configure
 
-| Variable          | Required | Meaning                                            |
-| ----------------- | -------- | -------------------------------------------------- |
-| `CELLAR_API_KEY`  | yes      | Raw key from `cellar api-key create` (`cellar_…`)  |
-| `CELLAR_ENDPOINT` | yes      | Gateway base URL (`https://cellar.example.com`)    |
+| Variable          | Required | Meaning                                           |
+| ----------------- | -------- | ------------------------------------------------- |
+| `CELLAR_API_KEY`  | yes      | Raw key from `cellar api-key create` (`cellar_…`) |
+| `CELLAR_ENDPOINT` | yes      | Gateway base URL (`https://cellar.example.com`)   |
 
 ```bash
 export CELLAR_API_KEY='cellar_…'
