@@ -529,6 +529,8 @@ type StatusResponse struct {
 	IsLeader      bool                   `protobuf:"varint,4,opt,name=is_leader,json=isLeader,proto3" json:"is_leader,omitempty"`
 	AdvertiseAddr string                 `protobuf:"bytes,5,opt,name=advertise_addr,json=advertiseAddr,proto3" json:"advertise_addr,omitempty"`
 	Initialized   bool                   `protobuf:"varint,6,opt,name=initialized,proto3" json:"initialized,omitempty"`
+	ListenAddr    string                 `protobuf:"bytes,7,opt,name=listen_addr,json=listenAddr,proto3" json:"listen_addr,omitempty"`
+	RaftAddr      string                 `protobuf:"bytes,8,opt,name=raft_addr,json=raftAddr,proto3" json:"raft_addr,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -603,6 +605,20 @@ func (x *StatusResponse) GetInitialized() bool {
 		return x.Initialized
 	}
 	return false
+}
+
+func (x *StatusResponse) GetListenAddr() string {
+	if x != nil {
+		return x.ListenAddr
+	}
+	return ""
+}
+
+func (x *StatusResponse) GetRaftAddr() string {
+	if x != nil {
+		return x.RaftAddr
+	}
+	return ""
 }
 
 type CACertRequest struct {
@@ -1766,7 +1782,7 @@ const file_control_proto_rawDesc = "" +
 	"\fLeaveRequest\x12\x14\n" +
 	"\x05force\x18\x01 \x01(\bR\x05force\"\x0f\n" +
 	"\rLeaveResponse\"\x0f\n" +
-	"\rStatusRequest\"\xc2\x01\n" +
+	"\rStatusRequest\"\x80\x02\n" +
 	"\x0eStatusResponse\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x1d\n" +
@@ -1774,7 +1790,10 @@ const file_control_proto_rawDesc = "" +
 	"cluster_id\x18\x03 \x01(\tR\tclusterId\x12\x1b\n" +
 	"\tis_leader\x18\x04 \x01(\bR\bisLeader\x12%\n" +
 	"\x0eadvertise_addr\x18\x05 \x01(\tR\radvertiseAddr\x12 \n" +
-	"\vinitialized\x18\x06 \x01(\bR\vinitialized\"\x0f\n" +
+	"\vinitialized\x18\x06 \x01(\bR\vinitialized\x12\x1f\n" +
+	"\vlisten_addr\x18\a \x01(\tR\n" +
+	"listenAddr\x12\x1b\n" +
+	"\traft_addr\x18\b \x01(\tR\braftAddr\"\x0f\n" +
 	"\rCACertRequest\"2\n" +
 	"\x0eCACertResponse\x12 \n" +
 	"\vcertificate\x18\x01 \x01(\fR\vcertificate\")\n" +

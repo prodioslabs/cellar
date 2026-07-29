@@ -903,6 +903,8 @@ func (d *Daemon) Status(ctx context.Context, _ *cellarv1.StatusRequest) (*cellar
 	resp := &cellarv1.StatusResponse{
 		Initialized:   state.Initialized || mat != nil,
 		AdvertiseAddr: state.AdvertiseAddr,
+		ListenAddr:    state.ListenAddr,
+		RaftAddr:      state.RaftAddr,
 		ClusterId:     state.ClusterID,
 	}
 	if mat != nil {

@@ -93,6 +93,8 @@ message StatusResponse {
   bool is_leader = 4;
   string advertise_addr = 5;
   bool initialized = 6;
+  string listen_addr = 7;
+  string raft_addr = 8;
 }
 
 message CACertRequest {}

@@ -224,6 +224,8 @@ func newStatusCmd() *cobra.Command {
 			fmt.Printf("cluster_id:  %s\n", resp.ClusterId)
 			fmt.Printf("is_leader:   %v\n", resp.IsLeader)
 			fmt.Printf("advertise:   %s\n", resp.AdvertiseAddr)
+			fmt.Printf("listen:      %s\n", resp.ListenAddr)
+			fmt.Printf("raft:        %s\n", resp.RaftAddr)
 			return nil
 		},
 	}
