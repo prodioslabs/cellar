@@ -30,8 +30,6 @@ Local disk stores only this node’s leaf cert/key and the public CA cert.
 
 ## Ports / sockets
 
-Defaults avoid Docker Swarm’s control-plane ports (`7946` gossip, `2377` manager).
-
 | Listener    | Default                       | Auth                                                                           | Purpose                                                               |
 | ----------- | ----------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
 | Unix socket | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox ops |
