@@ -1,0 +1,12 @@
+---
+title: Roles
+description: Manager and worker roles in a Cellar cluster
+---
+
+| Role        | Join token    | Raft  | Holds RootCA key                | Control plane |
+| ----------- | ------------- | ----- | ------------------------------- | ------------- |
+| **Manager** | manager token | Voter | Yes (via Raft `Cluster.RootCA`) | Yes           |
+| **Worker**  | worker token  | No    | No                              | No            |
+
+The CA private key and join secrets live on the raft-backed `Cluster.RootCA` object.
+Local disk stores only this node’s leaf cert/key and the public CA cert.

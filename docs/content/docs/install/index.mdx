@@ -1,0 +1,21 @@
+---
+title: Build & install
+description: Build Cellar binaries and install systemd units
+---
+
+```bash
+make build          # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway
+# or: make cellard / make cellar / make cellar-agent / make cellar-gateway
+
+sudo make install   # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
+```
+
+Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
+
+| Source                                   | Destination                                      |
+| ---------------------------------------- | ------------------------------------------------ |
+| `contrib/systemd/cellard.service`        | `/usr/lib/systemd/system/cellard.service`        |
+| `contrib/systemd/cellar-gateway.service` | `/usr/lib/systemd/system/cellar-gateway.service` |
+| `contrib/systemd/cellar.sysusers`        | `/usr/lib/sysusers.d/cellar.conf`                |
+
+`make install` does not enable or start the services. Use `make uninstall` to remove the installed files.

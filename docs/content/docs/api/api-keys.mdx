@@ -1,0 +1,42 @@
+---
+title: API keys
+description: Create, list, revoke, and rotate gateway API keys
+---
+
+`api-key create` and `api-key rm` must run on the **Raft leader** (local unix socket).
+Check with `cellar status` (`is_leader: true`).
+
+```bash
+sudo cellar status
+# is_leader:   true
+
+sudo cellar api-key create --name ci
+```
+
+Example output:
+
+```text
+API key created: <id> (ci)
+
+Store this secret now; it will not be shown again:
+
+    cellar_<40 hex chars>
+
+Export for clients:
+
+    export CELLAR_API_KEY=cellar_…
+```
+
+The raw `cellar_…` secret is shown **once**. Only a hash is stored in Raft; `ls` returns a mask.
+
+```bash
+sudo cellar api-key ls
+# ID  NAME  MASK              CREATED
+# …   ci    cellar_ab…wxyz    …
+
+sudo cellar api-key rm <id>   # revoke; also must run on the leader
+```
+
+## Rotation
+
+Create a new key, update `CELLAR_API_KEY` in your apps/secrets, then `cellar api-key rm <old-id>` on the leader.

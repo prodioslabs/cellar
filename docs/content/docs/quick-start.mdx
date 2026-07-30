@@ -1,0 +1,28 @@
+---
+title: Quick start
+description: Initialize a Cellar cluster and join a worker node
+---
+
+```bash
+# On each host — install, create the cellar system user, start the daemon
+sudo make install
+sudo systemd-sysusers
+sudo systemctl daemon-reload
+sudo systemctl enable --now cellard
+sudo systemctl enable --now cellar-gateway   # optional: HTTP front door for apps
+
+# Host A — initialize cluster (first manager)
+# Use this host’s reachable address (defaults: data /var/lib/cellar, socket /var/run/cellar/cellar.sock)
+sudo cellar init --advertise-addr 192.0.2.10:17946
+
+# Print ready-to-run join command
+sudo cellar join-token worker
+# → cellar join --token CLLRN-1-… 192.0.2.10:17946
+
+# Host B — worker (after install + enable --now cellard as above)
+sudo cellar join --token CLLRN-1-… 192.0.2.10:17946
+```
+
+Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
+
+See [non-root access](/docs/install/non-root) to run the CLI without `sudo`.

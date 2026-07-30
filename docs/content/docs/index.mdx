@@ -1,0 +1,29 @@
+---
+title: Introduction
+description: Container orchestrator control plane for isolated sandboxes
+---
+
+Cellar is a container orchestrator control plane for isolated sandboxes.
+This project implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
+**sandbox lifecycle** (desired state in Raft, Docker + gVisor `runsc` on every node, userspace egress policy).
+
+Clients: Go [`sdk/go`](/docs/sdk/go) and TypeScript [`@cellar/node`](/docs/sdk/node) talk to **`cellar-gateway`** over HTTPS — see [Client API](/docs/api) and the SDK pages.
+
+<Cards>
+  <Card
+    title="Quick start"
+    href="/docs/quick-start"
+    description="Initialize a cluster and join a worker"
+  />
+  <Card
+    title="Install"
+    href="/docs/install"
+    description="Build binaries and install systemd units"
+  />
+  <Card
+    title="Sandboxes"
+    href="/docs/sandboxes"
+    description="Create, exec, and network-isolate sandboxes"
+  />
+  <Card title="Client API" href="/docs/api" description="HTTP gateway, API keys, and SDKs" />
+</Cards>

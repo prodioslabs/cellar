@@ -1,0 +1,19 @@
+{
+  "title": "Cellar",
+  "pages": [
+    "index",
+    "quick-start",
+    "---Install---",
+    "install",
+    "---Architecture---",
+    "architecture",
+    "---Guides---",
+    "sandboxes",
+    "nodes",
+    "---API & SDKs---",
+    "api",
+    "sdk",
+    "---Reference---",
+    "development"
+  ]
+}

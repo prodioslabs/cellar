@@ -1,0 +1,16 @@
+---
+title: Development
+description: Proto generation, SDK builds, and tests
+---
+
+```bash
+make tools   # install protoc-gen-go and protoc-gen-go-grpc (needs protoc on PATH)
+make proto   # regenerate gRPC stubs under api/gen/
+make build-sdk # build all SDKs (needs bun install in sdk/node)
+make test
+make clean
+```
+
+## License
+
+MIT — see the repository [LICENSE](https://github.com/prodioslabs/cellar/blob/main/LICENSE).

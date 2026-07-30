@@ -1,0 +1,39 @@
+---
+title: Run the gateway
+description: Start cellar-gateway and use the HTTP JSON API
+---
+
+On each node that should serve HTTP (typically every manager, optionally workers):
+
+```bash
+sudo systemctl enable --now cellar-gateway
+# or manually:
+cellar-gateway --listen :8080 --data-dir /var/lib/cellar
+# optional: --upstreams 192.0.2.10:17946,192.0.2.11:17946
+```
+
+The gateway loads the cluster CA from `--data-dir`. Managers dial their advertise address; workers dial their stored manager address. Override with `--upstreams` for multi-manager failover.
+
+## Health endpoints
+
+No auth:
+
+| Path       | Meaning                          |
+| ---------- | -------------------------------- |
+| `/healthz` | Process is up                    |
+| `/readyz`  | Can reach a manager `SandboxAPI` |
+
+## HTTP API
+
+All require `Authorization: Bearer cellar_…` or `X-Api-Key`:
+
+| Method | Path                        | Notes                                                       |
+| ------ | --------------------------- | ----------------------------------------------------------- |
+| POST   | `/v1/sandboxes`             | create                                                      |
+| GET    | `/v1/sandboxes`             | list                                                        |
+| GET    | `/v1/sandboxes/:id`         | get                                                         |
+| DELETE | `/v1/sandboxes/:id`         | remove                                                      |
+| POST   | `/v1/sandboxes/:id/stop`    | stop                                                        |
+| PUT    | `/v1/sandboxes/:id/network` | update network policy                                       |
+| GET    | `/v1/sandboxes/:id/logs`    | NDJSON stream (`follow`, `tail`, `timestamps` query params) |
+| POST   | `/v1/sandboxes/:id/exec`    | `{"command":[…]}` → collected stdout/stderr/exitCode        |

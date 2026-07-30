@@ -1,0 +1,25 @@
+---
+title: Manage nodes
+description: List, promote, demote, drain, and remove cluster nodes
+---
+
+Node writes (`promote`, `demote`, `rm`, `update`) must run on the **Raft leader**. Reads (`ls`, `inspect`) work on any manager.
+
+```bash
+sudo cellar node ls
+sudo cellar node inspect <id>
+
+# Role changes (target applies via heartbeat: re-issue cert + open/close Raft)
+sudo cellar node promote <worker-id>
+sudo cellar node demote <manager-id>
+
+sudo cellar node update <id> --availability drain
+sudo cellar node update <id> --label-add zone=a --label-rm zone
+sudo cellar node update <id> --role manager   # same as promote
+
+# Remove a down/orphaned node from cluster state (--force if still heartbeating)
+sudo cellar node rm <id>
+sudo cellar node rm --force <id>
+```
+
+`node rm` only deletes the Raft record (and Raft voter for managers). The remote daemon keeps its local identity until you run `cellar leave` there (or it observes `removed` on heartbeat and clears itself).
