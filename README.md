@@ -386,7 +386,7 @@ Create a new key, update `CELLAR_API_KEY` in your apps/secrets, then `cellar api
 ```bash
 make tools   # install protoc-gen-go and protoc-gen-go-grpc (needs protoc on PATH)
 make proto   # regenerate gRPC stubs under api/gen/
-make sdk-node  # build the Node SDK (needs bun install in sdk/node)
+make build-sdk # build all SDKs (needs bun install in sdk/node)
 make test
 make clean
 ```

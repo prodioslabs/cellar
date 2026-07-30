@@ -24,13 +24,14 @@ UNAME_S     := $(shell uname -s)
 
 SDK_NODE_DIR := sdk/node
 
-.PHONY: all build cellard cellar cellar-agent cellar-gateway install uninstall proto tools test clean help sdk-node
+.PHONY: all build build-sdk cellard cellar cellar-agent cellar-gateway install uninstall proto tools test clean help sdk-node
 
 all: build
 
 help:
 	@echo "Targets:"
-	@echo "  make build          Build binaries into $(BIN_DIR)/ and the Node SDK"
+	@echo "  make build          Build binaries into $(BIN_DIR)/"
+	@echo "  make build-sdk      Build all SDKs"
 	@echo "  make cellard        Build cellard only"
 	@echo "  make cellar         Build cellar only"
 	@echo "  make cellar-agent   Build cellar-agent (static, for sandbox injection)"
@@ -43,7 +44,9 @@ help:
 	@echo "  make test           Run go test ./..."
 	@echo "  make clean          Remove built binaries and Node SDK output"
 
-build: cellard cellar cellar-agent cellar-gateway sdk-node
+build: cellard cellar cellar-agent cellar-gateway
+
+build-sdk: sdk-node
 
 cellard:
 	@mkdir -p $(BIN_DIR)

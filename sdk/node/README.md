@@ -61,7 +61,7 @@ From this directory (requires [Bun](https://bun.sh)):
 ```bash
 bun install
 bun run test
-bun run build    # or: make sdk-node (from repo root)
+bun run build    # or: make build-sdk (from repo root)
 ```
 
 ## License
