@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	agentv1 "github.com/prodioslabs/cellar/api/gen/agent"
+	"github.com/prodioslabs/cellar/internal/version"
 )
 
 // Server implements SandboxAgent.
@@ -32,7 +33,7 @@ func NewServer(cfg Config) *Server {
 func (s *Server) Health(_ context.Context, _ *agentv1.HealthRequest) (*agentv1.HealthResponse, error) {
 	return &agentv1.HealthResponse{
 		SandboxId: s.cfg.SandboxID,
-		Version:   Version,
+		Version:   version.Version,
 	}, nil
 }
 

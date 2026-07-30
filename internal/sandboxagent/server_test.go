@@ -16,6 +16,7 @@ import (
 
 	agentv1 "github.com/prodioslabs/cellar/api/gen/agent"
 	"github.com/prodioslabs/cellar/internal/sandboxagent"
+	"github.com/prodioslabs/cellar/internal/version"
 )
 
 func startTestAgent(t *testing.T, token string) (agentv1.SandboxAgentClient, context.CancelFunc) {
@@ -97,8 +98,8 @@ func TestHealthRequiresAuth(t *testing.T) {
 	if resp.SandboxId != "sb-test" {
 		t.Fatalf("sandbox_id: got %q", resp.SandboxId)
 	}
-	if resp.Version == "" {
-		t.Fatal("expected version")
+	if resp.Version != version.Version {
+		t.Fatalf("version: got %q, want %q", resp.Version, version.Version)
 	}
 }
 

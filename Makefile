@@ -24,6 +24,16 @@ UNAME_S     := $(shell uname -s)
 
 SDK_NODE_DIR := sdk/node
 
+# Build identity — override with VERSION=… COMMIT=… BUILD_DATE=…
+VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT     ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+VERSION_PKG := github.com/prodioslabs/cellar/internal/version
+LDFLAGS    := -X $(VERSION_PKG).Version=$(VERSION) \
+	-X $(VERSION_PKG).Commit=$(COMMIT) \
+	-X $(VERSION_PKG).Date=$(BUILD_DATE)
+GO_BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
+
 .PHONY: all build build-sdk cellard cellar cellar-agent cellar-gateway install uninstall proto tools test clean help sdk-node
 
 all: build
@@ -43,6 +53,8 @@ help:
 	@echo "  make tools          Install protoc-gen-go and protoc-gen-go-grpc"
 	@echo "  make test           Run go test ./..."
 	@echo "  make clean          Remove built binaries and Node SDK output"
+	@echo ""
+	@echo "Version overrides: VERSION=… COMMIT=… BUILD_DATE=…"
 
 build: cellard cellar cellar-agent cellar-gateway
 
@@ -50,19 +62,19 @@ build-sdk: sdk-node
 
 cellard:
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -o $(CELLARD) ./cmd/cellard
+	$(GO) build $(GO_BUILD_FLAGS) -o $(CELLARD) ./cmd/cellard
 
 cellar:
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -o $(CELLAR) ./cmd/cellar
+	$(GO) build $(GO_BUILD_FLAGS) -o $(CELLAR) ./cmd/cellar
 
 cellar-agent:
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build -o $(CELLAR_AGENT) ./cmd/cellar-agent
+	CGO_ENABLED=0 $(GO) build $(GO_BUILD_FLAGS) -o $(CELLAR_AGENT) ./cmd/cellar-agent
 
 cellar-gateway:
 	@mkdir -p $(BIN_DIR)
-	$(GO) build -o $(CELLAR_GATEWAY) ./cmd/cellar-gateway
+	$(GO) build $(GO_BUILD_FLAGS) -o $(CELLAR_GATEWAY) ./cmd/cellar-gateway
 
 sdk-node:
 	cd $(SDK_NODE_DIR) && $(BUN) run build

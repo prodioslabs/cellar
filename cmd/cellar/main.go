@@ -11,6 +11,7 @@ import (
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/daemon"
+	"github.com/prodioslabs/cellar/internal/version"
 )
 
 var (
@@ -36,6 +37,7 @@ func newRootCmd() *cobra.Command {
 		Long: `cellar talks to a local cellard over a unix socket.
 
 Start cellard first, then use init / join / leave / join-token / status.`,
+		Version:       version.String(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

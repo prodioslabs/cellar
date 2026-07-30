@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/prodioslabs/cellar/internal/daemon"
+	"github.com/prodioslabs/cellar/internal/version"
 )
 
 func main() {
@@ -20,7 +21,12 @@ func main() {
 	raftAddr := flag.String("raft-addr", daemon.DefaultRaftAddr, "default raft TCP address")
 	allowPrivate := flag.String("egress-allow-private-cidrs", "",
 		"comma-separated CIDRs to exempt from the sandbox egress internal-range deny list")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(version.String())
+		return
+	}
 
 	d := daemon.New(daemon.Config{
 		DataDir:            *dataDir,

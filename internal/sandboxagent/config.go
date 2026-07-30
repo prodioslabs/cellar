@@ -13,7 +13,6 @@ const (
 
 	DefaultSock      = "/run/cellar/agent.sock"
 	DefaultTokenFile = "/run/cellar/agent.token"
-	Version          = "0.1.0"
 )
 
 // Config is loaded from the environment inside the sandbox.
