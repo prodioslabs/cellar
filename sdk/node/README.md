@@ -40,17 +40,24 @@ const sb = await c.create({
 })
 console.log('created', sb.id)
 
-const res = await c.exec(sb.id, ['uname', '-a'])
+// Creation returns immediately (often pending). Wait until the container is running.
+await sb.waitUntilReady()
+
+const res = await sb.exec(['uname', '-a'])
 console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`)
 
-for await (const chunk of c.logs(sb.id, { tail: 100 })) {
+for await (const chunk of sb.logs({ tail: 100 })) {
   process.stdout.write(chunk.data)
 }
 
-await c.remove(sb.id)
+await sb.remove()
 ```
 
-Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`, `logs`.
+`Client` ops: `create`, `get`, `list`.
+
+`Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `logs`, `stop`, `remove`, `updateNetwork`.
+
+Creation is asynchronous with respect to runtime readiness. Prefer `await sb.waitUntilReady()` before `exec`. Status is refreshed from cellar-gateway via `GET /v1/sandboxes/:id`.
 
 Auth is sent as `Authorization: Bearer …` and `X-Api-Key`.
 
@@ -61,7 +68,7 @@ From this directory (requires [Bun](https://bun.sh)):
 ```bash
 bun install
 bun run test
-bun run build    # or: make build-sdk (from repo root)
+bun run build    # or: make sdk-node (from repo root)
 ```
 
 ## License

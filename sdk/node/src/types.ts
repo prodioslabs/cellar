@@ -42,8 +42,11 @@ export interface SandboxSpec {
   runtime: string
 }
 
+/** Observed lifecycle phase from cellar-gateway. */
+export type SandboxPhase = 'pending' | 'starting' | 'running' | 'stopped' | 'failed'
+
 export interface SandboxStatus {
-  phase: string
+  phase: SandboxPhase | string
   containerId: string
   exitCode: number
   message: string
@@ -52,7 +55,8 @@ export interface SandboxStatus {
   updatedAtUnixNano: number
 }
 
-export interface Sandbox {
+/** Wire/snapshot shape returned by the gateway (no behavior). */
+export interface SandboxSnapshot {
   id: string
   spec: SandboxSpec | undefined
   nodeId: string
@@ -74,5 +78,5 @@ export interface SandboxUpdateNetworkRequest {
 }
 
 export interface SandboxListResponse {
-  sandboxes: Sandbox[]
+  sandboxes: SandboxSnapshot[]
 }

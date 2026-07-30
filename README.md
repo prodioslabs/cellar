@@ -362,13 +362,16 @@ const sb = await c.create({
 })
 console.log('created', sb.id)
 
-const res = await c.exec(sb.id, ['uname', '-a'])
+// Creation returns immediately (often pending). Wait until the container is running.
+await sb.waitUntilReady()
+
+const res = await sb.exec(['uname', '-a'])
 console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`)
 
-await c.remove(sb.id)
+await sb.remove()
 ```
 
-Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`, `logs`.
+`Client` ops: `create`, `get`, `list`. `Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `logs`, `stop`, `remove`, `updateNetwork`.
 
 ### Rotation
 

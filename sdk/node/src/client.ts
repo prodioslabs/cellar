@@ -3,11 +3,8 @@
  * Authenticate with CELLAR_API_KEY (or Config.apiKey). Point CELLAR_ENDPOINT /
  * Config.endpoint at the gateway base URL.
  */
-import type {
-  Sandbox,
-  SandboxCreateRequest,
-  SandboxUpdateNetworkRequest,
-} from './types.js'
+import { Sandbox } from './sandbox.js'
+import type { NetworkPolicy, SandboxCreateRequest, SandboxSnapshot } from './types.js'
 
 /** Nested partial request shape. */
 export type DeepPartial<T> = {
@@ -155,52 +152,66 @@ export class Client {
     return JSON.parse(text)
   }
 
-  /** Creates a sandbox. */
+  private wrap(data: SandboxSnapshot): Sandbox {
+    return new Sandbox(this, data)
+  }
+
+  /**
+   * Creates a sandbox. Returns immediately (typically `pending`); call
+   * {@link Sandbox.waitUntilReady} before exec when you need it running.
+   */
   async create(req: DeepPartial<SandboxCreateRequest>): Promise<Sandbox> {
-    const out = await this.requestJSON('POST', '/v1/sandboxes', req)
-    return out as Sandbox
-  }
-
-  /** Stops a sandbox. */
-  async stop(id: string): Promise<Sandbox> {
-    const out = await this.requestJSON('POST', `/v1/sandboxes/${encodeURIComponent(id)}/stop`)
-    return out as Sandbox
-  }
-
-  /** Deletes a sandbox. */
-  async remove(id: string): Promise<void> {
-    await this.requestJSON('DELETE', `/v1/sandboxes/${encodeURIComponent(id)}`)
+    const out = (await this.requestJSON('POST', '/v1/sandboxes', req)) as SandboxSnapshot
+    return this.wrap(out)
   }
 
   /** Returns a sandbox. */
   async get(id: string): Promise<Sandbox> {
-    const out = await this.requestJSON('GET', `/v1/sandboxes/${encodeURIComponent(id)}`)
-    return out as Sandbox
+    return this.wrap(await this.fetchSnapshot(id))
   }
 
   /** Returns all sandboxes. */
   async list(): Promise<Sandbox[]> {
     const out = (await this.requestJSON('GET', '/v1/sandboxes')) as
-      | { sandboxes?: Sandbox[] }
+      | { sandboxes?: SandboxSnapshot[] }
       | undefined
-    return out?.sandboxes ?? []
+    return (out?.sandboxes ?? []).map((s) => this.wrap(s))
   }
 
-  /** Replaces a sandbox network policy. */
-  async updateNetwork(req: DeepPartial<SandboxUpdateNetworkRequest>): Promise<Sandbox> {
-    if (!req.sandboxId) {
-      throw new Error('sandboxId is required')
-    }
-    const out = await this.requestJSON(
-      'PUT',
-      `/v1/sandboxes/${encodeURIComponent(req.sandboxId)}/network`,
-      req,
-    )
-    return out as Sandbox
+  /** @internal Used by {@link Sandbox}. */
+  async fetchSnapshot(id: string): Promise<SandboxSnapshot> {
+    return (await this.requestJSON(
+      'GET',
+      `/v1/sandboxes/${encodeURIComponent(id)}`,
+    )) as SandboxSnapshot
   }
 
-  /** Streams sandbox logs as NDJSON chunks. */
-  async *logs(sandboxId: string, opt: LogsOptions = {}): AsyncGenerator<LogsChunk> {
+  /** @internal Used by {@link Sandbox}. */
+  async stopSandbox(id: string): Promise<SandboxSnapshot> {
+    return (await this.requestJSON(
+      'POST',
+      `/v1/sandboxes/${encodeURIComponent(id)}/stop`,
+    )) as SandboxSnapshot
+  }
+
+  /** @internal Used by {@link Sandbox}. */
+  async removeSandbox(id: string): Promise<void> {
+    await this.requestJSON('DELETE', `/v1/sandboxes/${encodeURIComponent(id)}`)
+  }
+
+  /** @internal Used by {@link Sandbox}. */
+  async updateSandboxNetwork(
+    id: string,
+    network: DeepPartial<NetworkPolicy> | undefined,
+  ): Promise<SandboxSnapshot> {
+    return (await this.requestJSON('PUT', `/v1/sandboxes/${encodeURIComponent(id)}/network`, {
+      sandboxId: id,
+      network,
+    })) as SandboxSnapshot
+  }
+
+  /** @internal Used by {@link Sandbox}. */
+  async *streamLogs(sandboxId: string, opt: LogsOptions = {}): AsyncGenerator<LogsChunk> {
     const q = new URLSearchParams()
     if (opt.follow) q.set('follow', 'true')
     if (opt.timestamps) q.set('timestamps', 'true')
@@ -240,8 +251,8 @@ export class Client {
     }
   }
 
-  /** Runs a command in a sandbox and collects output until exit. */
-  async exec(sandboxId: string, command: string[]): Promise<ExecResult> {
+  /** @internal Used by {@link Sandbox}. */
+  async execCommand(sandboxId: string, command: string[]): Promise<ExecResult> {
     const out = (await this.requestJSON(
       'POST',
       `/v1/sandboxes/${encodeURIComponent(sandboxId)}/exec`,

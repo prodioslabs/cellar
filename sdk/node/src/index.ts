@@ -10,14 +10,17 @@ export {
   type LogsOptions,
 } from './client.js'
 
+export { Sandbox, type WaitUntilReadyOptions } from './sandbox.js'
+
 export type {
   DNSPolicy,
   Mount,
   NetworkPolicy,
   NetworkRule,
   Resources,
-  Sandbox,
   SandboxCreateRequest,
+  SandboxPhase,
+  SandboxSnapshot,
   SandboxSpec,
   SandboxStatus,
   SandboxUpdateNetworkRequest,
