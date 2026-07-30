@@ -21,4 +21,4 @@ export type {
   SandboxSpec,
   SandboxStatus,
   SandboxUpdateNetworkRequest,
-} from './gen/sandbox.js'
+} from './types.js'

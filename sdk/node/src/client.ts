@@ -3,14 +3,13 @@
  * Authenticate with CELLAR_API_KEY (or Config.apiKey). Point CELLAR_ENDPOINT /
  * Config.endpoint at the gateway base URL.
  */
-import {
+import type {
   Sandbox,
   SandboxCreateRequest,
-  SandboxListResponse,
   SandboxUpdateNetworkRequest,
-} from './gen/sandbox.js'
+} from './types.js'
 
-/** Nested partial request shape (proto zero-value semantics). */
+/** Nested partial request shape. */
 export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
     ? DeepPartial<U>[]
@@ -158,15 +157,14 @@ export class Client {
 
   /** Creates a sandbox. */
   async create(req: DeepPartial<SandboxCreateRequest>): Promise<Sandbox> {
-    const full = SandboxCreateRequest.toJSON(SandboxCreateRequest.fromPartial(req))
-    const out = await this.requestJSON('POST', '/v1/sandboxes', full)
-    return Sandbox.fromJSON(out)
+    const out = await this.requestJSON('POST', '/v1/sandboxes', req)
+    return out as Sandbox
   }
 
   /** Stops a sandbox. */
   async stop(id: string): Promise<Sandbox> {
     const out = await this.requestJSON('POST', `/v1/sandboxes/${encodeURIComponent(id)}/stop`)
-    return Sandbox.fromJSON(out)
+    return out as Sandbox
   }
 
   /** Deletes a sandbox. */
@@ -177,27 +175,28 @@ export class Client {
   /** Returns a sandbox. */
   async get(id: string): Promise<Sandbox> {
     const out = await this.requestJSON('GET', `/v1/sandboxes/${encodeURIComponent(id)}`)
-    return Sandbox.fromJSON(out)
+    return out as Sandbox
   }
 
   /** Returns all sandboxes. */
   async list(): Promise<Sandbox[]> {
-    const out = await this.requestJSON('GET', '/v1/sandboxes')
-    return SandboxListResponse.fromJSON(out ?? {}).sandboxes ?? []
+    const out = (await this.requestJSON('GET', '/v1/sandboxes')) as
+      | { sandboxes?: Sandbox[] }
+      | undefined
+    return out?.sandboxes ?? []
   }
 
   /** Replaces a sandbox network policy. */
   async updateNetwork(req: DeepPartial<SandboxUpdateNetworkRequest>): Promise<Sandbox> {
-    const full = SandboxUpdateNetworkRequest.fromPartial(req)
-    if (!full.sandboxId) {
+    if (!req.sandboxId) {
       throw new Error('sandboxId is required')
     }
     const out = await this.requestJSON(
       'PUT',
-      `/v1/sandboxes/${encodeURIComponent(full.sandboxId)}/network`,
-      SandboxUpdateNetworkRequest.toJSON(full),
+      `/v1/sandboxes/${encodeURIComponent(req.sandboxId)}/network`,
+      req,
     )
-    return Sandbox.fromJSON(out)
+    return out as Sandbox
   }
 
   /** Streams sandbox logs as NDJSON chunks. */
