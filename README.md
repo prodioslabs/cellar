@@ -309,7 +309,6 @@ import (
 	"fmt"
 	"log"
 
-	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/sdk/go"
 )
 
@@ -320,27 +319,32 @@ func main() {
 	}
 	ctx := context.Background()
 
-	sb, err := c.Create(ctx, &cellarv1.SandboxCreateRequest{
-		Spec: &cellarv1.SandboxSpec{Image: "alpine:3.20"},
+	sb, err := c.Create(ctx, &client.SandboxCreateRequest{
+		Spec: &client.SandboxSpec{Image: "alpine:3.20"},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("created", sb.Id)
+	fmt.Println("created", sb.ID())
 
-	res, err := c.Exec(ctx, sb.Id, []string{"uname", "-a"})
+	// Creation returns immediately (often pending). Wait until the container is running.
+	if err := sb.WaitUntilReady(ctx, client.WaitUntilReadyOptions{}); err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := sb.Exec(ctx, []string{"uname", "-a"})
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("exit=%d stdout=%s\n", res.ExitCode, res.Stdout)
 
-	if err := c.Remove(ctx, sb.Id); err != nil {
+	if err := sb.Remove(ctx); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-Supported client ops: `Create`, `Stop`, `Remove`, `Get`, `List`, `UpdateNetwork`, `Exec`, `Logs`.
+`Client` ops: `Create`, `Get`, `List`. `Sandbox` ops: `WaitUntilReady`, `GetStatus`, `Exec`, `Logs`, `Stop`, `Remove`, `UpdateNetwork`.
 
 ### Use the TypeScript client
 

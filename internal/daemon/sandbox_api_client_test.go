@@ -155,13 +155,13 @@ func TestSandboxAPIClientViaGatewayFailover(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sb, err := cli.Create(ctx, &cellarv1.SandboxCreateRequest{
-		Spec: &cellarv1.SandboxSpec{Image: "alpine:3.20"},
+	sb, err := cli.Create(ctx, &client.SandboxCreateRequest{
+		Spec: &client.SandboxSpec{Image: "alpine:3.20"},
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if sb.Id == "" {
+	if sb.ID() == "" {
 		t.Fatal("empty sandbox id")
 	}
 
@@ -171,9 +171,9 @@ func TestSandboxAPIClientViaGatewayFailover(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, err := cellarv1.NewControlClient(conn).SandboxGet(ctx, &cellarv1.SandboxGetRequest{SandboxId: sb.Id})
+		got, err := cellarv1.NewControlClient(conn).SandboxGet(ctx, &cellarv1.SandboxGetRequest{SandboxId: sb.ID()})
 		_ = conn.Close()
-		if err == nil && got.Sandbox != nil && got.Sandbox.Id == sb.Id {
+		if err == nil && got.Sandbox != nil && got.Sandbox.Id == sb.ID() {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -208,28 +208,28 @@ func TestSandboxAPIClientViaGatewayFailover(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	got, err := cli.Get(ctx, sb.Id)
+	got, err := cli.Get(ctx, sb.ID())
 	if err != nil {
 		t.Fatalf("get after failover: %v", err)
 	}
-	if got.Id != sb.Id {
-		t.Fatalf("id=%q", got.Id)
+	if got.ID() != sb.ID() {
+		t.Fatalf("id=%q", got.ID())
 	}
 
-	sb2, err := cli.Create(ctx, &cellarv1.SandboxCreateRequest{
-		Spec: &cellarv1.SandboxSpec{Image: "alpine:3.20"},
+	sb2, err := cli.Create(ctx, &client.SandboxCreateRequest{
+		Spec: &client.SandboxSpec{Image: "alpine:3.20"},
 	})
 	if err != nil {
 		t.Fatalf("create after failover: %v", err)
 	}
-	if sb2.Id == "" || sb2.Id == sb.Id {
-		t.Fatalf("unexpected sandbox2 id=%q", sb2.Id)
+	if sb2.ID() == "" || sb2.ID() == sb.ID() {
+		t.Fatalf("unexpected sandbox2 id=%q", sb2.ID())
 	}
 
-	if err := cli.Remove(ctx, sb.Id); err != nil {
+	if err := sb.Remove(ctx); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	if err := cli.Remove(ctx, sb2.Id); err != nil {
+	if err := sb2.Remove(ctx); err != nil {
 		t.Fatalf("remove2: %v", err)
 	}
 
