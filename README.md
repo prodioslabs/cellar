@@ -4,7 +4,7 @@
 
 # Cellar
 
-Cellar is a Docker Swarm–style container orchestrator control plane for isolated sandboxes.
+Cellar is a container orchestrator control plane for isolated sandboxes.
 This repository implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
 **sandbox lifecycle** (desired state in Raft, Docker + gVisor `runsc` on every node, userspace egress policy).
 
@@ -26,7 +26,7 @@ Clients: Go [`sdk/go`](sdk/go) and TypeScript [`@cellar/node`](sdk/node) talk to
 | **Manager** | manager token | Voter | Yes (via Raft `Cluster.RootCA`) | Yes           |
 | **Worker**  | worker token  | No    | No                              | No            |
 
-The CA private key and join secrets live on the raft-backed `Cluster.RootCA` object (SwarmKit-style).
+The CA private key and join secrets live on the raft-backed `Cluster.RootCA` object.
 Local disk stores only this node’s leaf cert/key and the public CA cert.
 
 ## Ports / sockets
