@@ -1,7 +1,9 @@
 ---
 title: Build & install
-description: Build Cellar binaries and install systemd units
+description: Build Cellar binaries, install systemd units, and download GitHub Releases
 ---
+
+## From source
 
 ```bash
 make build          # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway
@@ -19,3 +21,28 @@ Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `mak
 | `contrib/systemd/cellar.sysusers`        | `/usr/lib/sysusers.d/cellar.conf`                |
 
 `make install` does not enable or start the services. Use `make uninstall` to remove the installed files.
+
+### Version stamping
+
+`cellar`, `cellard`, `cellar-agent`, and `cellar-gateway` share one SemVer. `make build` injects version, commit, and build date via ldflags (override with `VERSION=…`, `COMMIT=…`, `BUILD_DATE=…`).
+
+```bash
+cellar --version
+cellard -version
+cellar-gateway -version
+cellar-agent -version
+```
+
+## GitHub Releases
+
+Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux **amd64** and **arm64** bundles. macOS and Windows are not supported release targets — Cellar’s runtime depends on Linux Docker, gVisor `runsc`, and iptables.
+
+Download URLs follow a stable layout intended for a future curl installer:
+
+```text
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_amd64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_arm64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/checksums.txt
+```
+
+Each tarball co-locates all four binaries (so `cellard` can find `cellar-agent` beside itself) plus `LICENSE`, `README.md`, and `contrib/systemd/`. Verify the archive against `checksums.txt` before installing.

@@ -57,6 +57,33 @@ Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `mak
 
 `make install` does not enable or start the services. Use `make uninstall` to remove the installed files.
 
+All four binaries share one SemVer. Local builds stamp version/commit/date via ldflags (`VERSION`, `COMMIT`, `BUILD_DATE` overrides). Check with:
+
+```bash
+cellar --version
+cellard -version
+cellar-gateway -version
+cellar-agent -version
+```
+
+## Releases
+
+Push a SemVer tag (`vX.Y.Z` or `vX.Y.Z-rc.1`) to publish a [GitHub Release](https://github.com/prodioslabs/cellar/releases) with Linux **amd64** and **arm64** archives. macOS and Windows artifacts are not published — the node stack (Docker + gVisor `runsc`, iptables egress) is Linux-only.
+
+Each archive is named `cellar_<version>_linux_<arch>.tar.gz` and contains:
+
+```text
+cellar
+cellard
+cellar-agent
+cellar-gateway
+LICENSE
+README.md
+contrib/systemd/…
+```
+
+Verify downloads against `checksums.txt` from the same release. A curl-based install script will target these stable artifact names later; for now install from source with `make install` or unpack a release tarball into `/usr/local/bin`.
+
 ## Quick start
 
 ```bash
