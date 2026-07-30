@@ -365,7 +365,7 @@ console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`)
 await c.remove(sb.id)
 ```
 
-Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`, `logs`. Regenerate stubs with `make sdk-node-proto`.
+Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`, `logs`.
 
 ### Rotation
 
@@ -383,7 +383,7 @@ Create a new key, update `CELLAR_API_KEY` in your apps/secrets, then `cellar api
 ```bash
 make tools   # install protoc-gen-go and protoc-gen-go-grpc (needs protoc on PATH)
 make proto   # regenerate gRPC stubs under api/gen/
-make sdk-node-proto  # regenerate TypeScript stubs under sdk/node/src/gen/ (needs bun install in sdk/node)
+make sdk-node  # build the Node SDK (needs bun install in sdk/node)
 make test
 make clean
 ```

@@ -19,31 +19,31 @@ PROTO_SRCS  := $(filter-out $(AGENT_PROTO),$(wildcard $(PROTO_DIR)/*.proto))
 
 GO          ?= go
 PROTOC      ?= protoc
+BUN         ?= bun
 UNAME_S     := $(shell uname -s)
 
 SDK_NODE_DIR := sdk/node
-SANDBOX_PROTO := $(PROTO_DIR)/sandbox.proto
 
-.PHONY: all build cellard cellar cellar-agent cellar-gateway install uninstall proto tools test clean help sdk-node-proto
+.PHONY: all build cellard cellar cellar-agent cellar-gateway install uninstall proto tools test clean help sdk-node
 
 all: build
 
 help:
 	@echo "Targets:"
-	@echo "  make build          Build cellard, cellar, cellar-agent, and cellar-gateway into $(BIN_DIR)/"
+	@echo "  make build          Build binaries into $(BIN_DIR)/ and the Node SDK"
 	@echo "  make cellard        Build cellard only"
 	@echo "  make cellar         Build cellar only"
 	@echo "  make cellar-agent   Build cellar-agent (static, for sandbox injection)"
 	@echo "  make cellar-gateway Build cellar-gateway only"
+	@echo "  make sdk-node       Build the Node SDK"
 	@echo "  make install        Install binaries, systemd units, and sysusers drop-in (Linux)"
 	@echo "  make uninstall      Remove installed binaries, systemd units, and sysusers drop-in (Linux)"
 	@echo "  make proto          Regenerate gRPC stubs from $(PROTO_DIR)/"
-	@echo "  make sdk-node-proto Regenerate TypeScript stubs under $(SDK_NODE_DIR)/src/gen/"
 	@echo "  make tools          Install protoc-gen-go and protoc-gen-go-grpc"
 	@echo "  make test           Run go test ./..."
-	@echo "  make clean          Remove built binaries"
+	@echo "  make clean          Remove built binaries and Node SDK output"
 
-build: cellard cellar cellar-agent cellar-gateway
+build: cellard cellar cellar-agent cellar-gateway sdk-node
 
 cellard:
 	@mkdir -p $(BIN_DIR)
@@ -60,6 +60,9 @@ cellar-agent:
 cellar-gateway:
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -o $(CELLAR_GATEWAY) ./cmd/cellar-gateway
+
+sdk-node:
+	cd $(SDK_NODE_DIR) && $(BUN) run build
 
 # Linux only for now. Installs cellar + cellard + cellar-gateway, plus cellar-agent
 # (required next to cellard; default lookup is $(PREFIX)/bin/cellar-agent), and the
@@ -102,13 +105,8 @@ proto: $(PROTO_SRCS) $(AGENT_PROTO)
 		--go-grpc_out=$(GEN_DIR)/agent --go-grpc_opt=paths=source_relative \
 		$(AGENT_PROTO)
 
-# Requires bun install in sdk/node (ts-proto plugin).
-sdk-node-proto: $(SANDBOX_PROTO)
-	@mkdir -p $(SDK_NODE_DIR)/src/gen
-	cd $(SDK_NODE_DIR) && bun run proto
-
 test:
 	$(GO) test ./...
 
 clean:
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) $(SDK_NODE_DIR)/dist

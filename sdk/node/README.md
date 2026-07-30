@@ -60,9 +60,8 @@ From this directory (requires [Bun](https://bun.sh)):
 
 ```bash
 bun install
-bun run proto    # or: make sdk-node-proto (from repo root)
 bun run test
-bun run build
+bun run build    # or: make sdk-node (from repo root)
 ```
 
 ## License
