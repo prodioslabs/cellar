@@ -9,7 +9,7 @@ import (
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/daemon"
 	"github.com/prodioslabs/cellar/internal/gateway"
-	"github.com/prodioslabs/cellar/pkg/client"
+	"github.com/prodioslabs/cellar/sdk/go"
 )
 
 func TestSandboxAPIClientViaGatewayFailover(t *testing.T) {

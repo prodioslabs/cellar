@@ -30,8 +30,6 @@ const (
 
 	// Deprecated: use EnvEndpoint. Kept so old env dumps are recognizable.
 	EnvEndpoints = "CELLAR_ENDPOINTS"
-	// Deprecated: cluster CA is no longer required for HTTP clients.
-	EnvCACert = "CELLAR_CA_CERT"
 )
 
 var (

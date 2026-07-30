@@ -6,7 +6,7 @@
 
 TypeScript SDK for Cellar’s public HTTP gateway. Works on **Node.js 18+** and **Bun**.
 
-Talks to `cellar-gateway` over HTTPS with an API key — same model as the Go client in `pkg/client`.
+Talks to `cellar-gateway` over HTTPS with an API key — same model as the Go client in `sdk/go`.
 
 ## Install
 

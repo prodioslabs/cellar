@@ -8,14 +8,14 @@ Cellar is a Docker Swarm–style container orchestrator control plane for isolat
 This repository implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
 **sandbox lifecycle** (desired state in Raft, Docker + gVisor `runsc` on every node, userspace egress policy).
 
-Clients: Go [`pkg/client`](pkg/client) and TypeScript [`@cellar/node`](sdk/node) talk to **`cellar-gateway`** over HTTPS — see [Client API](#client-api-remote-apps) and [`sdk/node/README.md`](sdk/node/README.md).
+Clients: Go [`sdk/go`](sdk/go) and TypeScript [`@cellar/node`](sdk/node) talk to **`cellar-gateway`** over HTTPS — see [Client API](#client-api-remote-apps) and [`sdk/node/README.md`](sdk/node/README.md).
 
 ## Binaries
 
 | Binary           | Role                                                                                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
-| `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `ca-cert`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                           |
+| `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                           |
 | `cellar-gateway` | HTTP/JSON front door (Gin). Runs beside `cellard` on manager or worker hosts; proxies to manager `SandboxAPI` with the caller’s API key. Default listen `:8080`. |
 | `cellar-agent`   | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                       |
 
@@ -296,7 +296,7 @@ Apps no longer need `CELLAR_CA_CERT` or direct manager gRPC addresses. The gatew
 
 ### Use the Go client
 
-Package: [`pkg/client`](pkg/client). Auth is sent as `Authorization: Bearer …` and `X-Api-Key`.
+Package: [`sdk/go`](sdk/go). Auth is sent as `Authorization: Bearer …` and `X-Api-Key`.
 
 ```go
 package main
@@ -307,7 +307,7 @@ import (
 	"log"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
-	"github.com/prodioslabs/cellar/pkg/client"
+	"github.com/prodioslabs/cellar/sdk/go"
 )
 
 func main() {
@@ -366,14 +366,6 @@ await c.remove(sb.id)
 ```
 
 Supported ops: `create`, `stop`, `remove`, `get`, `list`, `updateNetwork`, `exec`, `logs`. Regenerate stubs with `make sdk-node-proto`.
-
-### Cluster CA (ops / gateway)
-
-`cellar ca-cert` still exports the public cluster CA for gateway discovery and operational tooling. Public SDKs do not consume it.
-
-```bash
-sudo cellar ca-cert --out /var/lib/cellar/ca.crt
-```
 
 ### Rotation
 
