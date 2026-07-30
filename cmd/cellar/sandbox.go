@@ -269,11 +269,30 @@ func newSandboxGetCmd() *cobra.Command {
 }
 
 func newSandboxListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "ls",
-		Short: "List sandboxes",
-		Args:  cobra.NoArgs,
+	var (
+		all     bool
+		nodeArg string
+		filters []string
+		format  string
+	)
+	cmd := &cobra.Command{
+		Use:     "ls",
+		Aliases: []string{"list"},
+		Short:   "List sandboxes",
+		Long: "List sandboxes on the local node by default.\n\n" +
+			"Use --all for every node in the cluster, or --node to target a specific node " +
+			"(full id or unambiguous prefix). Repeatable --filter key=value narrows by " +
+			"phase, desired, or image. Output formats: table (default), json, yaml.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if all && nodeArg != "" {
+				return fmt.Errorf("cannot combine --all with --node")
+			}
+			filter, err := parseSandboxFilters(filters)
+			if err != nil {
+				return err
+			}
+
 			client, closeFn, err := dial()
 			if err != nil {
 				return err
@@ -281,27 +300,49 @@ func newSandboxListCmd() *cobra.Command {
 			defer closeFn()
 			ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
 			defer cancel()
+
 			resp, err := client.SandboxList(ctx, &cellarv1.SandboxListRequest{})
 			if err != nil {
-				return err
+				return fmt.Errorf("sandbox ls: %w", err)
 			}
-			fmt.Printf("%-36s %-12s %-12s %-10s %-10s %s\n",
-				"ID", "NODE", "CONTAINER", "DESIRED", "PHASE", "IMAGE")
-			for _, sb := range resp.Sandboxes {
-				node := sb.NodeId
-				if len(node) > 12 {
-					node = node[:12]
+			sandboxes := resp.Sandboxes
+
+			switch {
+			case all:
+				// cluster-wide
+			case nodeArg != "":
+				nodesResp, err := client.NodeList(ctx, &cellarv1.NodeListRequest{})
+				if err != nil {
+					return fmt.Errorf("sandbox ls: resolve node: %w", err)
 				}
-				cid := sb.Status.GetContainerId()
-				if len(cid) > 12 {
-					cid = cid[:12]
+				nodeID, err := resolveNodeIDPrefix(nodesResp.Nodes, nodeArg)
+				if err != nil {
+					return fmt.Errorf("sandbox ls: %w", err)
 				}
-				fmt.Printf("%-36s %-12s %-12s %-10s %-10s %s\n",
-					sb.Id, node, cid, sb.DesiredState, sb.Status.GetPhase(), sb.Spec.GetImage())
+				sandboxes = filterSandboxesByNode(sandboxes, nodeID)
+			default:
+				st, err := client.Status(ctx, &cellarv1.StatusRequest{})
+				if err != nil {
+					return fmt.Errorf("sandbox ls: status: %w", err)
+				}
+				if !st.Initialized || st.NodeId == "" {
+					return fmt.Errorf("sandbox ls: local node is not initialized; use --all or join a cluster first")
+				}
+				sandboxes = filterSandboxesByNode(sandboxes, st.NodeId)
+			}
+
+			sandboxes = applySandboxFilters(sandboxes, filter)
+			if err := writeSandboxList(cmd.OutOrStdout(), format, sandboxes); err != nil {
+				return fmt.Errorf("sandbox ls: %w", err)
 			}
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&all, "all", false, "list sandboxes on all nodes")
+	cmd.Flags().StringVar(&nodeArg, "node", "", "list sandboxes on a specific node (id or unambiguous prefix)")
+	cmd.Flags().StringArrayVar(&filters, "filter", nil, "filter key=value (phase, desired, image; repeatable)")
+	cmd.Flags().StringVar(&format, "format", "table", "output format: table|json|yaml")
+	return cmd
 }
 
 func newSandboxLogsCmd() *cobra.Command {

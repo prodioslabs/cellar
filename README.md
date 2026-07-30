@@ -151,7 +151,10 @@ sudo cellar sandbox create --image curlimages/curl --network allowlist \
 # and closes connections the new policy no longer allows.
 sudo cellar sandbox network <id> --mode allowlist --allow-host api.example.com --allow-port 443
 
+# Local node only (default). Use --all for the cluster, or --node <id|prefix>.
 sudo cellar sandbox ls
+sudo cellar sandbox ls --all
+sudo cellar sandbox ls --node <id> --filter phase=running --format json
 sudo cellar sandbox inspect <id>
 sudo cellar sandbox logs -f <id>
 sudo cellar sandbox exec <id> -- uname -a
