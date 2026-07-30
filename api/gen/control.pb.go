@@ -621,86 +621,6 @@ func (x *StatusResponse) GetRaftAddr() string {
 	return ""
 }
 
-type CACertRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CACertRequest) Reset() {
-	*x = CACertRequest{}
-	mi := &file_control_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CACertRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CACertRequest) ProtoMessage() {}
-
-func (x *CACertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CACertRequest.ProtoReflect.Descriptor instead.
-func (*CACertRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{10}
-}
-
-type CACertResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Certificate   []byte                 `protobuf:"bytes,1,opt,name=certificate,proto3" json:"certificate,omitempty"` // PEM-encoded cluster CA certificate (public only)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CACertResponse) Reset() {
-	*x = CACertResponse{}
-	mi := &file_control_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CACertResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CACertResponse) ProtoMessage() {}
-
-func (x *CACertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CACertResponse.ProtoReflect.Descriptor instead.
-func (*CACertResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *CACertResponse) GetCertificate() []byte {
-	if x != nil {
-		return x.Certificate
-	}
-	return nil
-}
-
 type APIKeyCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -710,7 +630,7 @@ type APIKeyCreateRequest struct {
 
 func (x *APIKeyCreateRequest) Reset() {
 	*x = APIKeyCreateRequest{}
-	mi := &file_control_proto_msgTypes[12]
+	mi := &file_control_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -722,7 +642,7 @@ func (x *APIKeyCreateRequest) String() string {
 func (*APIKeyCreateRequest) ProtoMessage() {}
 
 func (x *APIKeyCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[12]
+	mi := &file_control_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -735,7 +655,7 @@ func (x *APIKeyCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyCreateRequest.ProtoReflect.Descriptor instead.
 func (*APIKeyCreateRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{12}
+	return file_control_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *APIKeyCreateRequest) GetName() string {
@@ -758,7 +678,7 @@ type APIKeyCreateResponse struct {
 
 func (x *APIKeyCreateResponse) Reset() {
 	*x = APIKeyCreateResponse{}
-	mi := &file_control_proto_msgTypes[13]
+	mi := &file_control_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -770,7 +690,7 @@ func (x *APIKeyCreateResponse) String() string {
 func (*APIKeyCreateResponse) ProtoMessage() {}
 
 func (x *APIKeyCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[13]
+	mi := &file_control_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -783,7 +703,7 @@ func (x *APIKeyCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyCreateResponse.ProtoReflect.Descriptor instead.
 func (*APIKeyCreateResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{13}
+	return file_control_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *APIKeyCreateResponse) GetId() string {
@@ -829,7 +749,7 @@ type APIKeyListRequest struct {
 
 func (x *APIKeyListRequest) Reset() {
 	*x = APIKeyListRequest{}
-	mi := &file_control_proto_msgTypes[14]
+	mi := &file_control_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -841,7 +761,7 @@ func (x *APIKeyListRequest) String() string {
 func (*APIKeyListRequest) ProtoMessage() {}
 
 func (x *APIKeyListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[14]
+	mi := &file_control_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -854,7 +774,7 @@ func (x *APIKeyListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyListRequest.ProtoReflect.Descriptor instead.
 func (*APIKeyListRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{14}
+	return file_control_proto_rawDescGZIP(), []int{12}
 }
 
 type APIKeyInfo struct {
@@ -871,7 +791,7 @@ type APIKeyInfo struct {
 
 func (x *APIKeyInfo) Reset() {
 	*x = APIKeyInfo{}
-	mi := &file_control_proto_msgTypes[15]
+	mi := &file_control_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -883,7 +803,7 @@ func (x *APIKeyInfo) String() string {
 func (*APIKeyInfo) ProtoMessage() {}
 
 func (x *APIKeyInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[15]
+	mi := &file_control_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -896,7 +816,7 @@ func (x *APIKeyInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyInfo.ProtoReflect.Descriptor instead.
 func (*APIKeyInfo) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{15}
+	return file_control_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *APIKeyInfo) GetId() string {
@@ -950,7 +870,7 @@ type APIKeyListResponse struct {
 
 func (x *APIKeyListResponse) Reset() {
 	*x = APIKeyListResponse{}
-	mi := &file_control_proto_msgTypes[16]
+	mi := &file_control_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -962,7 +882,7 @@ func (x *APIKeyListResponse) String() string {
 func (*APIKeyListResponse) ProtoMessage() {}
 
 func (x *APIKeyListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[16]
+	mi := &file_control_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +895,7 @@ func (x *APIKeyListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyListResponse.ProtoReflect.Descriptor instead.
 func (*APIKeyListResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{16}
+	return file_control_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *APIKeyListResponse) GetKeys() []*APIKeyInfo {
@@ -994,7 +914,7 @@ type APIKeyDeleteRequest struct {
 
 func (x *APIKeyDeleteRequest) Reset() {
 	*x = APIKeyDeleteRequest{}
-	mi := &file_control_proto_msgTypes[17]
+	mi := &file_control_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1006,7 +926,7 @@ func (x *APIKeyDeleteRequest) String() string {
 func (*APIKeyDeleteRequest) ProtoMessage() {}
 
 func (x *APIKeyDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[17]
+	mi := &file_control_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1019,7 +939,7 @@ func (x *APIKeyDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyDeleteRequest.ProtoReflect.Descriptor instead.
 func (*APIKeyDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{17}
+	return file_control_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *APIKeyDeleteRequest) GetId() string {
@@ -1037,7 +957,7 @@ type APIKeyDeleteResponse struct {
 
 func (x *APIKeyDeleteResponse) Reset() {
 	*x = APIKeyDeleteResponse{}
-	mi := &file_control_proto_msgTypes[18]
+	mi := &file_control_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1049,7 +969,7 @@ func (x *APIKeyDeleteResponse) String() string {
 func (*APIKeyDeleteResponse) ProtoMessage() {}
 
 func (x *APIKeyDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[18]
+	mi := &file_control_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,7 +982,7 @@ func (x *APIKeyDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKeyDeleteResponse.ProtoReflect.Descriptor instead.
 func (*APIKeyDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{18}
+	return file_control_proto_rawDescGZIP(), []int{16}
 }
 
 // NodeInfo is the Control-plane view of a cluster node (not the CA NodeRecord).
@@ -1087,7 +1007,7 @@ type NodeInfo struct {
 
 func (x *NodeInfo) Reset() {
 	*x = NodeInfo{}
-	mi := &file_control_proto_msgTypes[19]
+	mi := &file_control_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1099,7 +1019,7 @@ func (x *NodeInfo) String() string {
 func (*NodeInfo) ProtoMessage() {}
 
 func (x *NodeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[19]
+	mi := &file_control_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1112,7 +1032,7 @@ func (x *NodeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeInfo.ProtoReflect.Descriptor instead.
 func (*NodeInfo) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{19}
+	return file_control_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *NodeInfo) GetNodeId() string {
@@ -1214,7 +1134,7 @@ type NodeListRequest struct {
 
 func (x *NodeListRequest) Reset() {
 	*x = NodeListRequest{}
-	mi := &file_control_proto_msgTypes[20]
+	mi := &file_control_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1226,7 +1146,7 @@ func (x *NodeListRequest) String() string {
 func (*NodeListRequest) ProtoMessage() {}
 
 func (x *NodeListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[20]
+	mi := &file_control_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1239,7 +1159,7 @@ func (x *NodeListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeListRequest.ProtoReflect.Descriptor instead.
 func (*NodeListRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{20}
+	return file_control_proto_rawDescGZIP(), []int{18}
 }
 
 type NodeListResponse struct {
@@ -1251,7 +1171,7 @@ type NodeListResponse struct {
 
 func (x *NodeListResponse) Reset() {
 	*x = NodeListResponse{}
-	mi := &file_control_proto_msgTypes[21]
+	mi := &file_control_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1263,7 +1183,7 @@ func (x *NodeListResponse) String() string {
 func (*NodeListResponse) ProtoMessage() {}
 
 func (x *NodeListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[21]
+	mi := &file_control_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1276,7 +1196,7 @@ func (x *NodeListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeListResponse.ProtoReflect.Descriptor instead.
 func (*NodeListResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{21}
+	return file_control_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *NodeListResponse) GetNodes() []*NodeInfo {
@@ -1295,7 +1215,7 @@ type NodeInspectRequest struct {
 
 func (x *NodeInspectRequest) Reset() {
 	*x = NodeInspectRequest{}
-	mi := &file_control_proto_msgTypes[22]
+	mi := &file_control_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1307,7 +1227,7 @@ func (x *NodeInspectRequest) String() string {
 func (*NodeInspectRequest) ProtoMessage() {}
 
 func (x *NodeInspectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[22]
+	mi := &file_control_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1320,7 +1240,7 @@ func (x *NodeInspectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeInspectRequest.ProtoReflect.Descriptor instead.
 func (*NodeInspectRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{22}
+	return file_control_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *NodeInspectRequest) GetNodeId() string {
@@ -1339,7 +1259,7 @@ type NodeInspectResponse struct {
 
 func (x *NodeInspectResponse) Reset() {
 	*x = NodeInspectResponse{}
-	mi := &file_control_proto_msgTypes[23]
+	mi := &file_control_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1351,7 +1271,7 @@ func (x *NodeInspectResponse) String() string {
 func (*NodeInspectResponse) ProtoMessage() {}
 
 func (x *NodeInspectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[23]
+	mi := &file_control_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1364,7 +1284,7 @@ func (x *NodeInspectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeInspectResponse.ProtoReflect.Descriptor instead.
 func (*NodeInspectResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{23}
+	return file_control_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *NodeInspectResponse) GetNode() *NodeInfo {
@@ -1383,7 +1303,7 @@ type NodePromoteRequest struct {
 
 func (x *NodePromoteRequest) Reset() {
 	*x = NodePromoteRequest{}
-	mi := &file_control_proto_msgTypes[24]
+	mi := &file_control_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1395,7 +1315,7 @@ func (x *NodePromoteRequest) String() string {
 func (*NodePromoteRequest) ProtoMessage() {}
 
 func (x *NodePromoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[24]
+	mi := &file_control_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1408,7 +1328,7 @@ func (x *NodePromoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodePromoteRequest.ProtoReflect.Descriptor instead.
 func (*NodePromoteRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{24}
+	return file_control_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *NodePromoteRequest) GetNodeId() string {
@@ -1426,7 +1346,7 @@ type NodePromoteResponse struct {
 
 func (x *NodePromoteResponse) Reset() {
 	*x = NodePromoteResponse{}
-	mi := &file_control_proto_msgTypes[25]
+	mi := &file_control_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1358,7 @@ func (x *NodePromoteResponse) String() string {
 func (*NodePromoteResponse) ProtoMessage() {}
 
 func (x *NodePromoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[25]
+	mi := &file_control_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1371,7 @@ func (x *NodePromoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodePromoteResponse.ProtoReflect.Descriptor instead.
 func (*NodePromoteResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{25}
+	return file_control_proto_rawDescGZIP(), []int{23}
 }
 
 type NodeDemoteRequest struct {
@@ -1463,7 +1383,7 @@ type NodeDemoteRequest struct {
 
 func (x *NodeDemoteRequest) Reset() {
 	*x = NodeDemoteRequest{}
-	mi := &file_control_proto_msgTypes[26]
+	mi := &file_control_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1475,7 +1395,7 @@ func (x *NodeDemoteRequest) String() string {
 func (*NodeDemoteRequest) ProtoMessage() {}
 
 func (x *NodeDemoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[26]
+	mi := &file_control_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1488,7 +1408,7 @@ func (x *NodeDemoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeDemoteRequest.ProtoReflect.Descriptor instead.
 func (*NodeDemoteRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{26}
+	return file_control_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *NodeDemoteRequest) GetNodeId() string {
@@ -1506,7 +1426,7 @@ type NodeDemoteResponse struct {
 
 func (x *NodeDemoteResponse) Reset() {
 	*x = NodeDemoteResponse{}
-	mi := &file_control_proto_msgTypes[27]
+	mi := &file_control_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1518,7 +1438,7 @@ func (x *NodeDemoteResponse) String() string {
 func (*NodeDemoteResponse) ProtoMessage() {}
 
 func (x *NodeDemoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[27]
+	mi := &file_control_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1531,7 +1451,7 @@ func (x *NodeDemoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeDemoteResponse.ProtoReflect.Descriptor instead.
 func (*NodeDemoteResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{27}
+	return file_control_proto_rawDescGZIP(), []int{25}
 }
 
 type NodeRemoveRequest struct {
@@ -1544,7 +1464,7 @@ type NodeRemoveRequest struct {
 
 func (x *NodeRemoveRequest) Reset() {
 	*x = NodeRemoveRequest{}
-	mi := &file_control_proto_msgTypes[28]
+	mi := &file_control_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1556,7 +1476,7 @@ func (x *NodeRemoveRequest) String() string {
 func (*NodeRemoveRequest) ProtoMessage() {}
 
 func (x *NodeRemoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[28]
+	mi := &file_control_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1569,7 +1489,7 @@ func (x *NodeRemoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeRemoveRequest.ProtoReflect.Descriptor instead.
 func (*NodeRemoveRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{28}
+	return file_control_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *NodeRemoveRequest) GetNodeId() string {
@@ -1594,7 +1514,7 @@ type NodeRemoveResponse struct {
 
 func (x *NodeRemoveResponse) Reset() {
 	*x = NodeRemoveResponse{}
-	mi := &file_control_proto_msgTypes[29]
+	mi := &file_control_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1606,7 +1526,7 @@ func (x *NodeRemoveResponse) String() string {
 func (*NodeRemoveResponse) ProtoMessage() {}
 
 func (x *NodeRemoveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[29]
+	mi := &file_control_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1619,7 +1539,7 @@ func (x *NodeRemoveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeRemoveResponse.ProtoReflect.Descriptor instead.
 func (*NodeRemoveResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{29}
+	return file_control_proto_rawDescGZIP(), []int{27}
 }
 
 type NodeUpdateRequest struct {
@@ -1635,7 +1555,7 @@ type NodeUpdateRequest struct {
 
 func (x *NodeUpdateRequest) Reset() {
 	*x = NodeUpdateRequest{}
-	mi := &file_control_proto_msgTypes[30]
+	mi := &file_control_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1647,7 +1567,7 @@ func (x *NodeUpdateRequest) String() string {
 func (*NodeUpdateRequest) ProtoMessage() {}
 
 func (x *NodeUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[30]
+	mi := &file_control_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1660,7 +1580,7 @@ func (x *NodeUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeUpdateRequest.ProtoReflect.Descriptor instead.
 func (*NodeUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{30}
+	return file_control_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *NodeUpdateRequest) GetNodeId() string {
@@ -1707,7 +1627,7 @@ type NodeUpdateResponse struct {
 
 func (x *NodeUpdateResponse) Reset() {
 	*x = NodeUpdateResponse{}
-	mi := &file_control_proto_msgTypes[31]
+	mi := &file_control_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1719,7 +1639,7 @@ func (x *NodeUpdateResponse) String() string {
 func (*NodeUpdateResponse) ProtoMessage() {}
 
 func (x *NodeUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_control_proto_msgTypes[31]
+	mi := &file_control_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1732,7 +1652,7 @@ func (x *NodeUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeUpdateResponse.ProtoReflect.Descriptor instead.
 func (*NodeUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_control_proto_rawDescGZIP(), []int{31}
+	return file_control_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *NodeUpdateResponse) GetNode() *NodeInfo {
@@ -1793,10 +1713,7 @@ const file_control_proto_rawDesc = "" +
 	"\vinitialized\x18\x06 \x01(\bR\vinitialized\x12\x1f\n" +
 	"\vlisten_addr\x18\a \x01(\tR\n" +
 	"listenAddr\x12\x1b\n" +
-	"\traft_addr\x18\b \x01(\tR\braftAddr\"\x0f\n" +
-	"\rCACertRequest\"2\n" +
-	"\x0eCACertResponse\x12 \n" +
-	"\vcertificate\x18\x01 \x01(\fR\vcertificate\")\n" +
+	"\traft_addr\x18\b \x01(\tR\braftAddr\")\n" +
 	"\x13APIKeyCreateRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x91\x01\n" +
 	"\x14APIKeyCreateResponse\x12\x0e\n" +
@@ -1866,14 +1783,13 @@ const file_control_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"=\n" +
 	"\x12NodeUpdateResponse\x12'\n" +
-	"\x04node\x18\x01 \x01(\v2\x13.cellar.v1.NodeInfoR\x04node2\xc2\r\n" +
+	"\x04node\x18\x01 \x01(\v2\x13.cellar.v1.NodeInfoR\x04node2\x83\r\n" +
 	"\aControl\x127\n" +
 	"\x04Init\x12\x16.cellar.v1.InitRequest\x1a\x17.cellar.v1.InitResponse\x127\n" +
 	"\x04Join\x12\x16.cellar.v1.JoinRequest\x1a\x17.cellar.v1.JoinResponse\x12:\n" +
 	"\x05Leave\x12\x17.cellar.v1.LeaveRequest\x1a\x18.cellar.v1.LeaveResponse\x12F\n" +
 	"\tJoinToken\x12\x1b.cellar.v1.JoinTokenRequest\x1a\x1c.cellar.v1.JoinTokenResponse\x12=\n" +
-	"\x06Status\x12\x18.cellar.v1.StatusRequest\x1a\x19.cellar.v1.StatusResponse\x12=\n" +
-	"\x06CACert\x12\x18.cellar.v1.CACertRequest\x1a\x19.cellar.v1.CACertResponse\x12R\n" +
+	"\x06Status\x12\x18.cellar.v1.StatusRequest\x1a\x19.cellar.v1.StatusResponse\x12R\n" +
 	"\rSandboxCreate\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12L\n" +
 	"\vSandboxStop\x12\x1d.cellar.v1.SandboxStopRequest\x1a\x1e.cellar.v1.SandboxStopResponse\x12R\n" +
 	"\rSandboxRemove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12I\n" +
@@ -1909,7 +1825,7 @@ func file_control_proto_rawDescGZIP() []byte {
 	return file_control_proto_rawDescData
 }
 
-var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_control_proto_goTypes = []any{
 	(*InitRequest)(nil),                  // 0: cellar.v1.InitRequest
 	(*InitResponse)(nil),                 // 1: cellar.v1.InitResponse
@@ -1921,101 +1837,97 @@ var file_control_proto_goTypes = []any{
 	(*LeaveResponse)(nil),                // 7: cellar.v1.LeaveResponse
 	(*StatusRequest)(nil),                // 8: cellar.v1.StatusRequest
 	(*StatusResponse)(nil),               // 9: cellar.v1.StatusResponse
-	(*CACertRequest)(nil),                // 10: cellar.v1.CACertRequest
-	(*CACertResponse)(nil),               // 11: cellar.v1.CACertResponse
-	(*APIKeyCreateRequest)(nil),          // 12: cellar.v1.APIKeyCreateRequest
-	(*APIKeyCreateResponse)(nil),         // 13: cellar.v1.APIKeyCreateResponse
-	(*APIKeyListRequest)(nil),            // 14: cellar.v1.APIKeyListRequest
-	(*APIKeyInfo)(nil),                   // 15: cellar.v1.APIKeyInfo
-	(*APIKeyListResponse)(nil),           // 16: cellar.v1.APIKeyListResponse
-	(*APIKeyDeleteRequest)(nil),          // 17: cellar.v1.APIKeyDeleteRequest
-	(*APIKeyDeleteResponse)(nil),         // 18: cellar.v1.APIKeyDeleteResponse
-	(*NodeInfo)(nil),                     // 19: cellar.v1.NodeInfo
-	(*NodeListRequest)(nil),              // 20: cellar.v1.NodeListRequest
-	(*NodeListResponse)(nil),             // 21: cellar.v1.NodeListResponse
-	(*NodeInspectRequest)(nil),           // 22: cellar.v1.NodeInspectRequest
-	(*NodeInspectResponse)(nil),          // 23: cellar.v1.NodeInspectResponse
-	(*NodePromoteRequest)(nil),           // 24: cellar.v1.NodePromoteRequest
-	(*NodePromoteResponse)(nil),          // 25: cellar.v1.NodePromoteResponse
-	(*NodeDemoteRequest)(nil),            // 26: cellar.v1.NodeDemoteRequest
-	(*NodeDemoteResponse)(nil),           // 27: cellar.v1.NodeDemoteResponse
-	(*NodeRemoveRequest)(nil),            // 28: cellar.v1.NodeRemoveRequest
-	(*NodeRemoveResponse)(nil),           // 29: cellar.v1.NodeRemoveResponse
-	(*NodeUpdateRequest)(nil),            // 30: cellar.v1.NodeUpdateRequest
-	(*NodeUpdateResponse)(nil),           // 31: cellar.v1.NodeUpdateResponse
-	nil,                                  // 32: cellar.v1.NodeInfo.LabelsEntry
-	nil,                                  // 33: cellar.v1.NodeUpdateRequest.LabelAddEntry
-	(*SandboxCreateRequest)(nil),         // 34: cellar.v1.SandboxCreateRequest
-	(*SandboxStopRequest)(nil),           // 35: cellar.v1.SandboxStopRequest
-	(*SandboxRemoveRequest)(nil),         // 36: cellar.v1.SandboxRemoveRequest
-	(*SandboxGetRequest)(nil),            // 37: cellar.v1.SandboxGetRequest
-	(*SandboxUpdateNetworkRequest)(nil),  // 38: cellar.v1.SandboxUpdateNetworkRequest
-	(*SandboxListRequest)(nil),           // 39: cellar.v1.SandboxListRequest
-	(*SandboxLogsRequest)(nil),           // 40: cellar.v1.SandboxLogsRequest
-	(*SandboxExecMessage)(nil),           // 41: cellar.v1.SandboxExecMessage
-	(*SandboxCreateResponse)(nil),        // 42: cellar.v1.SandboxCreateResponse
-	(*SandboxStopResponse)(nil),          // 43: cellar.v1.SandboxStopResponse
-	(*SandboxRemoveResponse)(nil),        // 44: cellar.v1.SandboxRemoveResponse
-	(*SandboxGetResponse)(nil),           // 45: cellar.v1.SandboxGetResponse
-	(*SandboxUpdateNetworkResponse)(nil), // 46: cellar.v1.SandboxUpdateNetworkResponse
-	(*SandboxListResponse)(nil),          // 47: cellar.v1.SandboxListResponse
-	(*SandboxLogsChunk)(nil),             // 48: cellar.v1.SandboxLogsChunk
+	(*APIKeyCreateRequest)(nil),          // 10: cellar.v1.APIKeyCreateRequest
+	(*APIKeyCreateResponse)(nil),         // 11: cellar.v1.APIKeyCreateResponse
+	(*APIKeyListRequest)(nil),            // 12: cellar.v1.APIKeyListRequest
+	(*APIKeyInfo)(nil),                   // 13: cellar.v1.APIKeyInfo
+	(*APIKeyListResponse)(nil),           // 14: cellar.v1.APIKeyListResponse
+	(*APIKeyDeleteRequest)(nil),          // 15: cellar.v1.APIKeyDeleteRequest
+	(*APIKeyDeleteResponse)(nil),         // 16: cellar.v1.APIKeyDeleteResponse
+	(*NodeInfo)(nil),                     // 17: cellar.v1.NodeInfo
+	(*NodeListRequest)(nil),              // 18: cellar.v1.NodeListRequest
+	(*NodeListResponse)(nil),             // 19: cellar.v1.NodeListResponse
+	(*NodeInspectRequest)(nil),           // 20: cellar.v1.NodeInspectRequest
+	(*NodeInspectResponse)(nil),          // 21: cellar.v1.NodeInspectResponse
+	(*NodePromoteRequest)(nil),           // 22: cellar.v1.NodePromoteRequest
+	(*NodePromoteResponse)(nil),          // 23: cellar.v1.NodePromoteResponse
+	(*NodeDemoteRequest)(nil),            // 24: cellar.v1.NodeDemoteRequest
+	(*NodeDemoteResponse)(nil),           // 25: cellar.v1.NodeDemoteResponse
+	(*NodeRemoveRequest)(nil),            // 26: cellar.v1.NodeRemoveRequest
+	(*NodeRemoveResponse)(nil),           // 27: cellar.v1.NodeRemoveResponse
+	(*NodeUpdateRequest)(nil),            // 28: cellar.v1.NodeUpdateRequest
+	(*NodeUpdateResponse)(nil),           // 29: cellar.v1.NodeUpdateResponse
+	nil,                                  // 30: cellar.v1.NodeInfo.LabelsEntry
+	nil,                                  // 31: cellar.v1.NodeUpdateRequest.LabelAddEntry
+	(*SandboxCreateRequest)(nil),         // 32: cellar.v1.SandboxCreateRequest
+	(*SandboxStopRequest)(nil),           // 33: cellar.v1.SandboxStopRequest
+	(*SandboxRemoveRequest)(nil),         // 34: cellar.v1.SandboxRemoveRequest
+	(*SandboxGetRequest)(nil),            // 35: cellar.v1.SandboxGetRequest
+	(*SandboxUpdateNetworkRequest)(nil),  // 36: cellar.v1.SandboxUpdateNetworkRequest
+	(*SandboxListRequest)(nil),           // 37: cellar.v1.SandboxListRequest
+	(*SandboxLogsRequest)(nil),           // 38: cellar.v1.SandboxLogsRequest
+	(*SandboxExecMessage)(nil),           // 39: cellar.v1.SandboxExecMessage
+	(*SandboxCreateResponse)(nil),        // 40: cellar.v1.SandboxCreateResponse
+	(*SandboxStopResponse)(nil),          // 41: cellar.v1.SandboxStopResponse
+	(*SandboxRemoveResponse)(nil),        // 42: cellar.v1.SandboxRemoveResponse
+	(*SandboxGetResponse)(nil),           // 43: cellar.v1.SandboxGetResponse
+	(*SandboxUpdateNetworkResponse)(nil), // 44: cellar.v1.SandboxUpdateNetworkResponse
+	(*SandboxListResponse)(nil),          // 45: cellar.v1.SandboxListResponse
+	(*SandboxLogsChunk)(nil),             // 46: cellar.v1.SandboxLogsChunk
 }
 var file_control_proto_depIdxs = []int32{
-	15, // 0: cellar.v1.APIKeyListResponse.keys:type_name -> cellar.v1.APIKeyInfo
-	32, // 1: cellar.v1.NodeInfo.labels:type_name -> cellar.v1.NodeInfo.LabelsEntry
-	19, // 2: cellar.v1.NodeListResponse.nodes:type_name -> cellar.v1.NodeInfo
-	19, // 3: cellar.v1.NodeInspectResponse.node:type_name -> cellar.v1.NodeInfo
-	33, // 4: cellar.v1.NodeUpdateRequest.label_add:type_name -> cellar.v1.NodeUpdateRequest.LabelAddEntry
-	19, // 5: cellar.v1.NodeUpdateResponse.node:type_name -> cellar.v1.NodeInfo
+	13, // 0: cellar.v1.APIKeyListResponse.keys:type_name -> cellar.v1.APIKeyInfo
+	30, // 1: cellar.v1.NodeInfo.labels:type_name -> cellar.v1.NodeInfo.LabelsEntry
+	17, // 2: cellar.v1.NodeListResponse.nodes:type_name -> cellar.v1.NodeInfo
+	17, // 3: cellar.v1.NodeInspectResponse.node:type_name -> cellar.v1.NodeInfo
+	31, // 4: cellar.v1.NodeUpdateRequest.label_add:type_name -> cellar.v1.NodeUpdateRequest.LabelAddEntry
+	17, // 5: cellar.v1.NodeUpdateResponse.node:type_name -> cellar.v1.NodeInfo
 	0,  // 6: cellar.v1.Control.Init:input_type -> cellar.v1.InitRequest
 	2,  // 7: cellar.v1.Control.Join:input_type -> cellar.v1.JoinRequest
 	6,  // 8: cellar.v1.Control.Leave:input_type -> cellar.v1.LeaveRequest
 	4,  // 9: cellar.v1.Control.JoinToken:input_type -> cellar.v1.JoinTokenRequest
 	8,  // 10: cellar.v1.Control.Status:input_type -> cellar.v1.StatusRequest
-	10, // 11: cellar.v1.Control.CACert:input_type -> cellar.v1.CACertRequest
-	34, // 12: cellar.v1.Control.SandboxCreate:input_type -> cellar.v1.SandboxCreateRequest
-	35, // 13: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
-	36, // 14: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
-	37, // 15: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
-	38, // 16: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	39, // 17: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
-	40, // 18: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
-	41, // 19: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
-	12, // 20: cellar.v1.Control.APIKeyCreate:input_type -> cellar.v1.APIKeyCreateRequest
-	14, // 21: cellar.v1.Control.APIKeyList:input_type -> cellar.v1.APIKeyListRequest
-	17, // 22: cellar.v1.Control.APIKeyDelete:input_type -> cellar.v1.APIKeyDeleteRequest
-	20, // 23: cellar.v1.Control.NodeList:input_type -> cellar.v1.NodeListRequest
-	22, // 24: cellar.v1.Control.NodeInspect:input_type -> cellar.v1.NodeInspectRequest
-	24, // 25: cellar.v1.Control.NodePromote:input_type -> cellar.v1.NodePromoteRequest
-	26, // 26: cellar.v1.Control.NodeDemote:input_type -> cellar.v1.NodeDemoteRequest
-	28, // 27: cellar.v1.Control.NodeRemove:input_type -> cellar.v1.NodeRemoveRequest
-	30, // 28: cellar.v1.Control.NodeUpdate:input_type -> cellar.v1.NodeUpdateRequest
-	1,  // 29: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
-	3,  // 30: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
-	7,  // 31: cellar.v1.Control.Leave:output_type -> cellar.v1.LeaveResponse
-	5,  // 32: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
-	9,  // 33: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
-	11, // 34: cellar.v1.Control.CACert:output_type -> cellar.v1.CACertResponse
-	42, // 35: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
-	43, // 36: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
-	44, // 37: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
-	45, // 38: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
-	46, // 39: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	47, // 40: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
-	48, // 41: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
-	41, // 42: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
-	13, // 43: cellar.v1.Control.APIKeyCreate:output_type -> cellar.v1.APIKeyCreateResponse
-	16, // 44: cellar.v1.Control.APIKeyList:output_type -> cellar.v1.APIKeyListResponse
-	18, // 45: cellar.v1.Control.APIKeyDelete:output_type -> cellar.v1.APIKeyDeleteResponse
-	21, // 46: cellar.v1.Control.NodeList:output_type -> cellar.v1.NodeListResponse
-	23, // 47: cellar.v1.Control.NodeInspect:output_type -> cellar.v1.NodeInspectResponse
-	25, // 48: cellar.v1.Control.NodePromote:output_type -> cellar.v1.NodePromoteResponse
-	27, // 49: cellar.v1.Control.NodeDemote:output_type -> cellar.v1.NodeDemoteResponse
-	29, // 50: cellar.v1.Control.NodeRemove:output_type -> cellar.v1.NodeRemoveResponse
-	31, // 51: cellar.v1.Control.NodeUpdate:output_type -> cellar.v1.NodeUpdateResponse
-	29, // [29:52] is the sub-list for method output_type
-	6,  // [6:29] is the sub-list for method input_type
+	32, // 11: cellar.v1.Control.SandboxCreate:input_type -> cellar.v1.SandboxCreateRequest
+	33, // 12: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
+	34, // 13: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
+	35, // 14: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
+	36, // 15: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	37, // 16: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
+	38, // 17: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
+	39, // 18: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
+	10, // 19: cellar.v1.Control.APIKeyCreate:input_type -> cellar.v1.APIKeyCreateRequest
+	12, // 20: cellar.v1.Control.APIKeyList:input_type -> cellar.v1.APIKeyListRequest
+	15, // 21: cellar.v1.Control.APIKeyDelete:input_type -> cellar.v1.APIKeyDeleteRequest
+	18, // 22: cellar.v1.Control.NodeList:input_type -> cellar.v1.NodeListRequest
+	20, // 23: cellar.v1.Control.NodeInspect:input_type -> cellar.v1.NodeInspectRequest
+	22, // 24: cellar.v1.Control.NodePromote:input_type -> cellar.v1.NodePromoteRequest
+	24, // 25: cellar.v1.Control.NodeDemote:input_type -> cellar.v1.NodeDemoteRequest
+	26, // 26: cellar.v1.Control.NodeRemove:input_type -> cellar.v1.NodeRemoveRequest
+	28, // 27: cellar.v1.Control.NodeUpdate:input_type -> cellar.v1.NodeUpdateRequest
+	1,  // 28: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
+	3,  // 29: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
+	7,  // 30: cellar.v1.Control.Leave:output_type -> cellar.v1.LeaveResponse
+	5,  // 31: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
+	9,  // 32: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
+	40, // 33: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
+	41, // 34: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
+	42, // 35: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
+	43, // 36: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
+	44, // 37: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	45, // 38: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
+	46, // 39: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
+	39, // 40: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
+	11, // 41: cellar.v1.Control.APIKeyCreate:output_type -> cellar.v1.APIKeyCreateResponse
+	14, // 42: cellar.v1.Control.APIKeyList:output_type -> cellar.v1.APIKeyListResponse
+	16, // 43: cellar.v1.Control.APIKeyDelete:output_type -> cellar.v1.APIKeyDeleteResponse
+	19, // 44: cellar.v1.Control.NodeList:output_type -> cellar.v1.NodeListResponse
+	21, // 45: cellar.v1.Control.NodeInspect:output_type -> cellar.v1.NodeInspectResponse
+	23, // 46: cellar.v1.Control.NodePromote:output_type -> cellar.v1.NodePromoteResponse
+	25, // 47: cellar.v1.Control.NodeDemote:output_type -> cellar.v1.NodeDemoteResponse
+	27, // 48: cellar.v1.Control.NodeRemove:output_type -> cellar.v1.NodeRemoveResponse
+	29, // 49: cellar.v1.Control.NodeUpdate:output_type -> cellar.v1.NodeUpdateResponse
+	28, // [28:50] is the sub-list for method output_type
+	6,  // [6:28] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -2033,7 +1945,7 @@ func file_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_control_proto_rawDesc), len(file_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   34,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

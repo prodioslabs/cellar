@@ -13,7 +13,6 @@ service Control {
   rpc Leave(LeaveRequest) returns (LeaveResponse);
   rpc JoinToken(JoinTokenRequest) returns (JoinTokenResponse);
   rpc Status(StatusRequest) returns (StatusResponse);
-  rpc CACert(CACertRequest) returns (CACertResponse);
 
   // Sandbox ops (forwarded to a manager / leader when needed).
   rpc SandboxCreate(SandboxCreateRequest) returns (SandboxCreateResponse);
@@ -95,12 +94,6 @@ message StatusResponse {
   bool initialized = 6;
   string listen_addr = 7;
   string raft_addr = 8;
-}
-
-message CACertRequest {}
-
-message CACertResponse {
-  bytes certificate = 1; // PEM-encoded cluster CA certificate (public only)
 }
 
 message APIKeyCreateRequest {
