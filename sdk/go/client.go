@@ -17,11 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-
-	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 )
 
 const (
@@ -30,16 +25,6 @@ const (
 
 	// Deprecated: use EnvEndpoint. Kept so old env dumps are recognizable.
 	EnvEndpoints = "CELLAR_ENDPOINTS"
-)
-
-var (
-	protoMarshal = protojson.MarshalOptions{
-		UseProtoNames:   false,
-		EmitUnpopulated: false,
-	}
-	protoUnmarshal = protojson.UnmarshalOptions{
-		DiscardUnknown: true,
-	}
 )
 
 // Config configures a Client.
@@ -56,9 +41,9 @@ type Config struct {
 
 // Client talks to the Cellar HTTP gateway.
 type Client struct {
-	cfg    Config
-	http   *http.Client
-	base   string
+	cfg  Config
+	http *http.Client
+	base string
 }
 
 // NewFromEnv builds a client from CELLAR_API_KEY and CELLAR_ENDPOINT.
@@ -99,23 +84,24 @@ func (c *Client) authHeaders(h http.Header) {
 	h.Set("X-Api-Key", c.cfg.APIKey)
 }
 
-type apiError struct {
+// APIError is a non-2xx response from the gateway.
+type APIError struct {
 	Status int
 	Code   string
 	Msg    string
 }
 
-func (e *apiError) Error() string {
+func (e *APIError) Error() string {
 	if e.Code != "" {
 		return fmt.Sprintf("cellar: %s (%s)", e.Msg, e.Code)
 	}
 	return fmt.Sprintf("cellar: %s (HTTP %d)", e.Msg, e.Status)
 }
 
-func (c *Client) doJSON(ctx context.Context, method, path string, body proto.Message, out proto.Message) error {
+func (c *Client) doJSON(ctx context.Context, method, path string, body any, out any) error {
 	var rdr io.Reader
 	if body != nil {
-		b, err := protoMarshal.Marshal(body)
+		b, err := json.Marshal(body)
 		if err != nil {
 			return err
 		}
@@ -149,7 +135,7 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body proto.Mes
 	if out == nil || len(data) == 0 {
 		return nil
 	}
-	return protoUnmarshal.Unmarshal(data, out)
+	return json.Unmarshal(data, out)
 }
 
 func parseAPIError(status int, data []byte) error {
@@ -165,61 +151,66 @@ func parseAPIError(status int, data []byte) error {
 	if msg == "" {
 		msg = http.StatusText(status)
 	}
-	return &apiError{Status: status, Code: eb.Code, Msg: msg}
+	return &APIError{Status: status, Code: eb.Code, Msg: msg}
 }
 
-// Create creates a sandbox.
-func (c *Client) Create(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.Sandbox, error) {
-	out := &cellarv1.Sandbox{}
-	if err := c.doJSON(ctx, http.MethodPost, "/v1/sandboxes", req, out); err != nil {
+func (c *Client) wrap(data SandboxSnapshot) *Sandbox {
+	return &Sandbox{client: c, data: data}
+}
+
+// Create creates a sandbox. Returns immediately (typically pending); call
+// Sandbox.WaitUntilReady before Exec when you need it running.
+func (c *Client) Create(ctx context.Context, req *SandboxCreateRequest) (*Sandbox, error) {
+	var out SandboxSnapshot
+	if err := c.doJSON(ctx, http.MethodPost, "/v1/sandboxes", req, &out); err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-// Stop stops a sandbox.
-func (c *Client) Stop(ctx context.Context, id string) (*cellarv1.Sandbox, error) {
-	out := &cellarv1.Sandbox{}
-	if err := c.doJSON(ctx, http.MethodPost, "/v1/sandboxes/"+url.PathEscape(id)+"/stop", nil, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Remove deletes a sandbox.
-func (c *Client) Remove(ctx context.Context, id string) error {
-	return c.doJSON(ctx, http.MethodDelete, "/v1/sandboxes/"+url.PathEscape(id), nil, nil)
+	return c.wrap(out), nil
 }
 
 // Get returns a sandbox.
-func (c *Client) Get(ctx context.Context, id string) (*cellarv1.Sandbox, error) {
-	out := &cellarv1.Sandbox{}
-	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes/"+url.PathEscape(id), nil, out); err != nil {
+func (c *Client) Get(ctx context.Context, id string) (*Sandbox, error) {
+	data, err := c.fetchSnapshot(ctx, id)
+	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	return c.wrap(data), nil
 }
 
 // List returns all sandboxes.
-func (c *Client) List(ctx context.Context) ([]*cellarv1.Sandbox, error) {
-	out := &cellarv1.SandboxListResponse{}
-	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes", nil, out); err != nil {
+func (c *Client) List(ctx context.Context) ([]*Sandbox, error) {
+	var out sandboxListResponse
+	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes", nil, &out); err != nil {
 		return nil, err
 	}
-	return out.Sandboxes, nil
+	result := make([]*Sandbox, 0, len(out.Sandboxes))
+	for _, s := range out.Sandboxes {
+		result = append(result, c.wrap(s))
+	}
+	return result, nil
 }
 
-// UpdateNetwork replaces a sandbox network policy.
-func (c *Client) UpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.Sandbox, error) {
-	if req == nil || req.SandboxId == "" {
-		return nil, fmt.Errorf("sandbox_id is required")
-	}
-	id := req.SandboxId
-	out := &cellarv1.Sandbox{}
-	if err := c.doJSON(ctx, http.MethodPut, "/v1/sandboxes/"+url.PathEscape(id)+"/network", req, out); err != nil {
-		return nil, err
-	}
-	return out, nil
+func (c *Client) fetchSnapshot(ctx context.Context, id string) (SandboxSnapshot, error) {
+	var out SandboxSnapshot
+	err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes/"+url.PathEscape(id), nil, &out)
+	return out, err
+}
+
+func (c *Client) stopSandbox(ctx context.Context, id string) (SandboxSnapshot, error) {
+	var out SandboxSnapshot
+	err := c.doJSON(ctx, http.MethodPost, "/v1/sandboxes/"+url.PathEscape(id)+"/stop", nil, &out)
+	return out, err
+}
+
+func (c *Client) removeSandbox(ctx context.Context, id string) error {
+	return c.doJSON(ctx, http.MethodDelete, "/v1/sandboxes/"+url.PathEscape(id), nil, nil)
+}
+
+func (c *Client) updateSandboxNetwork(ctx context.Context, id string, network *NetworkPolicy) (SandboxSnapshot, error) {
+	var out SandboxSnapshot
+	err := c.doJSON(ctx, http.MethodPut, "/v1/sandboxes/"+url.PathEscape(id)+"/network",
+		&sandboxUpdateNetworkRequest{SandboxID: id, Network: network}, &out)
+	return out, err
 }
 
 // LogsOptions configures a logs request.
@@ -234,8 +225,7 @@ type LogsChunk struct {
 	Data []byte
 }
 
-// Logs streams sandbox logs as NDJSON chunks until EOF or ctx cancel.
-func (c *Client) Logs(ctx context.Context, id string, opt LogsOptions) (<-chan LogsChunk, <-chan error) {
+func (c *Client) streamLogs(ctx context.Context, id string, opt LogsOptions) (<-chan LogsChunk, <-chan error) {
 	ch := make(chan LogsChunk)
 	errCh := make(chan error, 1)
 	go func() {
@@ -317,8 +307,7 @@ type ExecResult struct {
 	Error    string
 }
 
-// Exec runs a command in a sandbox and collects output until exit.
-func (c *Client) Exec(ctx context.Context, sandboxID string, command []string) (*ExecResult, error) {
+func (c *Client) execCommand(ctx context.Context, sandboxID string, command []string) (*ExecResult, error) {
 	payload, err := json.Marshal(map[string]any{"command": command})
 	if err != nil {
 		return nil, err
