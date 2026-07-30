@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: cellar
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: cellar
+    main: ./cmd/cellar
+    binary: cellar
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+        -X github.com/prodioslabs/cellar/internal/version.Version={{.Version}}
+        -X github.com/prodioslabs/cellar/internal/version.Commit={{.Commit}}
+        -X github.com/prodioslabs/cellar/internal/version.Date={{.Date}}
+
+  - id: cellard
+    main: ./cmd/cellard
+    binary: cellard
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+        -X github.com/prodioslabs/cellar/internal/version.Version={{.Version}}
+        -X github.com/prodioslabs/cellar/internal/version.Commit={{.Commit}}
+        -X github.com/prodioslabs/cellar/internal/version.Date={{.Date}}
+
+  - id: cellar-gateway
+    main: ./cmd/cellar-gateway
+    binary: cellar-gateway
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+        -X github.com/prodioslabs/cellar/internal/version.Version={{.Version}}
+        -X github.com/prodioslabs/cellar/internal/version.Commit={{.Commit}}
+        -X github.com/prodioslabs/cellar/internal/version.Date={{.Date}}
+
+  - id: cellar-agent
+    main: ./cmd/cellar-agent
+    binary: cellar-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+        -X github.com/prodioslabs/cellar/internal/version.Version={{.Version}}
+        -X github.com/prodioslabs/cellar/internal/version.Commit={{.Commit}}
+        -X github.com/prodioslabs/cellar/internal/version.Date={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: >-
+      cellar_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE
+      - README.md
+      - contrib/systemd/*
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+release:
+  prerelease: auto
+  name_template: "v{{.Version}}"
