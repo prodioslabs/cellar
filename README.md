@@ -82,7 +82,22 @@ README.md
 contrib/systemd/…
 ```
 
-Verify downloads against `checksums.txt` from the same release. A curl-based install script will target these stable artifact names later; for now install from source with `make install` or unpack a release tarball into `/usr/local/bin`.
+Install the current release on Linux with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prodioslabs/cellar/main/install.sh | sh
+```
+
+The installer detects **amd64** or **arm64**, verifies the archive against
+`checksums.txt`, and installs the same binaries, systemd units, and sysusers
+definition as `sudo make install`. It uses `sudo` when needed, but does not
+enable or start the services.
+
+To install a specific version or prefix:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/prodioslabs/cellar/main/install.sh | CELLAR_VERSION=v0.1.0 CELLAR_PREFIX=/usr/local sh
+```
 
 ## Quick start
 
