@@ -164,7 +164,8 @@ sudo cellar sandbox create -f examples/sandbox.yaml
 
 # Allowlisted egress (enforced by topology + egress gateway).
 # See internal/egress/README.md for proxy, DNS bait mount, and policy details.
-# At most one of --domain-allow-list / --network-allow-list / --network-block-all:
+# At most one of --domain-allow-list / --network-allow-list /
+# --network-block-all / --network-allow-all:
 sudo cellar sandbox create --image curlimages/curl \
   --domain-allow-list 'example.com'
 # or: sudo cellar sandbox create -f examples/sandbox-allowlist.yaml
@@ -173,15 +174,16 @@ sudo cellar sandbox create --image curlimages/curl --essential-services
 sudo cellar sandbox create --image curlimages/curl \
   --domain-allow-list 'example.com,*.openai.com' --essential-services
 sudo cellar sandbox create --image alpine --network-block-all
+sudo cellar sandbox create --image curlimages/curl --network-allow-all
 sudo cellar sandbox create --image alpine \
   --network-allow-list '208.80.154.232/32,192.168.1.0/24'
 
 # Tighten (or loosen) the policy of a running sandbox. Takes effect immediately
 # and closes connections the new policy no longer allows.
-# Mode none cannot change live; blockall/allowlist/denylist can.
+# Mode none cannot change live; blockall/allowall/allowlist/denylist can.
 sudo cellar sandbox network <id> --domain-allow-list 'api.example.com'
 sudo cellar sandbox network <id> --network-block-all
-sudo cellar sandbox network <id> --network-block-all=false
+sudo cellar sandbox network <id> --network-allow-all
 
 # Local node only (default). Use --all for the cluster, or --node <id|prefix>.
 sudo cellar sandbox ls

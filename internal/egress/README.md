@@ -119,11 +119,12 @@ gRPC over a published loopback TCP port (`127.0.0.1:<ephemeral>` → container
 - `UpdatePolicy` — full replace (parity with `UpdateNetwork`)
 
 Public sandbox `NetworkPolicy` modes: `none` (no topology), `allowlist`,
-`denylist`, and `blockall` (deny-all with topology, so it can toggle live).
-Network limits (`network_allow_list`, `domain_allow_list`, `block_all`) are
-translated to canonical mode/rules on create/update. Optional
-`essential_services` adds a curated package/git/AI domain allowlist evaluated
-in the gateway. Alone (no other limit), it implies `block_all`.
+`denylist`, `blockall` (deny-all with topology), and `allowall` (allow-all
+with topology; both can toggle live). Network limits (`network_allow_list`,
+`domain_allow_list`, `block_all`, `allow_all`) are translated to canonical
+mode/rules on create/update. Optional `essential_services` adds a curated
+package/git/AI domain allowlist evaluated in the gateway. Alone (no other
+limit), it implies `block_all`.
 
 ## Image
 
