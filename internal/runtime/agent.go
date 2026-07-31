@@ -9,7 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prodioslabs/cellar/internal/egress"
+	"github.com/prodioslabs/cellar/internal/egress/ipam"
+	"github.com/prodioslabs/cellar/internal/egress/pool"
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
@@ -32,8 +33,8 @@ type restartBackoff struct {
 type Agent struct {
 	NodeID      string
 	Driver      *Driver
-	Proxy       *egress.Proxy
-	Redirect    *egress.RedirectManager
+	Pool        *pool.Pool
+	IPAM        *ipam.Allocator
 	Source      AssignmentSource
 	Report      StatusReporter
 	DataDir     string
@@ -55,12 +56,12 @@ type stopRemover interface {
 }
 
 // NewAgent constructs a runtime agent.
-func NewAgent(nodeID string, drv *Driver, proxy *egress.Proxy, redir *egress.RedirectManager, src AssignmentSource, rep StatusReporter, dataDir, agentBinary string) *Agent {
+func NewAgent(nodeID string, drv *Driver, gwPool *pool.Pool, allocator *ipam.Allocator, src AssignmentSource, rep StatusReporter, dataDir, agentBinary string) *Agent {
 	return &Agent{
 		NodeID:      nodeID,
 		Driver:      drv,
-		Proxy:       proxy,
-		Redirect:    redir,
+		Pool:        gwPool,
+		IPAM:        allocator,
 		Source:      src,
 		Report:      rep,
 		DataDir:     dataDir,
@@ -72,7 +73,6 @@ func NewAgent(nodeID string, drv *Driver, proxy *egress.Proxy, redir *egress.Red
 }
 
 // nextRestartDelay returns the wait before the Nth recreate attempt (0-based).
-// Base 5s, doubling, capped at 60s.
 func nextRestartDelay(attempts int) time.Duration {
 	const (
 		base = 5 * time.Second
@@ -106,6 +106,9 @@ func (a *Agent) stopper() stopRemover {
 
 // Run loops until ctx is done.
 func (a *Agent) Run(ctx context.Context) {
+	if err := a.reconcileOrphans(ctx); err != nil {
+		log.Printf("runtime agent orphan reconcile: %v", err)
+	}
 	ticker := time.NewTicker(a.interval)
 	defer ticker.Stop()
 	for {
@@ -120,8 +123,19 @@ func (a *Agent) Run(ctx context.Context) {
 	}
 }
 
+// reconcileOrphans GCs labeled sandbox networks not in desired set and syncs IPAM.
+func (a *Agent) reconcileOrphans(ctx context.Context) error {
+	if a.Driver == nil || a.IPAM == nil {
+		return nil
+	}
+	live, err := a.Driver.ListManagedSandboxNetworks(ctx)
+	if err != nil {
+		return err
+	}
+	return a.IPAM.SyncFromDocker(live)
+}
+
 // TeardownLocal stops and removes every container this node manages.
-// Cluster desired state is untouched; a later start recreates them via reconcile.
 func (a *Agent) TeardownLocal(ctx context.Context) {
 	a.mu.Lock()
 	locals := make(map[string]string, len(a.local))
@@ -145,13 +159,8 @@ func (a *Agent) TeardownLocal(ctx context.Context) {
 				_ = s.Stop(ctx, cid, 5)
 				_ = s.Remove(ctx, cid)
 			}
+			a.teardownEgress(ctx, id)
 			_ = CleanupSandboxDir(a.DataDir, id)
-			if a.Redirect != nil {
-				_ = a.Redirect.RemoveSandbox(id)
-			}
-			if a.Proxy != nil {
-				a.Proxy.RemovePolicy(id)
-			}
 		}(id, cid)
 	}
 
@@ -194,7 +203,6 @@ func (a *Agent) reconcile(ctx context.Context) error {
 		}
 	}
 
-	// Tear down locals no longer assigned (removed from raft).
 	for id, cid := range a.local {
 		if _, ok := want[id]; ok {
 			continue
@@ -203,13 +211,8 @@ func (a *Agent) reconcile(ctx context.Context) error {
 			_ = s.Stop(ctx, cid, 10)
 			_ = s.Remove(ctx, cid)
 		}
+		a.teardownEgress(ctx, id)
 		_ = CleanupSandboxDir(a.DataDir, id)
-		if a.Redirect != nil {
-			_ = a.Redirect.RemoveSandbox(id)
-		}
-		if a.Proxy != nil {
-			a.Proxy.RemovePolicy(id)
-		}
 		delete(a.local, id)
 		delete(a.restarts, id)
 	}
@@ -240,25 +243,19 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 				}
 			}
 			if sb.DesiredState == sandbox.DesiredRemoved {
+				a.teardownEgress(ctx, sb.ID)
 				_ = CleanupSandboxDir(a.DataDir, sb.ID)
 				delete(a.local, sb.ID)
-				if a.Redirect != nil {
-					_ = a.Redirect.RemoveSandbox(sb.ID)
-				}
-				if a.Proxy != nil {
-					a.Proxy.RemovePolicy(sb.ID)
-				}
-			}
-			phase := sandbox.PhaseStopped
-			if sb.DesiredState == sandbox.DesiredRemoved {
-				phase = sandbox.PhaseStopped
 			}
 			return a.report(ctx, sb.ID, sandbox.Status{
-				Phase:       phase,
+				Phase:       sandbox.PhaseStopped,
 				ContainerID: cid,
 				UpdatedAt:   time.Now().UTC(),
 				FinishedAt:  time.Now().UTC(),
 			})
+		}
+		if sb.DesiredState == sandbox.DesiredRemoved {
+			a.teardownEgress(ctx, sb.ID)
 		}
 		return a.report(ctx, sb.ID, sandbox.Status{
 			Phase:     sandbox.PhaseStopped,
@@ -266,21 +263,17 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 		})
 
 	case sandbox.DesiredRunning:
-		if a.Proxy != nil && sb.Spec.Network.Mode != sandbox.NetworkNone && sb.Spec.Network.Mode != "" {
-			a.Proxy.SetPolicy(sb.ID, sb.Spec.Network)
-		}
 		if cid == "" {
 			return a.createDesiredRunning(ctx, sb)
 		}
 		phase, exit, err := a.Driver.InspectPhase(ctx, cid)
 		if err != nil {
-			// container gone — recreate on a later tick
 			delete(a.local, sb.ID)
 			a.noteRestart(sb.ID)
 			return fmt.Errorf("inspect: %w", err)
 		}
 		if phase == sandbox.PhaseRunning {
-			_ = a.setupEgress(ctx, sb, cid)
+			_ = a.ensurePolicy(ctx, sb)
 			return a.report(ctx, sb.ID, sandbox.Status{
 				Phase:       sandbox.PhaseRunning,
 				ContainerID: cid,
@@ -288,7 +281,6 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 			})
 		}
 
-		// Dead or stopped container while DesiredRunning — reap and recreate later.
 		msg := fmt.Sprintf("container exited with code %d", exit)
 		if phase == sandbox.PhaseStopped && exit == 0 {
 			msg = "container stopped"
@@ -321,19 +313,33 @@ func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) e
 		Phase:     sandbox.PhaseStarting,
 		UpdatedAt: now.UTC(),
 	})
-	newID, err := a.Driver.CreateAndStart(ctx, sb, CreateOpts{
+
+	opts := CreateOpts{
 		DataDir:     a.DataDir,
 		AgentBinary: a.AgentBinary,
-	})
+	}
+
+	if sb.Spec.Network.Mode != sandbox.NetworkNone && sb.Spec.Network.Mode != "" {
+		egressOpts, err := a.setupTopology(ctx, sb)
+		if err != nil {
+			a.noteRestart(sb.ID)
+			return err
+		}
+		opts.NetworkName = egressOpts.NetworkName
+		opts.DNSServer = egressOpts.DNSServer
+		opts.SandboxIP = egressOpts.SandboxIP
+	}
+
+	newID, err := a.Driver.CreateAndStart(ctx, sb, opts)
 	if err != nil {
+		if sb.Spec.Network.Mode != sandbox.NetworkNone && sb.Spec.Network.Mode != "" {
+			a.teardownEgress(ctx, sb.ID)
+		}
 		a.noteRestart(sb.ID)
 		return err
 	}
 	delete(a.restarts, sb.ID)
 	a.local[sb.ID] = newID
-	if err := a.setupEgress(ctx, sb, newID); err != nil {
-		log.Printf("sandbox %s egress setup: %v", sb.ID, err)
-	}
 	return a.report(ctx, sb.ID, sandbox.Status{
 		Phase:       sandbox.PhaseRunning,
 		ContainerID: newID,
@@ -342,18 +348,109 @@ func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) e
 	})
 }
 
+type topologyOpts struct {
+	NetworkName string
+	DNSServer   string
+	SandboxIP   string
+}
+
+func (a *Agent) setupTopology(ctx context.Context, sb *sandbox.Sandbox) (topologyOpts, error) {
+	if a.Pool == nil || a.IPAM == nil {
+		return topologyOpts{}, fmt.Errorf("egress pool/ipam not configured")
+	}
+	subnet, err := a.IPAM.Allocate(sb.ID)
+	if err != nil {
+		return topologyOpts{}, err
+	}
+	gwIP := ipam.GatewayIP(subnet)
+	sbIP := ipam.SandboxIP(subnet)
+	netID, err := a.Driver.CreateSandboxNetwork(ctx, sb.ID, subnet.String(), gwIP.String())
+	if err != nil {
+		_ = a.IPAM.Free(sb.ID)
+		return topologyOpts{}, fmt.Errorf("create sandbox network: %w", err)
+	}
+	gw, err := a.Pool.Assign(ctx, sb.ID)
+	if err != nil {
+		_ = a.Driver.RemoveSandboxNetwork(ctx, sb.ID)
+		_ = a.IPAM.Free(sb.ID)
+		return topologyOpts{}, fmt.Errorf("assign gateway: %w", err)
+	}
+	if err := a.Pool.ConnectSandbox(ctx, gw, netID, gwIP.String()); err != nil {
+		a.Pool.Release(sb.ID)
+		_ = a.Driver.RemoveSandboxNetwork(ctx, sb.ID)
+		_ = a.IPAM.Free(sb.ID)
+		return topologyOpts{}, fmt.Errorf("connect gateway: %w", err)
+	}
+	if err := a.Pool.RegisterSandbox(ctx, gw, sb.ID, netID, subnet.String(), gwIP.String(), sb.Spec.Network); err != nil {
+		_ = a.Pool.DisconnectSandbox(ctx, gw, netID)
+		a.Pool.Release(sb.ID)
+		_ = a.Driver.RemoveSandboxNetwork(ctx, sb.ID)
+		_ = a.IPAM.Free(sb.ID)
+		return topologyOpts{}, fmt.Errorf("register sandbox: %w", err)
+	}
+	_ = WriteEgressState(a.DataDir, sb.ID, EgressState{
+		GatewayID:  gw.ID,
+		SubnetCIDR: subnet.String(),
+		NetworkID:  netID,
+		GatewayIP:  gwIP.String(),
+		SandboxIP:  sbIP.String(),
+	})
+	return topologyOpts{
+		NetworkName: SandboxNetworkName(sb.ID),
+		DNSServer:   gwIP.String(),
+		SandboxIP:   sbIP.String(),
+	}, nil
+}
+
+func (a *Agent) teardownEgress(ctx context.Context, sandboxID string) {
+	st, ok, _ := ReadEgressState(a.DataDir, sandboxID)
+	var gw *pool.Instance
+	if a.Pool != nil {
+		if g, found := a.Pool.GatewayFor(sandboxID); found {
+			gw = g
+		} else if ok && st.GatewayID != "" {
+			// Best-effort: try GatewayFor after SetAssignment recovery
+			gw, _ = a.Pool.GatewayFor(sandboxID)
+		}
+		if gw != nil {
+			_ = a.Pool.DeregisterSandbox(ctx, gw, sandboxID)
+			netID := st.NetworkID
+			if netID == "" && a.Driver != nil {
+				netID, _ = a.Driver.FindSandboxNetworkID(ctx, sandboxID)
+			}
+			if netID != "" {
+				_ = a.Pool.DisconnectSandbox(ctx, gw, netID)
+			}
+		}
+		a.Pool.Release(sandboxID)
+	}
+	if a.Driver != nil {
+		_ = a.Driver.RemoveSandboxNetwork(ctx, sandboxID)
+	}
+	if a.IPAM != nil {
+		_ = a.IPAM.Free(sandboxID)
+	}
+}
+
+func (a *Agent) ensurePolicy(ctx context.Context, sb *sandbox.Sandbox) error {
+	if sb.Spec.Network.Mode == sandbox.NetworkNone || sb.Spec.Network.Mode == "" {
+		return nil
+	}
+	if a.Pool == nil {
+		return nil
+	}
+	gw, ok := a.Pool.GatewayFor(sb.ID)
+	if !ok {
+		return nil
+	}
+	return a.Pool.UpdatePolicy(ctx, gw, sb.ID, sb.Spec.Network)
+}
+
 func (a *Agent) reapContainer(ctx context.Context, sandboxID, cid string) {
 	if s := a.stopper(); s != nil {
 		_ = s.Remove(ctx, cid)
 	}
-	if a.Redirect != nil {
-		_ = a.Redirect.RemoveSandbox(sandboxID)
-	}
-	// The container IP goes back to the bridge pool; drop the binding so a
-	// later tenant reusing it is not attributed to this sandbox.
-	if a.Proxy != nil {
-		a.Proxy.UnbindSandbox(sandboxID)
-	}
+	a.teardownEgress(ctx, sandboxID)
 	delete(a.local, sandboxID)
 	a.noteRestart(sandboxID)
 }
@@ -369,9 +466,9 @@ func (a *Agent) noteRestart(sandboxID string) {
 
 // ApplyNetworkPolicy installs an already-committed policy on a locally running
 // sandbox so it takes effect without waiting for the next reconcile tick.
-func (a *Agent) ApplyNetworkPolicy(_ context.Context, sandboxID string, policy sandbox.NetworkPolicy) error {
-	if a.Proxy == nil {
-		return fmt.Errorf("egress proxy not running on this node")
+func (a *Agent) ApplyNetworkPolicy(ctx context.Context, sandboxID string, policy sandbox.NetworkPolicy) error {
+	if a.Pool == nil {
+		return fmt.Errorf("egress pool not running on this node")
 	}
 	a.mu.Lock()
 	_, local := a.local[sandboxID]
@@ -380,30 +477,13 @@ func (a *Agent) ApplyNetworkPolicy(_ context.Context, sandboxID string, policy s
 		return fmt.Errorf("sandbox %s is not running on this node", sandboxID)
 	}
 	if policy.Mode == sandbox.NetworkNone || policy.Mode == "" {
-		// No REDIRECT rules exist for a none-mode sandbox, so dropping the
-		// policy is enough; live connections are closed as a side effect.
-		a.Proxy.RemovePolicy(sandboxID)
 		return nil
 	}
-	a.Proxy.SetPolicy(sandboxID, policy)
-	return nil
-}
-
-func (a *Agent) setupEgress(ctx context.Context, sb *sandbox.Sandbox, cid string) error {
-	if sb.Spec.Network.Mode == sandbox.NetworkNone || sb.Spec.Network.Mode == "" {
-		return nil
+	gw, ok := a.Pool.GatewayFor(sandboxID)
+	if !ok {
+		return fmt.Errorf("sandbox %s has no egress gateway assignment", sandboxID)
 	}
-	if a.Redirect == nil {
-		return nil
-	}
-	ip, err := a.Driver.ContainerIP(ctx, cid)
-	if err != nil || ip == "" {
-		return err
-	}
-	if a.Proxy != nil {
-		a.Proxy.BindSandboxIP(sb.ID, ip)
-	}
-	return a.Redirect.EnsureSandbox(sb.ID, ip)
+	return a.Pool.UpdatePolicy(ctx, gw, sandboxID, policy)
 }
 
 func (a *Agent) report(ctx context.Context, id string, st sandbox.Status) error {

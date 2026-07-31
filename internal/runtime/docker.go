@@ -3,8 +3,12 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,18 +25,11 @@ import (
 )
 
 const (
-	labelSandboxID = "cellar.sandbox.id"
-	bridgeName     = "cellar-sandboxes"
-
-	// egressDNSBait is the nameserver written into the bind-mounted resolv.conf.
-	// It is not a real resolver: iptables REDIRECTs udp/53 from the sandbox to
-	// cellard's egress proxy before the packet leaves the host. Any non-loopback
-	// IP works; use TEST-NET-3 (RFC 5737) so we do not imply Google/Cloudflare DNS.
-	// HostConfig.DNS cannot deliver this on its own: on user-defined networks
-	// Docker still writes nameserver 127.0.0.11 and treats DNS as the stub's
-	// upstream, and the stub's forwarding does not surface as src=<containerIP>
-	// udp/53 on the bridge (least of all under runsc).
-	egressDNSBait = "203.0.113.53"
+	labelSandboxID   = "cellar.sandbox.id"
+	labelManaged     = "cellar.managed"
+	labelRole        = "cellar.role"
+	labelSandboxNet  = "sandbox-net"
+	labelSandboxIDKey = "cellar.sandbox_id"
 )
 
 // Driver talks to the host Docker Engine using the runsc runtime.
@@ -49,25 +46,20 @@ func NewDriver() (*Driver, error) {
 	return &Driver{cli: cli}, nil
 }
 
+// NewDriverFromClient wraps an existing Docker client.
+func NewDriverFromClient(cli *client.Client) *Driver {
+	return &Driver{cli: cli}
+}
+
+// Client returns the underlying Docker client.
+func (d *Driver) Client() *client.Client { return d.cli }
+
 // Close closes the Docker client.
 func (d *Driver) Close() error {
 	if d.cli == nil {
 		return nil
 	}
 	return d.cli.Close()
-}
-
-// EnsureBridge creates the cellar sandbox bridge network if needed.
-func (d *Driver) EnsureBridge(ctx context.Context) error {
-	_, err := d.cli.NetworkInspect(ctx, bridgeName, network.InspectOptions{})
-	if err == nil {
-		return nil
-	}
-	_, err = d.cli.NetworkCreate(ctx, bridgeName, network.CreateOptions{
-		Driver: "bridge",
-		Labels: map[string]string{"cellar": "true"},
-	})
-	return err
 }
 
 // FindBySandboxID returns a container ID for the sandbox label, if any.
@@ -85,10 +77,123 @@ func (d *Driver) FindBySandboxID(ctx context.Context, sandboxID string) (string,
 	return list[0].ID, nil
 }
 
-// CreateOpts configures cellar-agent injection for a sandbox container.
+// SandboxNetworkName is the Docker network name for a sandbox's internal net.
+func SandboxNetworkName(sandboxID string) string {
+	return "cellar-sb-" + sandboxID
+}
+
+// CreateSandboxNetwork creates an Internal bridge with the given /29 subnet.
+func (d *Driver) CreateSandboxNetwork(ctx context.Context, sandboxID, subnetCIDR, _gatewayIP string) (networkID string, err error) {
+	name := SandboxNetworkName(sandboxID)
+	if existing, err := d.cli.NetworkInspect(ctx, name, network.InspectOptions{}); err == nil {
+		return existing.ID, nil
+	}
+	bridgeGW := dockerBridgeGateway(subnetCIDR)
+	resp, err := d.cli.NetworkCreate(ctx, name, network.CreateOptions{
+		Driver:   "bridge",
+		Internal: true,
+		IPAM: &network.IPAM{
+			Config: []network.IPAMConfig{{
+				Subnet:  subnetCIDR,
+				Gateway: bridgeGW,
+			}},
+		},
+		Labels: map[string]string{
+			labelManaged:      "true",
+			labelRole:         labelSandboxNet,
+			labelSandboxIDKey: sandboxID,
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+func dockerBridgeGateway(cidr string) string {
+	_, n, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return subnetBase(cidr) + ".1"
+	}
+	ip := n.IP.To4()
+	if ip == nil {
+		return subnetBase(cidr) + ".1"
+	}
+	out := make(net.IP, 4)
+	copy(out, ip)
+	out[3]++
+	return out.String()
+}
+
+func subnetBase(cidr string) string {
+	// "172.30.0.0/29" -> "172.30.0"
+	host, _, _ := strings.Cut(cidr, "/")
+	parts := strings.Split(host, ".")
+	if len(parts) != 4 {
+		return "172.30.0"
+	}
+	return parts[0] + "." + parts[1] + "." + parts[2]
+}
+
+// RemoveSandboxNetwork removes the per-sandbox internal network. Idempotent.
+func (d *Driver) RemoveSandboxNetwork(ctx context.Context, sandboxID string) error {
+	name := SandboxNetworkName(sandboxID)
+	err := d.cli.NetworkRemove(ctx, name)
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "No such network") {
+		return nil
+	}
+	return err
+}
+
+// ListManagedSandboxNetworks returns sandboxID -> subnet CIDR for labeled nets.
+func (d *Driver) ListManagedSandboxNetworks(ctx context.Context) (map[string]string, error) {
+	list, err := d.cli.NetworkList(ctx, network.ListOptions{
+		Filters: filters.NewArgs(
+			filters.Arg("label", labelManaged+"=true"),
+			filters.Arg("label", labelRole+"="+labelSandboxNet),
+		),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string)
+	for _, n := range list {
+		id := n.Labels[labelSandboxIDKey]
+		if id == "" {
+			continue
+		}
+		ins, err := d.cli.NetworkInspect(ctx, n.ID, network.InspectOptions{})
+		if err != nil {
+			continue
+		}
+		if len(ins.IPAM.Config) > 0 && ins.IPAM.Config[0].Subnet != "" {
+			out[id] = ins.IPAM.Config[0].Subnet
+		}
+	}
+	return out, nil
+}
+
+// FindSandboxNetworkID returns the Docker network ID for a sandbox, if any.
+func (d *Driver) FindSandboxNetworkID(ctx context.Context, sandboxID string) (string, error) {
+	name := SandboxNetworkName(sandboxID)
+	ins, err := d.cli.NetworkInspect(ctx, name, network.InspectOptions{})
+	if err != nil {
+		return "", err
+	}
+	return ins.ID, nil
+}
+
+// CreateOpts configures cellar-agent injection and optional egress topology.
 type CreateOpts struct {
 	DataDir     string
 	AgentBinary string
+	// Egress fields (empty when NetworkMode is none).
+	NetworkName string // cellar-sb-<id>
+	DNSServer   string // gateway .2
+	SandboxIP   string // conventional .3
 }
 
 // CreateAndStart creates and starts a runsc container with cellar-agent as PID 1.
@@ -117,17 +222,17 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 
 	cfg := &container.Config{
 		Image: sb.Spec.Image,
-		// cellar-agent is PID 1 and must be able to read the bind-mounted
-		// token and create its control socket regardless of the image USER.
-		User: "0:0",
+		User:  "0:0",
 		Env: append(append([]string(nil), sb.Spec.Env...),
 			sandboxagent.EnvSandboxID+"="+sb.ID,
 			sandboxagent.EnvAgentSock+"="+guestAgentSock,
 			sandboxagent.EnvTokenFile+"="+guestRunCellar+"/"+agentTokenName,
 		),
 		WorkingDir: sb.Spec.WorkingDir,
-		Labels:     map[string]string{labelSandboxID: sb.ID},
-		// Always cellar-agent; Spec.Command/Args are ignored (use sandbox exec).
+		Labels: map[string]string{
+			labelSandboxID: sb.ID,
+			labelManaged:   "true",
+		},
 		Entrypoint: []string{guestAgentBin},
 	}
 
@@ -137,6 +242,7 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 			NanoCPUs: sb.Spec.Resources.CPUNanoCores,
 			Memory:   sb.Spec.Resources.MemoryBytes,
 		},
+		CapDrop: []string{"ALL"},
 		Mounts: []mount.Mount{
 			{
 				Type:     mount.TypeBind,
@@ -165,28 +271,17 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 	case sandbox.NetworkNone, "":
 		host.NetworkMode = "none"
 	default:
-		if err := d.EnsureBridge(ctx); err != nil {
+		if opts.NetworkName == "" || opts.DNSServer == "" || opts.SandboxIP == "" {
 			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
-			return "", fmt.Errorf("ensure bridge: %w", err)
+			return "", fmt.Errorf("egress network options required for networked sandbox")
 		}
-		// Mounting over /etc/resolv.conf is what actually bypasses Docker's
-		// embedded stub, so UDP/53 leaves the netns as a real packet that
-		// cellard's iptables REDIRECT can hand to the egress DNS proxy.
-		resolvPath, err := WriteEgressResolvConf(opts.DataDir, sb.ID, egressDNSBait)
-		if err != nil {
-			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
-			return "", err
+		host.DNS = []string{opts.DNSServer}
+		ep := &network.EndpointSettings{
+			IPAMConfig: &network.EndpointIPAMConfig{IPv4Address: opts.SandboxIP},
 		}
-		host.Mounts = append(host.Mounts, mount.Mount{
-			Type:     mount.TypeBind,
-			Source:   resolvPath,
-			Target:   guestResolvConf,
-			ReadOnly: true,
-		})
-		host.DNS = []string{egressDNSBait}
 		netCfg = &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
-				bridgeName: {},
+				opts.NetworkName: ep,
 			},
 		}
 	}
@@ -297,7 +392,7 @@ func (d *Driver) InspectPhase(ctx context.Context, containerID string) (sandbox.
 	}
 }
 
-// ContainerIP returns the IPv4 address on the cellar bridge, if any.
+// ContainerIP returns the IPv4 address on the sandbox's internal network, if any.
 func (d *Driver) ContainerIP(ctx context.Context, containerID string) (string, error) {
 	ins, err := d.cli.ContainerInspect(ctx, containerID)
 	if err != nil {
@@ -306,8 +401,10 @@ func (d *Driver) ContainerIP(ctx context.Context, containerID string) (string, e
 	if ins.NetworkSettings == nil {
 		return "", nil
 	}
-	if n, ok := ins.NetworkSettings.Networks[bridgeName]; ok && n != nil {
-		return n.IPAddress, nil
+	for name, n := range ins.NetworkSettings.Networks {
+		if n != nil && n.IPAddress != "" && strings.HasPrefix(name, "cellar-sb-") {
+			return n.IPAddress, nil
+		}
 	}
 	for _, n := range ins.NetworkSettings.Networks {
 		if n != nil && n.IPAddress != "" {
@@ -380,4 +477,40 @@ func (d *Driver) DefaultOCIRuntimeAvailable(ctx context.Context) error {
 		return fmt.Errorf("docker runtime %q not registered (have: %s); install runsc", name, strings.Join(names, ", "))
 	}
 	return nil
+}
+
+// EgressState is persisted per sandbox for restart recovery.
+type EgressState struct {
+	GatewayID  string `json:"gateway_id"`
+	SubnetCIDR string `json:"subnet_cidr"`
+	NetworkID  string `json:"network_id"`
+	GatewayIP  string `json:"gateway_ip"`
+	SandboxIP  string `json:"sandbox_ip"`
+}
+
+// WriteEgressState persists egress assignment under the sandbox host dir.
+func WriteEgressState(dataDir, sandboxID string, st EgressState) error {
+	path := filepath.Join(SandboxHostDir(dataDir, sandboxID), "egress.json")
+	data, err := json.MarshalIndent(st, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// ReadEgressState loads egress assignment, if present.
+func ReadEgressState(dataDir, sandboxID string) (EgressState, bool, error) {
+	path := filepath.Join(SandboxHostDir(dataDir, sandboxID), "egress.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return EgressState{}, false, nil
+		}
+		return EgressState{}, false, err
+	}
+	var st EgressState
+	if err := json.Unmarshal(data, &st); err != nil {
+		return EgressState{}, false, err
+	}
+	return st, true, nil
 }

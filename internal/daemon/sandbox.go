@@ -12,7 +12,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
-	"github.com/prodioslabs/cellar/internal/egress"
+	"github.com/prodioslabs/cellar/internal/egress/ipam"
+	"github.com/prodioslabs/cellar/internal/egress/pool"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/raftstore"
@@ -53,22 +54,32 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 		log.Printf("oci runtime unavailable: %v (sandbox create will fail on this node)", err)
 		return nil
 	}
-	proxy := egress.NewProxy()
-	if err := proxy.SetPrivateExceptions(d.cfg.EgressAllowPrivate); err != nil {
-		return fmt.Errorf("egress-allow-private-cidrs: %w", err)
+	allocator, err := ipam.New(d.cfg.DataDir, d.cfg.EgressSupernet)
+	if err != nil {
+		_ = drv.Close()
+		return fmt.Errorf("egress ipam: %w", err)
 	}
-	if err := proxy.Start(ctx); err != nil {
-		log.Printf("egress proxy: %v", err)
+	gwPool := pool.New(drv.Client(), pool.Config{
+		DataDir:           d.cfg.DataDir,
+		Image:             d.cfg.EgressGatewayImage,
+		MaxLegs:           d.cfg.EgressGatewayMaxLegs,
+		PrivateExceptions: d.cfg.EgressAllowPrivate,
+	})
+	if err := gwPool.EnsureReady(ctx); err != nil {
+		_ = drv.Close()
+		d.runtimeErr = err
+		log.Printf("egress gateway pool: %v (sandbox create will fail on this node)", err)
+		return nil
 	}
-	redir := egress.NewRedirectManager(proxy.HTTPPort, proxy.TLSPort, proxy.OtherPort, proxy.UDPPort)
 	mat := d.idStore.Material()
 	if mat == nil {
+		_ = drv.Close()
 		return fmt.Errorf("no identity for runtime agent")
 	}
-	agent := runtime.NewAgent(mat.NodeID, drv, proxy, redir, &heartbeatSource{d: d}, &statusReporter{d: d}, d.cfg.DataDir, "")
+	agent := runtime.NewAgent(mat.NodeID, drv, gwPool, allocator, &heartbeatSource{d: d}, &statusReporter{d: d}, d.cfg.DataDir, "")
 	d.driver = drv
-	d.proxy = proxy
-	d.redirect = redir
+	d.gwPool = gwPool
+	d.ipam = allocator
 	d.agent = agent
 	d.runtimeErr = nil
 	d.runtimeSrv = grpcapi.NewRuntimeServer(agent)

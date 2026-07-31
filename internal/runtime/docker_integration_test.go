@@ -37,7 +37,7 @@ func TestCreateAndStartWithNonRootImage(t *testing.T) {
 		Spec: sandbox.Spec{
 			Image: "curlimages/curl",
 			Network: sandbox.NetworkPolicy{
-				Mode: sandbox.NetworkAllowlist,
+				Mode: sandbox.NetworkNone,
 			},
 		},
 	}

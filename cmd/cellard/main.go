@@ -11,6 +11,8 @@ import (
 	"syscall"
 
 	"github.com/prodioslabs/cellar/internal/daemon"
+	"github.com/prodioslabs/cellar/internal/egress/ipam"
+	"github.com/prodioslabs/cellar/internal/egress/pool"
 	"github.com/prodioslabs/cellar/internal/version"
 )
 
@@ -21,6 +23,12 @@ func main() {
 	raftAddr := flag.String("raft-addr", daemon.DefaultRaftAddr, "default raft TCP address")
 	allowPrivate := flag.String("egress-allow-private-cidrs", "",
 		"comma-separated CIDRs to exempt from the sandbox egress internal-range deny list")
+	egressSupernet := flag.String("egress-supernet", ipam.DefaultSupernet,
+		"IPv4 supernet carved into /29s for per-sandbox internal networks")
+	egressImage := flag.String("egress-gateway-image", pool.DefaultImage,
+		"Docker image for the topology egress gateway")
+	egressMaxLegs := flag.Int("egress-gateway-max-legs", pool.DefaultMaxLegs,
+		"max concurrent sandbox network legs per egress gateway container")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 	if *showVersion {
@@ -29,11 +37,14 @@ func main() {
 	}
 
 	d := daemon.New(daemon.Config{
-		DataDir:            *dataDir,
-		SocketPath:         *socket,
-		ListenAddr:         *listen,
-		RaftAddr:           *raftAddr,
-		EgressAllowPrivate: splitCommaList(*allowPrivate),
+		DataDir:              *dataDir,
+		SocketPath:           *socket,
+		ListenAddr:           *listen,
+		RaftAddr:             *raftAddr,
+		EgressAllowPrivate:   splitCommaList(*allowPrivate),
+		EgressSupernet:       *egressSupernet,
+		EgressGatewayImage:   *egressImage,
+		EgressGatewayMaxLegs: *egressMaxLegs,
 	})
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

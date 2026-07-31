@@ -19,7 +19,8 @@ import (
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/ca"
-	"github.com/prodioslabs/cellar/internal/egress"
+	"github.com/prodioslabs/cellar/internal/egress/ipam"
+	"github.com/prodioslabs/cellar/internal/egress/pool"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/identity"
 	"github.com/prodioslabs/cellar/internal/node"
@@ -51,6 +52,12 @@ type Config struct {
 	// EgressAllowPrivate exempts CIDRs from the egress internal-range deny
 	// list. Node-level so a sandbox spec can never widen it.
 	EgressAllowPrivate []string
+	// EgressSupernet is the IPAM pool for per-sandbox /29 networks.
+	EgressSupernet string
+	// EgressGatewayImage is the Docker image for cellar-egress-gateway.
+	EgressGatewayImage string
+	// EgressGatewayMaxLegs caps concurrent sandbox nets per gateway container.
+	EgressGatewayMaxLegs int
 }
 
 // Daemon is the long-running cellar node process.
@@ -65,10 +72,10 @@ type Daemon struct {
 	sandboxServer *grpcapi.SandboxServer
 	sandboxAPI    *grpcapi.SandboxAPIServer
 	runtimeSrv    *grpcapi.RuntimeServer
-	driver        *runtime.Driver
-	proxy         *egress.Proxy
-	redirect      *egress.RedirectManager
-	agent         *runtime.Agent
+	driver   *runtime.Driver
+	gwPool   *pool.Pool
+	ipam     *ipam.Allocator
+	agent    *runtime.Agent
 	// runtimeErr is set when this node cannot start a Docker/runsc agent.
 	// SandboxCreate surfaces it when no other node has a live runtime.
 	runtimeErr   error
@@ -158,8 +165,6 @@ func (d *Daemon) shutdown() {
 	localGRPC := d.localGRPC
 	localLis := d.localLis
 	raft := d.raft
-	redirect := d.redirect
-	proxy := d.proxy
 	driver := d.driver
 	agent := d.agent
 	clusterCancel := d.clusterCancel
@@ -169,8 +174,8 @@ func (d *Daemon) shutdown() {
 	d.localGRPC = nil
 	d.localLis = nil
 	d.raft = nil
-	d.redirect = nil
-	d.proxy = nil
+	d.gwPool = nil
+	d.ipam = nil
 	d.driver = nil
 	d.agent = nil
 	d.caServer = nil
@@ -210,12 +215,6 @@ func (d *Daemon) shutdown() {
 
 	if raft != nil {
 		_ = raft.Close()
-	}
-	if redirect != nil {
-		_ = redirect.Close()
-	}
-	if proxy != nil {
-		_ = proxy.Close()
 	}
 	if driver != nil {
 		_ = driver.Close()
@@ -367,16 +366,14 @@ func (d *Daemon) stopClusterLocal() {
 	remoteGRPC := d.remoteGRPC
 	remoteLis := d.remoteLis
 	raft := d.raft
-	redirect := d.redirect
-	proxy := d.proxy
 	driver := d.driver
 	agent := d.agent
 	clusterCancel := d.clusterCancel
 	d.remoteGRPC = nil
 	d.remoteLis = nil
 	d.raft = nil
-	d.redirect = nil
-	d.proxy = nil
+	d.gwPool = nil
+	d.ipam = nil
 	d.driver = nil
 	d.agent = nil
 	d.caServer = nil
@@ -405,12 +402,6 @@ func (d *Daemon) stopClusterLocal() {
 	}
 	if raft != nil {
 		_ = raft.Close()
-	}
-	if redirect != nil {
-		_ = redirect.Close()
-	}
-	if proxy != nil {
-		_ = proxy.Close()
 	}
 	if driver != nil {
 		_ = driver.Close()
