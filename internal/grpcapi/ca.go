@@ -27,6 +27,7 @@ import (
 type RaftAdmin interface {
 	IsLeader() bool
 	LeaderGRPC() string
+	ListPeers() []raftstore.PeerInfo
 	AddVoter(ctx context.Context, peer raftstore.PeerInfo) error
 	RemoveServer(nodeID string) error
 	IsVoter(nodeID string) bool
@@ -43,12 +44,13 @@ type CAServer struct {
 	mu     sync.RWMutex
 	store  store.Store
 	raft   RaftAdmin
+	host   IdentityProvider
 	root   *ca.RootCA
 	ready  bool
 }
 
-func NewCAServer(s store.Store, raft RaftAdmin) *CAServer {
-	return &CAServer{store: s, raft: raft}
+func NewCAServer(s store.Store, raft RaftAdmin, host IdentityProvider) *CAServer {
+	return &CAServer{store: s, raft: raft, host: host}
 }
 
 // UpdateRootCA loads signing material from the raft Cluster object.
@@ -101,8 +103,8 @@ func (s *CAServer) GetRootCACertificate(ctx context.Context, _ *cellarv1.GetRoot
 }
 
 func (s *CAServer) IssueNodeCertificate(ctx context.Context, req *cellarv1.IssueNodeCertificateRequest) (*cellarv1.IssueNodeCertificateResponse, error) {
-	if err := s.requireLeader(); err != nil {
-		return nil, err
+	if s.raft != nil && !s.raft.IsLeader() {
+		return s.forwardIssue(ctx, req)
 	}
 	if len(req.Csr) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "csr is required")
@@ -155,10 +157,10 @@ func (s *CAServer) IssueNodeCertificate(ctx context.Context, req *cellarv1.Issue
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 	case req.NodeId != "":
-		// Prefer mTLS peer identity when present.
+		// Prefer mTLS peer identity when present; managers may forward renewals.
 		if peerCert := peerCertificate(ctx); peerCert != nil {
-			if peerCert.Subject.CommonName != req.NodeId {
-				return nil, status.Error(codes.PermissionDenied, "client cert CN does not match node_id")
+			if err := requireNodeOrManagerPeer(peerCert, req.NodeId); err != nil {
+				return nil, err
 			}
 		}
 		existing, err = s.store.GetNode(ctx, req.NodeId)
@@ -204,13 +206,52 @@ func (s *CAServer) IssueNodeCertificate(ctx context.Context, req *cellarv1.Issue
 		return nil, mapStoreErr(err)
 	}
 
-	return &cellarv1.IssueNodeCertificateResponse{
-		NodeId:             nodeID,
-		Role:               string(role),
-		Membership:         string(node.MembershipAccepted),
-		Certificate:        issued.CertPEM,
-		ExpiresAtUnixNano:  issued.Cert.NotAfter.UTC().UnixNano(),
-	}, nil
+	resp := &cellarv1.IssueNodeCertificateResponse{
+		NodeId:            nodeID,
+		Role:              string(role),
+		Membership:        string(node.MembershipAccepted),
+		Certificate:       issued.CertPEM,
+		ExpiresAtUnixNano: issued.Cert.NotAfter.UTC().UnixNano(),
+	}
+	s.attachManagerEndpoints(resp)
+	return resp, nil
+}
+
+func (s *CAServer) attachManagerEndpoints(resp *cellarv1.IssueNodeCertificateResponse) {
+	leader, addrs := managerEndpoints(s.raft)
+	resp.LeaderGrpc = leader
+	resp.ManagerAddrs = addrs
+}
+
+func (s *CAServer) forwardIssue(ctx context.Context, req *cellarv1.IssueNodeCertificateRequest) (*cellarv1.IssueNodeCertificateResponse, error) {
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewNodeCAClient(conn).IssueNodeCertificate(ctx, req)
+}
+
+func (s *CAServer) dialLeader(ctx context.Context) (*grpc.ClientConn, error) {
+	_ = ctx
+	addr := ""
+	if s.raft != nil {
+		addr = s.raft.LeaderGRPC()
+		if addr == "" {
+			addr = s.raft.GRPCAdvertise()
+		}
+	}
+	if addr == "" {
+		return nil, status.Error(codes.Unavailable, "no raft leader")
+	}
+	if s.host == nil {
+		return nil, status.Error(codes.FailedPrecondition, "no identity for leader forward")
+	}
+	cert, key, caPEM, err := s.host.IdentityPEMs()
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	return DialMTLS(addr, cert, key, caPEM)
 }
 
 func (s *CAServer) NodeCertificateStatus(ctx context.Context, req *cellarv1.NodeCertificateStatusRequest) (*cellarv1.NodeCertificateStatusResponse, error) {

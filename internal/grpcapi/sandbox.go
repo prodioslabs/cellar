@@ -23,10 +23,11 @@ type SandboxServer struct {
 
 	store store.Store
 	raft  RaftAdmin
+	host  IdentityProvider
 }
 
-func NewSandboxServer(s store.Store, raft RaftAdmin) *SandboxServer {
-	return &SandboxServer{store: s, raft: raft}
+func NewSandboxServer(s store.Store, raft RaftAdmin, host IdentityProvider) *SandboxServer {
+	return &SandboxServer{store: s, raft: raft, host: host}
 }
 
 func (s *SandboxServer) requireLeader() error {
@@ -208,18 +209,14 @@ func (s *SandboxServer) UpdateNetwork(ctx context.Context, req *cellarv1.Sandbox
 }
 
 func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHeartbeatRequest) (*cellarv1.RuntimeHeartbeatResponse, error) {
-	if err := s.requireLeader(); err != nil {
-		return nil, err
+	if s.raft != nil && !s.raft.IsLeader() {
+		return s.forwardHeartbeat(ctx, req)
 	}
 	if req.NodeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "node_id required")
 	}
-	cert := peerCertificate(ctx)
-	if cert == nil {
-		return nil, status.Error(codes.Unauthenticated, "client certificate required")
-	}
-	if cert.Subject.CommonName != req.NodeId {
-		return nil, status.Error(codes.PermissionDenied, "node_id does not match certificate")
+	if err := requireNodeOrManagerPeer(peerCertificate(ctx), req.NodeId); err != nil {
+		return nil, err
 	}
 
 	n, err := s.store.GetNode(ctx, req.NodeId)
@@ -245,12 +242,50 @@ func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHear
 	for _, sb := range assigned {
 		resp.Assigned = append(resp.Assigned, sandbox.ToProto(sb))
 	}
+	s.attachManagerEndpoints(resp)
 	return resp, nil
 }
 
-func (s *SandboxServer) UpdateSandboxStatus(ctx context.Context, req *cellarv1.UpdateSandboxStatusRequest) (*cellarv1.UpdateSandboxStatusResponse, error) {
-	if err := s.requireLeader(); err != nil {
+func (s *SandboxServer) attachManagerEndpoints(resp *cellarv1.RuntimeHeartbeatResponse) {
+	leader, addrs := managerEndpoints(s.raft)
+	resp.LeaderGrpc = leader
+	resp.ManagerAddrs = addrs
+}
+
+func (s *SandboxServer) forwardHeartbeat(ctx context.Context, req *cellarv1.RuntimeHeartbeatRequest) (*cellarv1.RuntimeHeartbeatResponse, error) {
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
 		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewRuntimeAgentClient(conn).Heartbeat(ctx, req)
+}
+
+func (s *SandboxServer) dialLeader(ctx context.Context) (*grpc.ClientConn, error) {
+	_ = ctx
+	addr := ""
+	if s.raft != nil {
+		addr = s.raft.LeaderGRPC()
+		if addr == "" {
+			addr = s.raft.GRPCAdvertise()
+		}
+	}
+	if addr == "" {
+		return nil, status.Error(codes.Unavailable, "no raft leader")
+	}
+	if s.host == nil {
+		return nil, status.Error(codes.FailedPrecondition, "no identity for leader forward")
+	}
+	cert, key, caPEM, err := s.host.IdentityPEMs()
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	return DialMTLS(addr, cert, key, caPEM)
+}
+
+func (s *SandboxServer) UpdateSandboxStatus(ctx context.Context, req *cellarv1.UpdateSandboxStatusRequest) (*cellarv1.UpdateSandboxStatusResponse, error) {
+	if s.raft != nil && !s.raft.IsLeader() {
+		return s.forwardUpdateSandboxStatus(ctx, req)
 	}
 	cert := peerCertificate(ctx)
 	if cert == nil {
@@ -260,8 +295,10 @@ func (s *SandboxServer) UpdateSandboxStatus(ctx context.Context, req *cellarv1.U
 	if err != nil {
 		return nil, mapStoreErr(err)
 	}
-	if sb.NodeID != "" && sb.NodeID != cert.Subject.CommonName {
-		return nil, status.Error(codes.PermissionDenied, "sandbox not assigned to this node")
+	if sb.NodeID != "" {
+		if err := requireNodeOrManagerPeer(cert, sb.NodeID); err != nil {
+			return nil, err
+		}
 	}
 	st := sandbox.StatusFromProto(req.Status)
 	if req.ContainerId != "" {
@@ -274,6 +311,15 @@ func (s *SandboxServer) UpdateSandboxStatus(ctx context.Context, req *cellarv1.U
 		return nil, mapStoreErr(err)
 	}
 	return &cellarv1.UpdateSandboxStatusResponse{}, nil
+}
+
+func (s *SandboxServer) forwardUpdateSandboxStatus(ctx context.Context, req *cellarv1.UpdateSandboxStatusRequest) (*cellarv1.UpdateSandboxStatusResponse, error) {
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewRuntimeAgentClient(conn).UpdateSandboxStatus(ctx, req)
 }
 
 func (s *SandboxServer) ListNodeSandboxes(ctx context.Context, req *cellarv1.ListNodeSandboxesRequest) (*cellarv1.ListNodeSandboxesResponse, error) {
