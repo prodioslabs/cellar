@@ -87,10 +87,12 @@ type NetworkPolicy struct {
 	DNS   *DNSPolicy    `json:"dns,omitempty"`
 	Rules []NetworkRule `json:"rules,omitempty"`
 	// Network limits (translated server-side). At most one of
-	// NetworkAllowList, DomainAllowList, or BlockAll may be set.
-	NetworkAllowList  string `json:"networkAllowList,omitempty"`
-	DomainAllowList   string `json:"domainAllowList,omitempty"`
-	BlockAll          *bool  `json:"blockAll,omitempty"`
+	// NetworkAllowList, DomainAllowList, BlockAll, or AllowAll may be set.
+	NetworkAllowList string `json:"networkAllowList,omitempty"`
+	DomainAllowList  string `json:"domainAllowList,omitempty"`
+	BlockAll         *bool  `json:"blockAll,omitempty"`
+	// AllowAll is full open with egress topology (mode allowall).
+	AllowAll *bool `json:"allowAll,omitempty"`
 	// EssentialServices allows curated package/git/AI domains. Alone (no
 	// other limit) implies BlockAll.
 	EssentialServices bool `json:"essentialServices,omitempty"`

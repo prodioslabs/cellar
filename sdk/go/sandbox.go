@@ -233,6 +233,10 @@ func cloneNetwork(in *NetworkPolicy) *NetworkPolicy {
 		v := *in.BlockAll
 		out.BlockAll = &v
 	}
+	if in.AllowAll != nil {
+		v := *in.AllowAll
+		out.AllowAll = &v
+	}
 	if in.DNS != nil {
 		dns := *in.DNS
 		if in.DNS.Names != nil {

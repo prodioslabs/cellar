@@ -22,7 +22,7 @@ export interface DNSPolicy {
 }
 
 export interface NetworkPolicy {
-  /** none | allowlist | denylist | blockall */
+  /** none | allowlist | denylist | blockall | allowall */
   mode?: string
   dns?: DNSPolicy | undefined
   rules?: NetworkRule[]
@@ -30,9 +30,11 @@ export interface NetworkPolicy {
   networkAllowList?: string
   /** Comma-separated domains / *.wildcards (translated server-side). */
   domainAllowList?: string
-  /** true = blockall; false alone = denylist (full open). */
+  /** true = blockall; false alone = allowall (compat). */
   blockAll?: boolean
-  /** Opt-in curated package/git/AI allowlist. */
+  /** true = allowall (full open with egress topology). */
+  allowAll?: boolean
+  /** Opt-in curated package/git/AI allowlist. Alone implies blockAll. */
   essentialServices?: boolean
 }
 
