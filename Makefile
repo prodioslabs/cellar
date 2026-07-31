@@ -15,8 +15,7 @@ SYSUSERSDIR    ?= $(DESTDIR)/usr/lib/sysusers.d
 
 PROTO_DIR   := api/proto
 GEN_DIR     := api/gen
-AGENT_PROTO := $(PROTO_DIR)/agent.proto
-PROTO_SRCS  := $(filter-out $(AGENT_PROTO),$(wildcard $(PROTO_DIR)/*.proto))
+PROTO_SRCS  := $(wildcard $(PROTO_DIR)/*.proto)
 
 GO          ?= go
 PROTOC      ?= protoc
@@ -75,7 +74,7 @@ cellar:
 
 cellar-agent:
 	@mkdir -p $(BIN_DIR)
-	CGO_ENABLED=0 $(GO) build $(GO_BUILD_FLAGS) -o $(CELLAR_AGENT) ./cmd/cellar-agent
+	CGO_ENABLED=0 GOOS=linux $(GO) build $(GO_BUILD_FLAGS) -o $(CELLAR_AGENT) ./cmd/cellar-agent
 
 cellar-gateway:
 	@mkdir -p $(BIN_DIR)
@@ -122,16 +121,12 @@ tools:
 	$(GO) install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	$(GO) install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
-proto: $(PROTO_SRCS) $(AGENT_PROTO)
-	@mkdir -p $(GEN_DIR) $(GEN_DIR)/agent
+proto: $(PROTO_SRCS)
+	@mkdir -p $(GEN_DIR)
 	$(PROTOC) -I $(PROTO_DIR) \
 		--go_out=$(GEN_DIR) --go_opt=paths=source_relative \
 		--go-grpc_out=$(GEN_DIR) --go-grpc_opt=paths=source_relative \
 		$(PROTO_SRCS)
-	$(PROTOC) -I $(PROTO_DIR) \
-		--go_out=$(GEN_DIR)/agent --go_opt=paths=source_relative \
-		--go-grpc_out=$(GEN_DIR)/agent --go-grpc_opt=paths=source_relative \
-		$(AGENT_PROTO)
 
 test:
 	$(GO) test ./...

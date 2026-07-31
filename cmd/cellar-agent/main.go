@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -11,31 +10,22 @@ import (
 )
 
 func main() {
-	if version.Requested(os.Args[1:]) {
+	args := os.Args[1:]
+	if version.Requested(args) {
 		fmt.Println(version.String())
 		return
 	}
 
-	cfg, err := sandboxagent.LoadConfig()
-	if err != nil {
-		log.Fatalf("cellar-agent config: %v", err)
+	if handled, err := sandboxagent.RunJobCLI(args); handled {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cellar-agent: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	reapStop := make(chan struct{})
-	go sandboxagent.ReapZombies(reapStop)
-	defer close(reapStop)
-
-	go func() {
-		<-sandboxagent.NotifyShutdown()
-		cancel()
-	}()
-
-	log.Printf("cellar-agent %s sandbox=%s sock=%s", version.Version, cfg.SandboxID, cfg.SockPath)
-	if err := sandboxagent.ListenAndServe(ctx, cfg); err != nil {
+	log.Printf("cellar-agent %s (pid 1 init)", version.Version)
+	if err := sandboxagent.RunInit(); err != nil {
 		log.Fatalf("cellar-agent: %v", err)
 	}
-	os.Exit(0)
 }

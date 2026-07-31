@@ -65,12 +65,14 @@ func TestNormalizeSpecRuntime(t *testing.T) {
 }
 
 func TestNormalizeSpecLegacyOCIRuntime(t *testing.T) {
-	s := sandbox.NormalizeSpec(sandbox.Spec{Image: "alpine", Runtime: sandbox.DefaultOCIRuntime})
-	if s.Runtime != "" {
-		t.Fatalf("expected legacy runsc cleared, got %q", s.Runtime)
-	}
-	if s.Image != "alpine" {
-		t.Fatalf("image=%q", s.Image)
+	for _, legacy := range []string{"runsc", "runc"} {
+		s := sandbox.NormalizeSpec(sandbox.Spec{Image: "alpine", Runtime: legacy})
+		if s.Runtime != "" {
+			t.Fatalf("expected legacy %q cleared, got %q", legacy, s.Runtime)
+		}
+		if s.Image != "alpine" {
+			t.Fatalf("image=%q", s.Image)
+		}
 	}
 }
 

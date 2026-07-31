@@ -1,38 +1,22 @@
 package runtime
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
 const (
-	sandboxDirName   = "sandboxes"
-	agentSockName    = "agent.sock"
-	agentTokenName   = "agent.token"
-	resolvConfName   = "resolv.conf"
-	guestAgentSock   = "/run/cellar/agent.sock"
-	guestAgentBin    = "/usr/local/bin/cellar-agent"
-	guestRunCellar   = "/run/cellar"
-	guestResolvConf  = "/etc/resolv.conf"
+	sandboxDirName  = "sandboxes"
+	resolvConfName  = "resolv.conf"
+	guestAgentBin   = "/usr/local/bin/cellar-agent"
+	guestResolvConf = "/etc/resolv.conf"
 	defaultAgentPath = "/usr/lib/cellar/cellar-agent"
 )
 
-// SandboxHostDir is the host directory for a sandbox's agent sock/token.
+// SandboxHostDir is the host directory for a sandbox's resolv.conf / egress state / jobs.
 func SandboxHostDir(dataDir, sandboxID string) string {
 	return filepath.Join(dataDir, sandboxDirName, sandboxID)
-}
-
-// AgentSockPath is the host path of the agent Unix socket.
-func AgentSockPath(dataDir, sandboxID string) string {
-	return filepath.Join(SandboxHostDir(dataDir, sandboxID), agentSockName)
-}
-
-// AgentTokenPath is the host path of the agent bearer token file.
-func AgentTokenPath(dataDir, sandboxID string) string {
-	return filepath.Join(SandboxHostDir(dataDir, sandboxID), agentTokenName)
 }
 
 // ResolvConfPath is the host path of the sandbox's generated resolv.conf.
@@ -53,66 +37,32 @@ func WriteEgressResolvConf(dataDir, sandboxID, nameserver string) (string, error
 	return path, nil
 }
 
-// PrepareSandboxDir creates the sandbox host dir and writes a fresh agent token.
-func PrepareSandboxDir(dataDir, sandboxID string) (token string, err error) {
-	// Keep the parent sandboxes/ directory owner-only so other host users cannot
-	// list or enter per-sandbox dirs (which are world-accessible for gVisor).
+// PrepareSandboxDir creates the sandbox host dir (resolv.conf, egress.json, jobs.json).
+func PrepareSandboxDir(dataDir, sandboxID string) error {
 	parent := filepath.Join(dataDir, sandboxDirName)
 	if err := os.MkdirAll(parent, 0o700); err != nil {
-		return "", fmt.Errorf("mkdir sandboxes dir: %w", err)
+		return fmt.Errorf("mkdir sandboxes dir: %w", err)
 	}
 	if err := os.Chmod(parent, 0o700); err != nil {
-		return "", fmt.Errorf("chmod sandboxes dir: %w", err)
+		return fmt.Errorf("chmod sandboxes dir: %w", err)
 	}
 
 	dir := SandboxHostDir(dataDir, sandboxID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", fmt.Errorf("mkdir sandbox dir: %w", err)
+		return fmt.Errorf("mkdir sandbox dir: %w", err)
 	}
-	// gVisor's gofer enforces host POSIX perms without DAC_OVERRIDE for guest
-	// root. cellard typically runs as non-root (systemd User=cellar), so a
-	// 0700/0600 cellar-owned dir/token is unreadable/unwritable inside the
-	// sandbox. World access on this leaf dir is gated by parent sandboxes/ 0700.
-	if err := os.Chmod(dir, 0o777); err != nil {
-		return "", fmt.Errorf("chmod sandbox dir: %w", err)
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return fmt.Errorf("chmod sandbox dir: %w", err)
 	}
-	// Remove stale socket from a previous run.
-	_ = os.Remove(filepath.Join(dir, agentSockName))
-
-	token, err = mintAgentToken()
-	if err != nil {
-		return "", err
-	}
-	tokenPath := filepath.Join(dir, agentTokenName)
-	if err := os.WriteFile(tokenPath, []byte(token), 0o644); err != nil {
-		return "", fmt.Errorf("write agent token: %w", err)
-	}
-	return token, nil
+	return nil
 }
 
-// CleanupSandboxDir removes the host sandbox dir (sock + token).
+// CleanupSandboxDir removes the host sandbox dir.
 func CleanupSandboxDir(dataDir, sandboxID string) error {
 	if dataDir == "" || sandboxID == "" {
 		return nil
 	}
 	return os.RemoveAll(SandboxHostDir(dataDir, sandboxID))
-}
-
-// ReadAgentToken reads the token file for a sandbox.
-func ReadAgentToken(dataDir, sandboxID string) (string, error) {
-	b, err := os.ReadFile(AgentTokenPath(dataDir, sandboxID))
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
-func mintAgentToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("mint agent token: %w", err)
-	}
-	return hex.EncodeToString(b), nil
 }
 
 // ResolveAgentBinary returns the host path to cellar-agent.

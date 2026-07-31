@@ -8,32 +8,14 @@ import (
 
 func TestPrepareSandboxDir(t *testing.T) {
 	dir := t.TempDir()
-	token, err := PrepareSandboxDir(dir, "abc123")
-	if err != nil {
+	if err := PrepareSandboxDir(dir, "abc123"); err != nil {
 		t.Fatal(err)
-	}
-	if len(token) != 64 {
-		t.Fatalf("token len: got %d", len(token))
-	}
-	got, err := ReadAgentToken(dir, "abc123")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != token {
-		t.Fatalf("token mismatch")
-	}
-	st, err := os.Stat(AgentTokenPath(dir, "abc123"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st.Mode().Perm() != 0o644 {
-		t.Fatalf("token perms: %o", st.Mode().Perm())
 	}
 	dirSt, err := os.Stat(SandboxHostDir(dir, "abc123"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dirSt.Mode().Perm() != 0o777 {
+	if dirSt.Mode().Perm() != 0o700 {
 		t.Fatalf("sandbox dir perms: %o", dirSt.Mode().Perm())
 	}
 	parentSt, err := os.Stat(filepath.Join(dir, sandboxDirName))
@@ -53,7 +35,7 @@ func TestPrepareSandboxDir(t *testing.T) {
 
 func TestWriteEgressResolvConf(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := PrepareSandboxDir(dir, "abc123"); err != nil {
+	if err := PrepareSandboxDir(dir, "abc123"); err != nil {
 		t.Fatal(err)
 	}
 	path, err := WriteEgressResolvConf(dir, "abc123", "203.0.113.53")

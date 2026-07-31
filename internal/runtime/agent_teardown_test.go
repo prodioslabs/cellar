@@ -41,7 +41,7 @@ func TestTeardownLocal(t *testing.T) {
 	}
 
 	for _, id := range []string{"sb-a", "sb-b"} {
-		if _, err := PrepareSandboxDir(dataDir, id); err != nil {
+		if err := PrepareSandboxDir(dataDir, id); err != nil {
 			t.Fatal(err)
 		}
 	}

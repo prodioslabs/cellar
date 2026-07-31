@@ -124,12 +124,6 @@ func NewID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// DefaultOCIRuntime is the OCI runtime name Docker must have registered (gVisor).
-const DefaultOCIRuntime = "runsc"
-
-// DefaultRuntime is kept as an alias for callers that still refer to the OCI runtime.
-const DefaultRuntime = DefaultOCIRuntime
-
 // ValidateSpec checks Spec fields. Exactly one of Image or Runtime must select a
 // container image (Runtime may already be resolved to Image by NormalizeSpec).
 func ValidateSpec(spec Spec) error {
@@ -227,8 +221,8 @@ func validateHostOrCIDR(h string) error {
 
 // NormalizeSpec fills defaults and resolves language runtimes to images.
 func NormalizeSpec(spec Spec) Spec {
-	// Legacy: Runtime previously meant the OCI runtime (always runsc).
-	if spec.Runtime == DefaultOCIRuntime || spec.Runtime == "runc" {
+	// Legacy: Runtime previously meant the OCI runtime (runsc/runc).
+	if spec.Runtime == "runsc" || spec.Runtime == "runc" {
 		spec.Runtime = ""
 	}
 	if img, err := ResolveImage(spec.Runtime); err == nil && strings.TrimSpace(spec.Image) == "" {

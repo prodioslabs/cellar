@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
-	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -72,32 +70,59 @@ func (d *Driver) ExecSession(ctx context.Context, containerID string, cmd []stri
 	return &dockerExecSession{hijacked: hj, cli: d, execID: execID.ID, ctx: ctx}, execID.ID, nil
 }
 
-// AgentExec implements LocalRuntime.Exec for the agent.
-func (a *Agent) Exec(ctx context.Context, sandboxID string, cmd []string, tty, stdin bool) (ExecSession, error) {
-	sock := AgentSockPath(a.DataDir, sandboxID)
-	token, err := ReadAgentToken(a.DataDir, sandboxID)
-	if err == nil {
-		sess, aerr := ExecViaAgent(ctx, sock, strings.TrimSpace(token), cmd, tty, stdin)
-		if aerr == nil {
-			return sess, nil
-		}
-		// Fall back to docker exec if the agent socket is unavailable.
-		log.Printf("sandbox %s agent exec: %v; falling back to docker exec", sandboxID, aerr)
+// ExecDetached starts a detached docker exec and returns the exec ID.
+func (d *Driver) ExecDetached(ctx context.Context, containerID string, cmd []string) (string, error) {
+	if len(cmd) == 0 {
+		return "", fmt.Errorf("command required")
 	}
+	execID, err := d.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+		Cmd:          cmd,
+		AttachStdin:  false,
+		AttachStdout: false,
+		AttachStderr: false,
+		Tty:          false,
+	})
+	if err != nil {
+		return "", err
+	}
+	if err := d.cli.ContainerExecStart(ctx, execID.ID, container.ExecStartOptions{Detach: true}); err != nil {
+		return "", err
+	}
+	return execID.ID, nil
+}
 
-	cid := a.LocalContainerID(sandboxID)
-	if cid == "" {
-		var err error
-		cid, err = a.Driver.FindBySandboxID(ctx, sandboxID)
-		if err != nil {
-			return nil, err
-		}
-		if cid == "" {
-			return nil, fmt.Errorf("sandbox container not found locally")
-		}
+// ExecInspectRunning returns whether the exec is still running and its exit code.
+func (d *Driver) ExecInspectRunning(ctx context.Context, execID string) (running bool, exitCode int, err error) {
+	ins, err := d.cli.ContainerExecInspect(ctx, execID)
+	if err != nil {
+		return false, -1, err
+	}
+	return ins.Running, ins.ExitCode, nil
+}
+
+// AgentExec implements LocalRuntime.Exec via docker exec.
+func (a *Agent) Exec(ctx context.Context, sandboxID string, cmd []string, tty, stdin bool) (ExecSession, error) {
+	cid, err := a.resolveContainerID(ctx, sandboxID)
+	if err != nil {
+		return nil, err
 	}
 	sess, _, err := a.Driver.ExecSession(ctx, cid, cmd, tty, stdin)
 	return sess, err
+}
+
+func (a *Agent) resolveContainerID(ctx context.Context, sandboxID string) (string, error) {
+	cid := a.LocalContainerID(sandboxID)
+	if cid != "" {
+		return cid, nil
+	}
+	cid, err := a.Driver.FindBySandboxID(ctx, sandboxID)
+	if err != nil {
+		return "", err
+	}
+	if cid == "" {
+		return "", fmt.Errorf("sandbox container not found locally")
+	}
+	return cid, nil
 }
 
 // Discard unused import guard

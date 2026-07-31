@@ -48,10 +48,10 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 		log.Printf("docker runtime unavailable: %v (sandbox create will fail on this node)", err)
 		return nil
 	}
-	if err := drv.DefaultOCIRuntimeAvailable(ctx); err != nil {
+	if err := drv.Ping(ctx); err != nil {
 		_ = drv.Close()
 		d.runtimeErr = err
-		log.Printf("oci runtime unavailable: %v (sandbox create will fail on this node)", err)
+		log.Printf("docker ping failed: %v (sandbox create will fail on this node)", err)
 		return nil
 	}
 	allocator, err := ipam.New(d.cfg.DataDir, d.cfg.EgressSupernet)
@@ -99,7 +99,7 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 }
 
 // ensureSandboxCreateRuntime refuses create when no node can run sandboxes,
-// surfacing Docker/runsc errors instead of leaving a pending sandbox.
+// surfacing Docker errors instead of leaving a pending sandbox.
 func (d *Daemon) ensureSandboxCreateRuntime(ctx context.Context, raft *raftstore.Store, drv *runtime.Driver, runtimeErr error) error {
 	now := time.Now().UTC()
 	nodes, err := raft.ListNodes(ctx)
@@ -112,10 +112,10 @@ func (d *Daemon) ensureSandboxCreateRuntime(ctx context.Context, raft *raftstore
 		}
 	}
 	if drv != nil {
-		if err := drv.DefaultOCIRuntimeAvailable(ctx); err != nil {
+		if err := drv.Ping(ctx); err != nil {
 			return status.Error(codes.FailedPrecondition, err.Error())
 		}
-		// Local OCI is registered; allow create before the first heartbeat.
+		// Local Docker is reachable; allow create before the first heartbeat.
 		return nil
 	}
 	if runtimeErr != nil {

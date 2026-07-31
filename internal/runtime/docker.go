@@ -21,7 +21,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 
 	"github.com/prodioslabs/cellar/internal/sandbox"
-	"github.com/prodioslabs/cellar/internal/sandboxagent"
 )
 
 const (
@@ -32,7 +31,7 @@ const (
 	labelSandboxIDKey = "cellar.sandbox_id"
 )
 
-// Driver talks to the host Docker Engine using the runsc runtime.
+// Driver talks to the host Docker Engine.
 type Driver struct {
 	cli *client.Client
 }
@@ -136,8 +135,14 @@ func subnetBase(cidr string) string {
 }
 
 // RemoveSandboxNetwork removes the per-sandbox internal network. Idempotent.
+// Any attached containers (e.g. egress gateway legs) are disconnected first.
 func (d *Driver) RemoveSandboxNetwork(ctx context.Context, sandboxID string) error {
 	name := SandboxNetworkName(sandboxID)
+	if ins, err := d.cli.NetworkInspect(ctx, name, network.InspectOptions{}); err == nil {
+		for cid := range ins.Containers {
+			_ = d.cli.NetworkDisconnect(ctx, name, cid, true)
+		}
+	}
 	err := d.cli.NetworkRemove(ctx, name)
 	if err == nil {
 		return nil
@@ -176,6 +181,19 @@ func (d *Driver) ListManagedSandboxNetworks(ctx context.Context) (map[string]str
 	return out, nil
 }
 
+// SandboxNetworkSubnet returns the IPv4 subnet CIDR for a sandbox network, if any.
+func (d *Driver) SandboxNetworkSubnet(ctx context.Context, sandboxID string) (string, error) {
+	name := SandboxNetworkName(sandboxID)
+	ins, err := d.cli.NetworkInspect(ctx, name, network.InspectOptions{})
+	if err != nil {
+		return "", err
+	}
+	if len(ins.IPAM.Config) == 0 || ins.IPAM.Config[0].Subnet == "" {
+		return "", fmt.Errorf("sandbox network %s has no subnet", name)
+	}
+	return ins.IPAM.Config[0].Subnet, nil
+}
+
 // FindSandboxNetworkID returns the Docker network ID for a sandbox, if any.
 func (d *Driver) FindSandboxNetworkID(ctx context.Context, sandboxID string) (string, error) {
 	name := SandboxNetworkName(sandboxID)
@@ -196,37 +214,32 @@ type CreateOpts struct {
 	SandboxIP   string // conventional .3
 }
 
-// CreateAndStart creates and starts a runsc container with cellar-agent as PID 1.
-func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts CreateOpts) (containerID string, err error) {
-	if err := d.DefaultOCIRuntimeAvailable(ctx); err != nil {
-		return "", err
-	}
+const defaultPidsLimit = int64(4096)
 
+// CreateAndStart creates and starts a container with cellar-agent as PID 1.
+func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts CreateOpts) (containerID string, err error) {
 	if opts.DataDir == "" {
-		return "", fmt.Errorf("data dir required for sandbox agent")
+		return "", fmt.Errorf("data dir required for sandbox")
 	}
 	agentBin, err := ResolveAgentBinary(opts.AgentBinary)
 	if err != nil {
 		return "", err
 	}
-	token, err := PrepareSandboxDir(opts.DataDir, sb.ID)
-	if err != nil {
+	if err := PrepareSandboxDir(opts.DataDir, sb.ID); err != nil {
 		return "", err
 	}
-	hostSandboxDir := SandboxHostDir(opts.DataDir, sb.ID)
 
 	if err := d.pullIfMissing(ctx, sb.Spec.Image); err != nil {
 		_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 		return "", err
 	}
 
+	pidsLimit := defaultPidsLimit
 	cfg := &container.Config{
 		Image: sb.Spec.Image,
 		User:  "0:0",
 		Env: append(append([]string(nil), sb.Spec.Env...),
-			sandboxagent.EnvSandboxID+"="+sb.ID,
-			sandboxagent.EnvAgentSock+"="+guestAgentSock,
-			sandboxagent.EnvTokenFile+"="+guestRunCellar+"/"+agentTokenName,
+			"CELLAR_SANDBOX_ID="+sb.ID,
 		),
 		WorkingDir: sb.Spec.WorkingDir,
 		Labels: map[string]string{
@@ -237,23 +250,19 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 	}
 
 	host := &container.HostConfig{
-		Runtime: sandbox.DefaultOCIRuntime,
 		Resources: container.Resources{
-			NanoCPUs: sb.Spec.Resources.CPUNanoCores,
-			Memory:   sb.Spec.Resources.MemoryBytes,
+			NanoCPUs:  sb.Spec.Resources.CPUNanoCores,
+			Memory:    sb.Spec.Resources.MemoryBytes,
+			PidsLimit: &pidsLimit,
 		},
-		CapDrop: []string{"ALL"},
+		CapDrop:     []string{"ALL"},
+		SecurityOpt: []string{"no-new-privileges:true"},
 		Mounts: []mount.Mount{
 			{
 				Type:     mount.TypeBind,
 				Source:   agentBin,
 				Target:   guestAgentBin,
 				ReadOnly: true,
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: hostSandboxDir,
-				Target: guestRunCellar,
 			},
 		},
 	}
@@ -275,6 +284,21 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 			return "", fmt.Errorf("egress network options required for networked sandbox")
 		}
+		// Mounting over /etc/resolv.conf bypasses Docker's embedded 127.0.0.11
+		// stub. HostConfig.DNS alone still leaves that stub in place on
+		// user-defined networks; the bind mount is the only engine-version-
+		// independent way to force all DNS through the egress gateway.
+		resolvPath, err := WriteEgressResolvConf(opts.DataDir, sb.ID, opts.DNSServer)
+		if err != nil {
+			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
+			return "", err
+		}
+		host.Mounts = append(host.Mounts, mount.Mount{
+			Type:     mount.TypeBind,
+			Source:   resolvPath,
+			Target:   guestResolvConf,
+			ReadOnly: true,
+		})
 		host.DNS = []string{opts.DNSServer}
 		ep := &network.EndpointSettings{
 			IPAMConfig: &network.EndpointIPAMConfig{IPv4Address: opts.SandboxIP},
@@ -297,18 +321,41 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 		return "", err
 	}
 
-	sock := AgentSockPath(opts.DataDir, sb.ID)
-	if err := WaitAgentHealthy(ctx, sock, token, sb.ID, 30*time.Second); err != nil {
+	if err := d.waitContainerRunning(ctx, resp.ID, 30*time.Second); err != nil {
 		diagnostics := d.agentStartupDiagnostics(ctx, resp.ID)
 		_ = d.cli.ContainerStop(ctx, resp.ID, container.StopOptions{})
 		_ = d.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 		_ = CleanupSandboxDir(opts.DataDir, sb.ID)
 		if diagnostics != "" {
-			return "", fmt.Errorf("agent not ready: %w (%s)", err, diagnostics)
+			return "", fmt.Errorf("sandbox not ready: %w (%s)", err, diagnostics)
 		}
-		return "", fmt.Errorf("agent not ready: %w", err)
+		return "", fmt.Errorf("sandbox not ready: %w", err)
 	}
 	return resp.ID, nil
+}
+
+func (d *Driver) waitContainerRunning(ctx context.Context, containerID string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		phase, exitCode, err := d.InspectPhase(ctx, containerID)
+		if err == nil && phase == sandbox.PhaseRunning {
+			return nil
+		}
+		if err == nil && (phase == sandbox.PhaseStopped || phase == sandbox.PhaseFailed) {
+			return fmt.Errorf("container exited (phase=%s exit=%d)", phase, exitCode)
+		}
+		if time.Now().After(deadline) {
+			if err != nil {
+				return fmt.Errorf("timeout waiting for running: %w", err)
+			}
+			return fmt.Errorf("timeout waiting for container to become running (phase=%s)", phase)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
 
 func (d *Driver) agentStartupDiagnostics(ctx context.Context, containerID string) string {
@@ -460,23 +507,6 @@ func (d *Driver) Wait(ctx context.Context, containerID string) (int64, error) {
 func (d *Driver) Ping(ctx context.Context) error {
 	_, err := d.cli.Ping(ctx)
 	return err
-}
-
-// DefaultOCIRuntimeAvailable checks whether gVisor runsc is registered with Docker.
-func (d *Driver) DefaultOCIRuntimeAvailable(ctx context.Context) error {
-	info, err := d.cli.Info(ctx)
-	if err != nil {
-		return err
-	}
-	name := sandbox.DefaultOCIRuntime
-	if _, ok := info.Runtimes[name]; !ok {
-		var names []string
-		for n := range info.Runtimes {
-			names = append(names, n)
-		}
-		return fmt.Errorf("docker runtime %q not registered (have: %s); install runsc", name, strings.Join(names, ", "))
-	}
-	return nil
 }
 
 // EgressState is persisted per sandbox for restart recovery.
