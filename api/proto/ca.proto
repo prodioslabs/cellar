@@ -38,6 +38,8 @@ message IssueNodeCertificateResponse {
   string membership = 3;
   bytes certificate = 4;
   int64 expires_at_unix_nano = 5;
+  string leader_grpc = 6;           // current Raft leader gRPC address
+  repeated string manager_addrs = 7; // known manager gRPC addresses for failover
 }
 
 message NodeCertificateStatusRequest {

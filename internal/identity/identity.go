@@ -42,7 +42,8 @@ type DaemonState struct {
 	AdvertiseAddr  string    `json:"advertise_addr"`
 	ListenAddr     string    `json:"listen_addr"`
 	RaftAddr       string    `json:"raft_addr"`
-	ManagerAddr    string    `json:"manager_addr,omitempty"` // join target / renew / control dial
+	ManagerAddr    string    `json:"manager_addr,omitempty"`  // preferred dial target (often current leader)
+	ManagerAddrs   []string  `json:"manager_addrs,omitempty"` // known manager gRPC addresses for failover
 	Initialized    bool      `json:"initialized"`
 }
 

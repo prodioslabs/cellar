@@ -186,6 +186,8 @@ message RuntimeHeartbeatResponse {
   repeated Sandbox assigned = 1; // sandboxes currently assigned to this node
   string desired_role = 2;       // store role; node applies promote/demote when mismatched
   bool removed = 3;              // node record deleted from cluster; wipe local identity
+  string leader_grpc = 4;        // current Raft leader gRPC address
+  repeated string manager_addrs = 5; // known manager gRPC addresses for failover
 }
 
 message UpdateSandboxStatusRequest {

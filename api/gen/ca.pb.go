@@ -168,6 +168,8 @@ type IssueNodeCertificateResponse struct {
 	Membership        string                 `protobuf:"bytes,3,opt,name=membership,proto3" json:"membership,omitempty"`
 	Certificate       []byte                 `protobuf:"bytes,4,opt,name=certificate,proto3" json:"certificate,omitempty"`
 	ExpiresAtUnixNano int64                  `protobuf:"varint,5,opt,name=expires_at_unix_nano,json=expiresAtUnixNano,proto3" json:"expires_at_unix_nano,omitempty"`
+	LeaderGrpc        string                 `protobuf:"bytes,6,opt,name=leader_grpc,json=leaderGrpc,proto3" json:"leader_grpc,omitempty"`       // current Raft leader gRPC address
+	ManagerAddrs      []string               `protobuf:"bytes,7,rep,name=manager_addrs,json=managerAddrs,proto3" json:"manager_addrs,omitempty"` // known manager gRPC addresses for failover
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -235,6 +237,20 @@ func (x *IssueNodeCertificateResponse) GetExpiresAtUnixNano() int64 {
 		return x.ExpiresAtUnixNano
 	}
 	return 0
+}
+
+func (x *IssueNodeCertificateResponse) GetLeaderGrpc() string {
+	if x != nil {
+		return x.LeaderGrpc
+	}
+	return ""
+}
+
+func (x *IssueNodeCertificateResponse) GetManagerAddrs() []string {
+	if x != nil {
+		return x.ManagerAddrs
+	}
+	return nil
 }
 
 type NodeCertificateStatusRequest struct {
@@ -512,7 +528,7 @@ const file_ca_proto_rawDesc = "" +
 	"\x1bIssueNodeCertificateRequest\x12\x10\n" +
 	"\x03csr\x18\x01 \x01(\fR\x03csr\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12\x17\n" +
-	"\anode_id\x18\x03 \x01(\tR\x06nodeId\"\xbe\x01\n" +
+	"\anode_id\x18\x03 \x01(\tR\x06nodeId\"\x84\x02\n" +
 	"\x1cIssueNodeCertificateResponse\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x1e\n" +
@@ -520,7 +536,10 @@ const file_ca_proto_rawDesc = "" +
 	"membership\x18\x03 \x01(\tR\n" +
 	"membership\x12 \n" +
 	"\vcertificate\x18\x04 \x01(\fR\vcertificate\x12/\n" +
-	"\x14expires_at_unix_nano\x18\x05 \x01(\x03R\x11expiresAtUnixNano\"7\n" +
+	"\x14expires_at_unix_nano\x18\x05 \x01(\x03R\x11expiresAtUnixNano\x12\x1f\n" +
+	"\vleader_grpc\x18\x06 \x01(\tR\n" +
+	"leaderGrpc\x12#\n" +
+	"\rmanager_addrs\x18\a \x03(\tR\fmanagerAddrs\"7\n" +
 	"\x1cNodeCertificateStatusRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\"J\n" +
 	"\x1dNodeCertificateStatusResponse\x12)\n" +
