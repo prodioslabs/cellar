@@ -353,21 +353,31 @@ func (d *Daemon) Leave(ctx context.Context, req *cellarv1.LeaveRequest) (*cellar
 	}
 
 	// Ask the leader to drop Raft membership (managers) and the node record.
-	addr := ""
+	addrs := []string{}
 	if raft != nil {
-		addr = raft.LeaderGRPC()
+		if a := raft.LeaderGRPC(); a != "" {
+			addrs = append(addrs, a)
+		}
 	}
-	if addr == "" {
-		addr = state.ManagerAddr
-	}
-	if addr == "" {
-		addr = state.AdvertiseAddr
-	}
+	addrs = grpcapi.MergeManagerAddrs("", addrs, state.ManagerAddrs, []string{state.ManagerAddr, state.AdvertiseAddr})
 	if role == node.RoleManager && force && raft != nil && raft.NumVoters() <= 1 {
 		// Sole voter: skip remote leave; local wipe abandons the cluster.
-	} else if addr != "" {
-		if err := grpcapi.RaftLeave(ctx, addr, certPEM, keyPEM, caPEM, nodeID); err != nil {
-			log.Printf("cluster leave unregister: %v (continuing local wipe)", err)
+	} else if len(addrs) > 0 {
+		var leaveErr error
+		for _, addr := range addrs {
+			leaveErr = grpcapi.RaftLeave(ctx, addr, certPEM, keyPEM, caPEM, nodeID)
+			if leaveErr == nil {
+				break
+			}
+			if !isRetryableManagerErr(leaveErr) {
+				break
+			}
+		}
+		if leaveErr != nil && !force {
+			return nil, fmt.Errorf("leave cluster: %w", leaveErr)
+		}
+		if leaveErr != nil {
+			log.Printf("cluster leave unregister: %v (continuing local wipe)", leaveErr)
 		}
 	}
 
@@ -468,8 +478,8 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.raft = rs
-	d.caServer = grpcapi.NewCAServer(rs, rs)
-	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
+	d.caServer = grpcapi.NewCAServer(rs, rs, d)
+	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
 	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 	_ = d.caServer.UpdateRootCA(ctx)
 	d.clusterWG.Add(1)
@@ -480,7 +490,7 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	d.clusterWG.Add(1)
 	go func() {
 		defer d.clusterWG.Done()
-		_ = d.renewLoop(ctx, advertise)
+		_ = d.renewLoop(ctx)
 	}()
 	if err := d.startRuntimeLocked(ctx); err != nil {
 		log.Printf("runtime: %v", err)
@@ -489,7 +499,6 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 }
 
 func (d *Daemon) resumeWorker(ctx context.Context, state identity.DaemonState) error {
-	advertise := state.AdvertiseAddr
 	listen := state.ListenAddr
 	if listen == "" {
 		listen = d.cfg.ListenAddr
@@ -497,11 +506,7 @@ func (d *Daemon) resumeWorker(ctx context.Context, state identity.DaemonState) e
 	d.clusterWG.Add(1)
 	go func() {
 		defer d.clusterWG.Done()
-		mgr := state.ManagerAddr
-		if mgr == "" {
-			mgr = advertise
-		}
-		_ = d.renewLoop(ctx, mgr)
+		_ = d.renewLoop(ctx)
 	}()
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -618,8 +623,8 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 		return nil, err
 	}
 	d.raft = rs
-	d.caServer = grpcapi.NewCAServer(rs, rs)
-	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
+	d.caServer = grpcapi.NewCAServer(rs, rs, d)
+	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
 	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 
 	if err := rs.CreateCluster(ctx, store.ClusterConfig{
@@ -655,7 +660,7 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 	d.clusterWG.Add(1)
 	go func() {
 		defer d.clusterWG.Done()
-		_ = d.renewLoop(clusterCtx, advertise)
+		_ = d.renewLoop(clusterCtx)
 	}()
 
 	if err := d.startRuntimeLocked(clusterCtx); err != nil {
@@ -780,13 +785,15 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		}
 	}
 
+	prefer, addrs := seedManagerAddrs(req.RemoteAddr, issued.GetLeaderGrpc(), issued.GetManagerAddrs())
 	state := identity.DaemonState{
 		NodeID:        issued.NodeId,
 		Role:          role,
 		AdvertiseAddr: advertise,
 		ListenAddr:    listen,
 		RaftAddr:      raftAddr,
-		ManagerAddr:   req.RemoteAddr,
+		ManagerAddr:   prefer,
+		ManagerAddrs:  addrs,
 		Initialized:   true,
 	}
 
@@ -827,8 +834,8 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 			return nil, err
 		}
 		d.raft = rs
-		d.caServer = grpcapi.NewCAServer(rs, rs)
-		d.sandboxServer = grpcapi.NewSandboxServer(rs, rs)
+		d.caServer = grpcapi.NewCAServer(rs, rs, d)
+		d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
 		d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 		_ = d.caServer.UpdateRootCA(ctx)
 		clusterCtx := d.ensureClusterCtxLocked()
@@ -840,7 +847,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		d.clusterWG.Add(1)
 		go func() {
 			defer d.clusterWG.Done()
-			_ = d.renewLoop(clusterCtx, req.RemoteAddr)
+			_ = d.renewLoop(clusterCtx)
 		}()
 		if err := d.startRuntimeLocked(clusterCtx); err != nil {
 			log.Printf("runtime: %v", err)
@@ -856,7 +863,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		d.clusterWG.Add(1)
 		go func() {
 			defer d.clusterWG.Done()
-			_ = d.renewLoop(clusterCtx, req.RemoteAddr)
+			_ = d.renewLoop(clusterCtx)
 		}()
 		if err := d.startRuntimeLocked(clusterCtx); err != nil {
 			log.Printf("runtime: %v", err)
@@ -936,7 +943,7 @@ func (d *Daemon) Status(ctx context.Context, _ *cellarv1.StatusRequest) (*cellar
 	return resp, nil
 }
 
-func (d *Daemon) renewLoop(ctx context.Context, managerAddr string) error {
+func (d *Daemon) renewLoop(ctx context.Context) error {
 	for {
 		mat := d.idStore.Material()
 		if mat == nil {
@@ -966,15 +973,17 @@ func (d *Daemon) renewLoop(ctx context.Context, managerAddr string) error {
 		if err != nil {
 			continue
 		}
-		addr := managerAddr
-		if addr == "" {
-			addr = d.idStore.State().AdvertiseAddr
-		}
-		issued, err := grpcapi.IssueRenew(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert, mat.NodeID, csrPEM)
+		var issued *cellarv1.IssueNodeCertificateResponse
+		err = d.forEachManager(func(addr string) error {
+			var rerr error
+			issued, rerr = grpcapi.IssueRenew(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert, mat.NodeID, csrPEM)
+			return rerr
+		})
 		if err != nil {
 			log.Printf("renew: %v", err)
 			continue
 		}
+		d.applyManagerEndpoints(issued.GetLeaderGrpc(), issued.GetManagerAddrs())
 		newMat := &identity.Material{
 			NodeID:      issued.NodeId,
 			Role:        node.Role(issued.Role),

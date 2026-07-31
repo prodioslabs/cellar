@@ -124,20 +124,6 @@ func (d *Daemon) ensureSandboxCreateRuntime(ctx context.Context, raft *raftstore
 	return status.Error(codes.FailedPrecondition, "no node with a live sandbox runtime")
 }
 
-func (d *Daemon) managerDialAddr() string {
-	state := d.idStore.State()
-	if state.ManagerAddr != "" {
-		return state.ManagerAddr
-	}
-	if d.raft != nil {
-		if a := d.raft.LeaderGRPC(); a != "" {
-			return a
-		}
-		return d.raft.GRPCAdvertise()
-	}
-	return state.AdvertiseAddr
-}
-
 func (d *Daemon) fetchAssignments(ctx context.Context) ([]*sandbox.Sandbox, error) {
 	d.mu.Lock()
 	raft := d.raft
@@ -221,18 +207,20 @@ func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 		return nil
 	}
 
-	addr := d.managerDialAddr()
-	if addr == "" {
-		return fmt.Errorf("no manager address")
-	}
-	resp, err := grpcapi.RuntimeHeartbeatRemote(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert, &cellarv1.RuntimeHeartbeatRequest{
-		NodeId:       mat.NodeID,
-		GrpcAddr:     grpcAddr,
-		SandboxCount: int32(count),
+	var resp *cellarv1.RuntimeHeartbeatResponse
+	err := d.forEachManager(func(addr string) error {
+		var herr error
+		resp, herr = grpcapi.RuntimeHeartbeatRemote(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert, &cellarv1.RuntimeHeartbeatRequest{
+			NodeId:       mat.NodeID,
+			GrpcAddr:     grpcAddr,
+			SandboxCount: int32(count),
+		})
+		return herr
 	})
 	if err != nil {
 		return err
 	}
+	d.applyManagerEndpoints(resp.GetLeaderGrpc(), resp.GetManagerAddrs())
 	d.cacheAssigned(resp.Assigned)
 	d.maybeApplyDesiredRole(ctx, resp.DesiredRole, resp.Removed)
 	return nil
@@ -271,24 +259,23 @@ func (d *Daemon) reportSandboxStatus(ctx context.Context, sandboxID string, st s
 		sb.UpdatedAt = st.UpdatedAt
 		return raft.SaveSandbox(ctx, sb)
 	}
-	addr := d.managerDialAddr()
-	return grpcapi.UpdateSandboxStatusRemote(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert, &cellarv1.UpdateSandboxStatusRequest{
-		SandboxId:   sandboxID,
-		Status:      sandbox.StatusToProto(st),
-		ContainerId: st.ContainerID,
+	return d.forEachManager(func(addr string) error {
+		return grpcapi.UpdateSandboxStatusRemote(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert, &cellarv1.UpdateSandboxStatusRequest{
+			SandboxId:   sandboxID,
+			Status:      sandbox.StatusToProto(st),
+			ContainerId: st.ContainerID,
+		})
 	})
 }
 
-func (d *Daemon) dialLeaderControl(ctx context.Context) (addr string, cert, key, ca []byte, err error) {
+func (d *Daemon) withManagerControl(fn func(addr string, cert, key, ca []byte) error) error {
 	mat := d.idStore.Material()
 	if mat == nil {
-		return "", nil, nil, nil, fmt.Errorf("node not joined")
+		return fmt.Errorf("node not joined")
 	}
-	addr = d.managerDialAddr()
-	if addr == "" {
-		return "", nil, nil, nil, fmt.Errorf("no manager address")
-	}
-	return addr, mat.Certificate, mat.PrivateKey, mat.CACert, nil
+	return d.forEachManager(func(addr string) error {
+		return fn(addr, mat.Certificate, mat.PrivateKey, mat.CACert)
+	})
 }
 
 func (d *Daemon) SandboxCreate(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
@@ -304,11 +291,13 @@ func (d *Daemon) SandboxCreate(ctx context.Context, req *cellarv1.SandboxCreateR
 		}
 		return sb.Create(grpcapi.WithInternalCall(ctx), req)
 	}
-	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return grpcapi.SandboxCreateRemote(ctx, addr, cert, key, ca, req)
+	var resp *cellarv1.SandboxCreateResponse
+	err := d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+		var cerr error
+		resp, cerr = grpcapi.SandboxCreateRemote(ctx, addr, cert, key, ca, req)
+		return cerr
+	})
+	return resp, err
 }
 
 func (d *Daemon) SandboxStop(ctx context.Context, req *cellarv1.SandboxStopRequest) (*cellarv1.SandboxStopResponse, error) {
@@ -319,11 +308,13 @@ func (d *Daemon) SandboxStop(ctx context.Context, req *cellarv1.SandboxStopReque
 	if raft != nil && raft.IsLeader() && sb != nil {
 		return sb.Stop(grpcapi.WithInternalCall(ctx), req)
 	}
-	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return grpcapi.SandboxStopRemote(ctx, addr, cert, key, ca, req.SandboxId)
+	var resp *cellarv1.SandboxStopResponse
+	err := d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+		var cerr error
+		resp, cerr = grpcapi.SandboxStopRemote(ctx, addr, cert, key, ca, req.SandboxId)
+		return cerr
+	})
+	return resp, err
 }
 
 func (d *Daemon) SandboxRemove(ctx context.Context, req *cellarv1.SandboxRemoveRequest) (*cellarv1.SandboxRemoveResponse, error) {
@@ -334,11 +325,10 @@ func (d *Daemon) SandboxRemove(ctx context.Context, req *cellarv1.SandboxRemoveR
 	if raft != nil && raft.IsLeader() && sb != nil {
 		return sb.Remove(grpcapi.WithInternalCall(ctx), req)
 	}
-	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
+	err := d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+		return grpcapi.SandboxRemoveRemote(ctx, addr, cert, key, ca, req.SandboxId)
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := grpcapi.SandboxRemoveRemote(ctx, addr, cert, key, ca, req.SandboxId); err != nil {
 		return nil, err
 	}
 	return &cellarv1.SandboxRemoveResponse{}, nil
@@ -352,11 +342,13 @@ func (d *Daemon) SandboxGet(ctx context.Context, req *cellarv1.SandboxGetRequest
 	if raft != nil && sb != nil {
 		return sb.Get(grpcapi.WithInternalCall(ctx), req)
 	}
-	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return grpcapi.SandboxGetRemote(ctx, addr, cert, key, ca, req.SandboxId)
+	var resp *cellarv1.SandboxGetResponse
+	err := d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+		var cerr error
+		resp, cerr = grpcapi.SandboxGetRemote(ctx, addr, cert, key, ca, req.SandboxId)
+		return cerr
+	})
+	return resp, err
 }
 
 func (d *Daemon) SandboxList(ctx context.Context, req *cellarv1.SandboxListRequest) (*cellarv1.SandboxListResponse, error) {
@@ -367,11 +359,13 @@ func (d *Daemon) SandboxList(ctx context.Context, req *cellarv1.SandboxListReque
 	if raft != nil && sb != nil {
 		return sb.List(grpcapi.WithInternalCall(ctx), req)
 	}
-	addr, cert, key, ca, err := d.dialLeaderControl(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return grpcapi.SandboxListRemote(ctx, addr, cert, key, ca)
+	var resp *cellarv1.SandboxListResponse
+	err := d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+		var cerr error
+		resp, cerr = grpcapi.SandboxListRemote(ctx, addr, cert, key, ca)
+		return cerr
+	})
+	return resp, err
 }
 
 // SandboxUpdateNetwork commits a new network policy and then pushes it to the
@@ -387,13 +381,11 @@ func (d *Daemon) SandboxUpdateNetwork(ctx context.Context, req *cellarv1.Sandbox
 	if raft != nil && raft.IsLeader() && srv != nil {
 		resp, err = srv.UpdateNetwork(grpcapi.WithInternalCall(ctx), req)
 	} else {
-		var addr string
-		var cert, key, ca []byte
-		addr, cert, key, ca, err = d.dialLeaderControl(ctx)
-		if err != nil {
-			return nil, err
-		}
-		resp, err = grpcapi.SandboxUpdateNetworkRemote(ctx, addr, cert, key, ca, req)
+		err = d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+			var cerr error
+			resp, cerr = grpcapi.SandboxUpdateNetworkRemote(ctx, addr, cert, key, ca, req)
+			return cerr
+		})
 	}
 	if err != nil {
 		return nil, err
