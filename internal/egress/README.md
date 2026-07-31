@@ -35,16 +35,37 @@ flowchart LR
 
 ## Per-node lifecycle
 
-1. On runtime start, cellard ensures the `cellar-egress` bridge and at least
-   one gateway container (`internal/egress/pool`), and opens an IPAM allocator
-   over `172.30.0.0/16` (`internal/egress/ipam`).
+1. On runtime start, cellard ensures the `cellar-egress` bridge, **removes any
+   leftover** managed gateway containers, and spawns a fresh gateway from the
+   configured image (`internal/egress/pool`). It also opens an IPAM allocator
+   over the configured supernet (`internal/egress/ipam`, default
+   `172.30.0.0/16`). Gateways are not adopted across restarts so a rebuilt
+   image is always used.
 2. Sandbox spawn (ordered):
    1. Allocate a `/29`; `NetworkCreate` an internal net
    2. `NetworkConnect` the chosen gateway at the conventional `.2` address
-   3. gRPC `RegisterSandbox` on the gateway’s Unix control socket
+   3. gRPC `RegisterSandbox` on the gateway’s published control port
    4. `ContainerCreate` the sandbox on that net with `DNS: [.2]` and IP `.3`
-3. Teardown reverses those steps idempotently. A reconciler GCs labeled
-   orphan networks and rebuilds IPAM from Docker state after restart.
+3. Per-sandbox teardown reverses those steps idempotently. On daemon stop (or
+   leave), sandboxes are torn down first, then the pool force-removes all
+   gateway containers. A reconciler GCs labeled orphan networks and rebuilds
+   IPAM from Docker state after restart.
+
+## Configuration
+
+`cellard` flags (see `cmd/cellard`) feed `daemon.Config` → `pool.Config` / IPAM:
+
+| Flag / field | Default | Role |
+|---|---|---|
+| `--egress-gateway-max-legs` (`MaxLegs`) | `100` | Soft cap on concurrent sandbox network legs per gateway container. Each `NetworkConnect` adds one interface. `Assign` picks the least-loaded gateway under the cap and spawns another container when all are full. |
+| `--egress-gateway-image` (`Image`) | `cellar/egress-gateway` | Docker image used when spawning gateway containers. |
+| `--data-dir` (`DataDir`) | OS default | Per-gateway control tokens under `{dataDir}/egress/<gwID>/control.token` and IPAM state at `{dataDir}/egress/ipam.json`. Token dirs are removed with the gateway. |
+| `--egress-allow-private-cidrs` (`PrivateExceptions`) | empty | Comma-separated CIDRs exempted from the gateway’s default deny of RFC1918 / CGNAT / loopback / link-local upstream dials. Node-level policy, not a scaling knob. |
+| `--egress-supernet` | `172.30.0.0/16` | IPv4 space carved into per-sandbox `/29`s (IPAM; orthogonal to MaxLegs). |
+
+Pool internals (not flags): containers are labeled `cellar.managed=true` and
+`cellar.role=egress-gateway`; they attach to the shared `cellar-egress` bridge;
+control is gRPC on published loopback → container `:17948` with a bearer token.
 
 ## IPAM
 
@@ -104,12 +125,6 @@ translated to canonical mode/rules on create/update. Optional
 `essential_services` adds a curated package/git/AI domain allowlist evaluated
 in the gateway.
 
-## Scaling
-
-Each `NetworkConnect` adds an interface in the gateway. Soft cap ≈ 100 legs
-(`--egress-gateway-max-legs`). The pool assigns least-loaded and spawns a new
-gateway when all are full.
-
 ## Image
 
 Networked sandboxes need the `cellar/egress-gateway` Docker image. Build it with:
@@ -118,6 +133,9 @@ Networked sandboxes need the `cellar/egress-gateway` Docker image. Build it with
 curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
 # or from a source checkout: make egress-gateway-image
 ```
+
+Because gateways are recreated on every runtime start, rebuilding the image and
+restarting `cellard` is enough to pick up the new binary.
 
 ## Known tradeoffs
 
