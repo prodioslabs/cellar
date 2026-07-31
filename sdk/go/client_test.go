@@ -497,3 +497,47 @@ func TestCreateMarshalsNativeJSON(t *testing.T) {
 		t.Fatalf("body=%s", body)
 	}
 }
+
+func TestCreateMarshalsNetworkSugar(t *testing.T) {
+	var body []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"sb1"}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(Config{Endpoint: srv.URL, APIKey: "k", HTTPClient: srv.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := true
+	_, err = c.Create(context.Background(), &SandboxCreateRequest{
+		Spec: &SandboxSpec{
+			Image: "alpine:3.20",
+			Network: &NetworkPolicy{
+				DomainAllowList:   "example.com,*.openai.com",
+				EssentialServices: true,
+				BlockAll:          &block, // mutually exclusive server-side; just checking JSON keys
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	spec, _ := got["spec"].(map[string]any)
+	net, _ := spec["network"].(map[string]any)
+	if net["domainAllowList"] != "example.com,*.openai.com" {
+		t.Fatalf("network=%v", net)
+	}
+	if net["essentialServices"] != true {
+		t.Fatalf("network=%v", net)
+	}
+	if net["blockAll"] != true {
+		t.Fatalf("network=%v", net)
+	}
+}

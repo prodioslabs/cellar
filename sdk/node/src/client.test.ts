@@ -96,6 +96,36 @@ describe('Client HTTP API', () => {
     await created.remove()
   })
 
+  it('create sends Daytona-style network sugar', async () => {
+    let createBody: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/v1/sandboxes') && init?.method === 'POST') {
+        createBody = String(init.body ?? '')
+        return jsonResponse(200, { id: 'sb1', desiredState: 'running', status: { phase: 'pending' } })
+      }
+      return jsonResponse(404, { error: 'unexpected' })
+    })
+    const c = Client.create({
+      endpoint: 'https://gw.example',
+      apiKey: 'k',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    await c.create({
+      spec: {
+        image: 'alpine:3.20',
+        network: {
+          domainAllowList: 'example.com,*.openai.com',
+          essentialServices: true,
+        },
+      },
+    })
+    expect(createBody).toBeDefined()
+    const parsed = JSON.parse(createBody!)
+    expect(parsed.spec.network.domainAllowList).toBe('example.com,*.openai.com')
+    expect(parsed.spec.network.essentialServices).toBe(true)
+  })
+
   it('maps API errors', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(404, { error: 'missing', code: 'not_found' }))
     const c = Client.create({

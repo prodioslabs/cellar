@@ -22,10 +22,18 @@ export interface DNSPolicy {
 }
 
 export interface NetworkPolicy {
-  /** none | allowlist | denylist */
-  mode: string
-  dns: DNSPolicy | undefined
-  rules: NetworkRule[]
+  /** none | allowlist | denylist | blockall */
+  mode?: string
+  dns?: DNSPolicy | undefined
+  rules?: NetworkRule[]
+  /** Comma-separated IPv4 CIDRs (Daytona-style; translated server-side). */
+  networkAllowList?: string
+  /** Comma-separated domains / *.wildcards (Daytona-style). */
+  domainAllowList?: string
+  /** true = blockall; false alone = denylist (full open). */
+  blockAll?: boolean
+  /** Opt-in curated package/git/AI allowlist. */
+  essentialServices?: boolean
 }
 
 export interface SandboxSpec {

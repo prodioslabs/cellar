@@ -86,6 +86,12 @@ type NetworkPolicy struct {
 	Mode  string        `json:"mode,omitempty"`
 	DNS   *DNSPolicy    `json:"dns,omitempty"`
 	Rules []NetworkRule `json:"rules,omitempty"`
+	// Daytona-style sugar (translated server-side). At most one of
+	// NetworkAllowList, DomainAllowList, or BlockAll may be set.
+	NetworkAllowList  string `json:"networkAllowList,omitempty"`
+	DomainAllowList   string `json:"domainAllowList,omitempty"`
+	BlockAll          *bool  `json:"blockAll,omitempty"`
+	EssentialServices bool   `json:"essentialServices,omitempty"`
 }
 
 // SandboxSpec is the desired sandbox configuration.
