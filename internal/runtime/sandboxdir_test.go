@@ -26,8 +26,22 @@ func TestPrepareSandboxDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Mode().Perm() != 0o600 {
+	if st.Mode().Perm() != 0o644 {
 		t.Fatalf("token perms: %o", st.Mode().Perm())
+	}
+	dirSt, err := os.Stat(SandboxHostDir(dir, "abc123"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dirSt.Mode().Perm() != 0o777 {
+		t.Fatalf("sandbox dir perms: %o", dirSt.Mode().Perm())
+	}
+	parentSt, err := os.Stat(filepath.Join(dir, sandboxDirName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parentSt.Mode().Perm() != 0o700 {
+		t.Fatalf("sandboxes parent perms: %o", parentSt.Mode().Perm())
 	}
 	if err := CleanupSandboxDir(dir, "abc123"); err != nil {
 		t.Fatal(err)

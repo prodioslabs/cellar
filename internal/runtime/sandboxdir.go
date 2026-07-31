@@ -55,9 +55,26 @@ func WriteEgressResolvConf(dataDir, sandboxID, nameserver string) (string, error
 
 // PrepareSandboxDir creates the sandbox host dir and writes a fresh agent token.
 func PrepareSandboxDir(dataDir, sandboxID string) (token string, err error) {
+	// Keep the parent sandboxes/ directory owner-only so other host users cannot
+	// list or enter per-sandbox dirs (which are world-accessible for gVisor).
+	parent := filepath.Join(dataDir, sandboxDirName)
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return "", fmt.Errorf("mkdir sandboxes dir: %w", err)
+	}
+	if err := os.Chmod(parent, 0o700); err != nil {
+		return "", fmt.Errorf("chmod sandboxes dir: %w", err)
+	}
+
 	dir := SandboxHostDir(dataDir, sandboxID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("mkdir sandbox dir: %w", err)
+	}
+	// gVisor's gofer enforces host POSIX perms without DAC_OVERRIDE for guest
+	// root. cellard typically runs as non-root (systemd User=cellar), so a
+	// 0700/0600 cellar-owned dir/token is unreadable/unwritable inside the
+	// sandbox. World access on this leaf dir is gated by parent sandboxes/ 0700.
+	if err := os.Chmod(dir, 0o777); err != nil {
+		return "", fmt.Errorf("chmod sandbox dir: %w", err)
 	}
 	// Remove stale socket from a previous run.
 	_ = os.Remove(filepath.Join(dir, agentSockName))
@@ -67,7 +84,7 @@ func PrepareSandboxDir(dataDir, sandboxID string) (token string, err error) {
 		return "", err
 	}
 	tokenPath := filepath.Join(dir, agentTokenName)
-	if err := os.WriteFile(tokenPath, []byte(token), 0o600); err != nil {
+	if err := os.WriteFile(tokenPath, []byte(token), 0o644); err != nil {
 		return "", fmt.Errorf("write agent token: %w", err)
 	}
 	return token, nil
