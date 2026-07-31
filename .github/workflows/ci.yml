@@ -1,9 +1,8 @@
 name: CI
 
+# Temporarily disabled — restore push/pull_request triggers to re-enable.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

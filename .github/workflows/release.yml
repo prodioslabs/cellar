@@ -1,9 +1,8 @@
 name: Release
 
+# Temporarily disabled — restore tag push trigger to re-enable.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
