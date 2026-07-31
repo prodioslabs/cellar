@@ -12,7 +12,7 @@ cellar-gateway --listen :8080 --data-dir /var/lib/cellar
 # optional: --upstreams 192.0.2.10:17946,192.0.2.11:17946
 ```
 
-The gateway loads the cluster CA from `--data-dir`. Managers dial their advertise address; workers dial their stored manager address. Override with `--upstreams` for multi-manager failover.
+The gateway loads the cluster CA from `--data-dir`. Managers dial their advertise address; workers dial their stored `manager_addr` plus any rediscovered `manager_addrs` from heartbeats/join. Override with `--upstreams` for an explicit multi-manager list.
 
 ## Health endpoints
 

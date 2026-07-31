@@ -66,8 +66,9 @@ type DataDirResolver struct {
 
 // Resolve returns manager gRPC addresses and the cluster CA PEM.
 // When Overrides is set, those addresses are used; otherwise managers use
-// AdvertiseAddr and workers use ManagerAddr. Identity is reloaded each call
-// so role changes take effect without restarting the gateway.
+// AdvertiseAddr and workers use ManagerAddr plus rediscovered ManagerAddrs.
+// Identity is reloaded each call so role changes take effect without restarting
+// the gateway.
 func (r *DataDirResolver) Resolve() ([]string, []byte, error) {
 	store := identity.NewStore(r.DataDir)
 	if err := store.Load(); err != nil {
@@ -81,24 +82,21 @@ func (r *DataDirResolver) Resolve() ([]string, []byte, error) {
 		return append([]string(nil), r.Overrides...), append([]byte(nil), mat.CACert...), nil
 	}
 	state := store.State()
-	var addr string
+	var addrs []string
 	switch state.Role {
 	case node.RoleManager:
-		addr = state.AdvertiseAddr
+		addr := state.AdvertiseAddr
 		if addr == "" {
 			addr = state.ListenAddr
 		}
+		addrs = grpcapi.MergeManagerAddrs(strings.TrimSpace(addr), state.ManagerAddrs)
 	default:
-		addr = state.ManagerAddr
-		if addr == "" {
-			addr = state.AdvertiseAddr
-		}
+		addrs = grpcapi.MergeManagerAddrs(strings.TrimSpace(state.ManagerAddr), state.ManagerAddrs, []string{strings.TrimSpace(state.AdvertiseAddr)})
 	}
-	addr = strings.TrimSpace(addr)
-	if addr == "" {
+	if len(addrs) == 0 {
 		return nil, nil, fmt.Errorf("no manager address in %s (set --upstreams or join/init cellard)", r.DataDir)
 	}
-	return []string{addr}, append([]byte(nil), mat.CACert...), nil
+	return addrs, append([]byte(nil), mat.CACert...), nil
 }
 
 // GRPCUpstream dials SandboxAPI over TLS with the cluster CA.
