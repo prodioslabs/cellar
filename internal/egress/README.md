@@ -87,7 +87,9 @@ unless carved out with `cellard --egress-allow-private-cidrs`.
 ## Control plane
 
 gRPC over Unix socket (`{dataDir}/egress/<gwID>/control.sock`), bind-mounted
-into the gateway. Proto: [`api/proto/egress_gateway.proto`](../../api/proto/egress_gateway.proto).
+into the gateway. The host directory is `0700` and the socket is `0666` so
+non-root `cellard` (e.g. systemd `User=cellar`) can dial a sock created as
+root inside the container. Proto: [`api/proto/egress_gateway.proto`](../../api/proto/egress_gateway.proto).
 
 - `RegisterSandbox` / `DeregisterSandbox`
 - `UpdatePolicy` — full replace (parity with `UpdateNetwork`)

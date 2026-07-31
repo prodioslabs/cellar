@@ -147,7 +147,12 @@ func (p *Pool) adoptExistingLocked(ctx context.Context) error {
 func (p *Pool) spawnLocked(ctx context.Context) (*Instance, error) {
 	id := fmt.Sprintf("gw-%d", time.Now().UnixNano())
 	hostDir := filepath.Join(p.cfg.DataDir, "egress", id)
-	if err := os.MkdirAll(hostDir, 0o755); err != nil {
+	// 0700 so world-writable control.sock (created as root in the container)
+	// is only reachable by the cellard user that owns this directory.
+	if err := os.MkdirAll(hostDir, 0o700); err != nil {
+		return nil, err
+	}
+	if err := os.Chmod(hostDir, 0o700); err != nil {
 		return nil, err
 	}
 	sock := filepath.Join(hostDir, controlSockName)
@@ -214,13 +219,18 @@ func (p *Pool) pullIfMissing(ctx context.Context, ref string) error {
 
 func waitSock(path string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
+	var lastErr error
 	for time.Now().Before(deadline) {
 		conn, err := net.DialTimeout("unix", path, 200*time.Millisecond)
 		if err == nil {
 			_ = conn.Close()
 			return nil
 		}
+		lastErr = err
 		time.Sleep(100 * time.Millisecond)
+	}
+	if lastErr != nil {
+		return fmt.Errorf("timeout waiting for %s: %w", path, lastErr)
 	}
 	return fmt.Errorf("timeout waiting for %s", path)
 }

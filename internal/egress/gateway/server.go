@@ -123,7 +123,11 @@ func (s *Server) Start(ctx context.Context, sockPath string) error {
 		s.closeListeners()
 		return fmt.Errorf("listen unix %s: %w", sockPath, err)
 	}
-	if err := os.Chmod(sockPath, 0o660); err != nil {
+	// The gateway runs as root in its container, so the bind-mounted sock is
+	// created as root:root on the host. cellard typically runs as a non-root
+	// user (systemd User=cellar), so 0660 would deny dial. Access is still
+	// gated by the host egress gateway dir (0700).
+	if err := os.Chmod(sockPath, 0o666); err != nil {
 		_ = ul.Close()
 		s.closeListeners()
 		return err
