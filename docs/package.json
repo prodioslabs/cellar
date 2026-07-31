@@ -9,7 +9,7 @@
     "lint": "oxlint --fix --fix-suggestions",
     "postinstall": "fumadocs-mdx",
     "start": "next start",
-    "types:check": "fumadocs-mdx && next typegen && tsc --noEmit"
+    "typecheck": "fumadocs-mdx && next typegen && tsc --noEmit"
   },
   "dependencies": {
     "fumadocs-core": "16.8.12",
