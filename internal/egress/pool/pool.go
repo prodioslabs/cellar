@@ -84,23 +84,40 @@ func New(cli *client.Client, cfg Config) *Pool {
 }
 
 // EnsureReady creates the egress bridge and at least one gateway.
+// Any leftover managed gateway containers are removed first so a new image
+// tag is always used (no adopt across restarts).
 func (p *Pool) EnsureReady(ctx context.Context) error {
 	if err := p.ensureEgressNetwork(ctx); err != nil {
 		return err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if err := p.adoptExistingLocked(ctx); err != nil {
-		log.Printf("egress pool adopt: %v", err)
+	if err := p.removeExistingGatewaysLocked(ctx); err != nil {
+		log.Printf("egress pool: remove existing gateways: %v", err)
 	}
-	if len(p.gateways) == 0 {
-		inst, err := p.spawnLocked(ctx)
-		if err != nil {
-			return err
-		}
-		p.gateways = append(p.gateways, inst)
+	inst, err := p.spawnLocked(ctx)
+	if err != nil {
+		return err
 	}
+	p.gateways = []*Instance{inst}
 	return nil
+}
+
+// Close removes all managed egress-gateway containers and clears pool state.
+func (p *Pool) Close(ctx context.Context) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, g := range p.gateways {
+		if g == nil {
+			continue
+		}
+		p.removeObsoleteGateway(ctx, g.CID, g.ID)
+	}
+	p.gateways = nil
+	p.assign = make(map[string]string)
+	if err := p.removeExistingGatewaysLocked(ctx); err != nil {
+		log.Printf("egress pool close: sweep leftovers: %v", err)
+	}
 }
 
 func (p *Pool) ensureEgressNetwork(ctx context.Context) error {
@@ -118,7 +135,7 @@ func (p *Pool) ensureEgressNetwork(ctx context.Context) error {
 	return err
 }
 
-func (p *Pool) adoptExistingLocked(ctx context.Context) error {
+func (p *Pool) removeExistingGatewaysLocked(ctx context.Context) error {
 	list, err := p.cli.ContainerList(ctx, container.ListOptions{
 		All: true,
 		Filters: filters.NewArgs(
@@ -129,47 +146,18 @@ func (p *Pool) adoptExistingLocked(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	p.gateways = nil
 	for _, c := range list {
 		id := c.Labels["cellar.gateway_id"]
-		if id == "" {
-			continue
-		}
-		if c.State != "running" {
-			if err := p.cli.ContainerStart(ctx, c.ID, container.StartOptions{}); err != nil {
-				log.Printf("egress pool: start adopted %s: %v", id, err)
-				p.removeObsoleteGateway(ctx, c.ID, id)
-				continue
-			}
-		}
-		token, err := readToken(p.cfg.DataDir, id)
-		if err != nil {
-			log.Printf("egress pool: removing obsolete gateway %s (no control token): %v", id, err)
-			p.removeObsoleteGateway(ctx, c.ID, id)
-			continue
-		}
-		addr, err := publishedControlAddr(ctx, p.cli, c.ID)
-		if err != nil {
-			log.Printf("egress pool: removing obsolete gateway %s (no published control port): %v", id, err)
-			p.removeObsoleteGateway(ctx, c.ID, id)
-			continue
-		}
-		if err := waitTCP(addr, 30*time.Second); err != nil {
-			log.Printf("egress pool: removing obsolete gateway %s (control dial failed): %v", id, err)
-			p.removeObsoleteGateway(ctx, c.ID, id)
-			continue
-		}
-		p.gateways = append(p.gateways, &Instance{
-			ID:          id,
-			CID:         c.ID,
-			ControlAddr: addr,
-			Token:       token,
-		})
+		p.removeObsoleteGateway(ctx, c.ID, id)
 	}
+	p.gateways = nil
 	return nil
 }
 
 func (p *Pool) removeObsoleteGateway(ctx context.Context, containerID, gwID string) {
+	if containerID == "" {
+		return
+	}
 	_ = p.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if gwID != "" && p.cfg.DataDir != "" {
 		_ = os.RemoveAll(filepath.Join(p.cfg.DataDir, "egress", gwID))
@@ -256,18 +244,6 @@ func mintToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
-}
-
-func readToken(dataDir, gwID string) (string, error) {
-	b, err := os.ReadFile(filepath.Join(dataDir, "egress", gwID, tokenFileName))
-	if err != nil {
-		return "", err
-	}
-	tok := string(b)
-	if tok == "" {
-		return "", fmt.Errorf("empty token")
-	}
-	return tok, nil
 }
 
 func publishedControlAddr(ctx context.Context, cli *client.Client, containerID string) (string, error) {
@@ -388,8 +364,8 @@ func (p *Pool) GatewayFor(sandboxID string) (*Instance, bool) {
 	return nil, false
 }
 
-// SetAssignment records that sandboxID is on gw without incrementing legs
-// (used when adopting live state after restart).
+// SetAssignment records that sandboxID is on gwID and increments that
+// gateway's leg count when the instance is known to the pool.
 func (p *Pool) SetAssignment(sandboxID, gwID string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

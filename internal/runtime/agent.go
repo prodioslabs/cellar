@@ -425,7 +425,6 @@ func (a *Agent) teardownEgress(ctx context.Context, sandboxID string) {
 		if g, found := a.Pool.GatewayFor(sandboxID); found {
 			gw = g
 		} else if ok && st.GatewayID != "" {
-			// Best-effort: try GatewayFor after SetAssignment recovery
 			gw, _ = a.Pool.GatewayFor(sandboxID)
 		}
 		if gw != nil {
