@@ -37,6 +37,7 @@ type sandboxCreateNetwork struct {
 	NetworkAllowList  string `yaml:"network_allow_list"`
 	DomainAllowList   string `yaml:"domain_allow_list"`
 	BlockAll          *bool  `yaml:"block_all"`
+	AllowAll          *bool  `yaml:"allow_all"`
 	EssentialServices bool   `yaml:"essential_services"`
 }
 
@@ -63,6 +64,7 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 	cidrs := strings.TrimSpace(doc.Network.NetworkAllowList)
 	domains := strings.TrimSpace(doc.Network.DomainAllowList)
 	hasBlock := doc.Network.BlockAll != nil
+	hasAllowAll := doc.Network.AllowAll != nil && *doc.Network.AllowAll
 	limitCount := 0
 	if cidrs != "" {
 		limitCount++
@@ -73,9 +75,12 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 	if hasBlock && *doc.Network.BlockAll {
 		limitCount++
 	}
-	blockAllFalseAlone := hasBlock && !*doc.Network.BlockAll && cidrs == "" && domains == ""
+	if hasAllowAll {
+		limitCount++
+	}
+	blockAllFalseAlone := hasBlock && !*doc.Network.BlockAll && cidrs == "" && domains == "" && !hasAllowAll
 	if limitCount > 1 {
-		return nil, fmt.Errorf("network_allow_list, domain_allow_list, and block_all are mutually exclusive")
+		return nil, fmt.Errorf("network_allow_list, domain_allow_list, block_all, and allow_all are mutually exclusive")
 	}
 
 	var netPol *cellarv1.NetworkPolicy
@@ -88,6 +93,10 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 		if hasBlock {
 			v := *doc.Network.BlockAll
 			netPol.BlockAll = &v
+		}
+		if hasAllowAll {
+			v := true
+			netPol.AllowAll = &v
 		}
 	} else if doc.Network.EssentialServices {
 		// essential_services alone implies block_all.

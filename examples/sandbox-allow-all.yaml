@@ -1,0 +1,6 @@
+# Allow all outbound traffic (egress topology kept so policy can change live).
+# Usage: cellar sandbox create -f examples/sandbox-allow-all.yaml
+id: demo-open
+image: curlimages/curl
+network:
+  allow_all: true

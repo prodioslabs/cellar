@@ -114,6 +114,7 @@ func TestLoadSandboxCreateFileExamples(t *testing.T) {
 		"../../examples/sandbox-allowlist.yaml",
 		"../../examples/sandbox-domain-allowlist.yaml",
 		"../../examples/sandbox-block-all.yaml",
+		"../../examples/sandbox-allow-all.yaml",
 		"../../examples/sandbox-essential-services.yaml",
 		"../../examples/sandbox-runtime.yaml",
 	} {
@@ -162,6 +163,24 @@ network:
 	}
 	if req.Spec.Network.BlockAll == nil || !*req.Spec.Network.BlockAll {
 		t.Fatal("expected block_all true")
+	}
+}
+
+func TestParseSandboxCreateFileAllowAll(t *testing.T) {
+	const yamlDoc = `
+image: alpine
+network:
+  allow_all: true
+`
+	req, err := parseSandboxCreateFile([]byte(yamlDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Spec.Network.AllowAll == nil || !*req.Spec.Network.AllowAll {
+		t.Fatal("expected allow_all true")
+	}
+	if req.Spec.Network.Mode != "" {
+		t.Fatalf("mode should be empty (limits), got %q", req.Spec.Network.Mode)
 	}
 }
 
