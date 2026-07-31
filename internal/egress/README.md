@@ -67,9 +67,12 @@ The gateway runs DNS on UDP+TCP `:53` bound to each sandbox leg’s `.2` IP.
 - Denied → **NXDOMAIN**
 - Never return real upstream IPs to sandboxes
 
-Docker’s embedded resolver (`127.0.0.11`) may sit in front and forward to the
-configured DNS. Attribution uses which gateway leg received the query.
-Hardcoded IP escape attempts fail structurally (no route off the internal net).
+Sandboxes bind-mount a generated `resolv.conf` (`nameserver <gateway .2>`)
+over `/etc/resolv.conf`. `HostConfig.DNS` alone is not enough: on user-defined
+networks Docker still writes `127.0.0.11`, and that stub's forwarding behavior
+varies by Engine version (and can escape topology on older engines). Attribution
+uses which gateway leg received the query. Hardcoded IP escape attempts fail
+structurally (no route off the internal net).
 
 ## Data plane
 
@@ -86,10 +89,10 @@ unless carved out with `cellard --egress-allow-private-cidrs`.
 
 ## Control plane
 
-gRPC over Unix socket (`{dataDir}/egress/<gwID>/control.sock`), bind-mounted
-into the gateway. The host directory is `0700` and the socket is `0666` so
-non-root `cellard` (e.g. systemd `User=cellar`) can dial a sock created as
-root inside the container. Proto: [`api/proto/egress_gateway.proto`](../../api/proto/egress_gateway.proto).
+gRPC over a published loopback TCP port (`127.0.0.1:<ephemeral>` → container
+`:17948`). The pool mints a bearer token, stores it under
+`{dataDir}/egress/<gwID>/control.token`, and passes it to the gateway via
+`CELLAR_EGRESS_CONTROL_TOKEN`. Proto: [`api/proto/egress_gateway.proto`](../../api/proto/egress_gateway.proto).
 
 - `RegisterSandbox` / `DeregisterSandbox`
 - `UpdatePolicy` — full replace (parity with `UpdateNetwork`)

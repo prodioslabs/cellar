@@ -2,37 +2,43 @@ package pool
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
 const (
-	DefaultImage    = "cellar/egress-gateway"
-	DefaultMaxLegs  = 100
-	labelManaged    = "cellar.managed"
-	labelRole       = "cellar.role"
-	roleGateway     = "egress-gateway"
-	EgressNetName   = "cellar-egress"
-	controlSockName = "control.sock"
-	guestControlDir = "/run/cellar/egress"
+	DefaultImage       = "cellar/egress-gateway"
+	DefaultMaxLegs     = 100
+	labelManaged       = "cellar.managed"
+	labelRole          = "cellar.role"
+	roleGateway        = "egress-gateway"
+	EgressNetName      = "cellar-egress"
+	controlPort        = "17948"
+	controlPortProto   = "17948/tcp"
+	tokenFileName      = "control.token"
+	envControlToken    = "CELLAR_EGRESS_CONTROL_TOKEN"
 )
 
 // Config configures the gateway container pool.
@@ -45,10 +51,11 @@ type Config struct {
 
 // Instance is one egress-gateway container.
 type Instance struct {
-	ID       string // short gateway id (directory / label)
-	CID      string // docker container id
-	SockPath string
-	Legs     int
+	ID          string // short gateway id (directory / label)
+	CID         string // docker container id
+	ControlAddr string // host dial address, e.g. 127.0.0.1:32768
+	Token       string
+	Legs        int
 }
 
 // Pool manages shared egress-gateway containers on a node.
@@ -128,40 +135,72 @@ func (p *Pool) adoptExistingLocked(ctx context.Context) error {
 		if id == "" {
 			continue
 		}
-		sock := filepath.Join(p.cfg.DataDir, "egress", id, controlSockName)
 		if c.State != "running" {
 			if err := p.cli.ContainerStart(ctx, c.ID, container.StartOptions{}); err != nil {
 				log.Printf("egress pool: start adopted %s: %v", id, err)
+				p.removeObsoleteGateway(ctx, c.ID, id)
 				continue
 			}
 		}
+		token, err := readToken(p.cfg.DataDir, id)
+		if err != nil {
+			log.Printf("egress pool: removing obsolete gateway %s (no control token): %v", id, err)
+			p.removeObsoleteGateway(ctx, c.ID, id)
+			continue
+		}
+		addr, err := publishedControlAddr(ctx, p.cli, c.ID)
+		if err != nil {
+			log.Printf("egress pool: removing obsolete gateway %s (no published control port): %v", id, err)
+			p.removeObsoleteGateway(ctx, c.ID, id)
+			continue
+		}
+		if err := waitTCP(addr, 30*time.Second); err != nil {
+			log.Printf("egress pool: removing obsolete gateway %s (control dial failed): %v", id, err)
+			p.removeObsoleteGateway(ctx, c.ID, id)
+			continue
+		}
 		p.gateways = append(p.gateways, &Instance{
-			ID:       id,
-			CID:      c.ID,
-			SockPath: sock,
+			ID:          id,
+			CID:         c.ID,
+			ControlAddr: addr,
+			Token:       token,
 		})
 	}
 	return nil
 }
 
+func (p *Pool) removeObsoleteGateway(ctx context.Context, containerID, gwID string) {
+	_ = p.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
+	if gwID != "" && p.cfg.DataDir != "" {
+		_ = os.RemoveAll(filepath.Join(p.cfg.DataDir, "egress", gwID))
+	}
+}
+
 func (p *Pool) spawnLocked(ctx context.Context) (*Instance, error) {
 	id := fmt.Sprintf("gw-%d", time.Now().UnixNano())
 	hostDir := filepath.Join(p.cfg.DataDir, "egress", id)
-	// 0700 so world-writable control.sock (created as root in the container)
-	// is only reachable by the cellard user that owns this directory.
 	if err := os.MkdirAll(hostDir, 0o700); err != nil {
 		return nil, err
 	}
 	if err := os.Chmod(hostDir, 0o700); err != nil {
 		return nil, err
 	}
-	sock := filepath.Join(hostDir, controlSockName)
-	_ = os.Remove(sock)
+	token, err := mintToken()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filepath.Join(hostDir, tokenFileName), []byte(token), 0o600); err != nil {
+		return nil, err
+	}
 
 	if err := p.pullIfMissing(ctx, p.cfg.Image); err != nil {
 		return nil, err
 	}
 
+	exposed, err := nat.NewPort("tcp", controlPort)
+	if err != nil {
+		return nil, err
+	}
 	cfg := &container.Config{
 		Image: p.cfg.Image,
 		Labels: map[string]string{
@@ -169,16 +208,22 @@ func (p *Pool) spawnLocked(ctx context.Context) (*Instance, error) {
 			labelRole:           roleGateway,
 			"cellar.gateway_id": id,
 		},
-		Entrypoint: []string{"/usr/local/bin/cellar-egress-gateway", "-control-sock", guestControlDir + "/" + controlSockName},
+		Env:          []string{envControlToken + "=" + token},
+		ExposedPorts: nat.PortSet{exposed: struct{}{}},
+		Entrypoint: []string{
+			"/usr/local/bin/cellar-egress-gateway",
+			"-control-addr", "0.0.0.0:" + controlPort,
+		},
 	}
 	host := &container.HostConfig{
 		CapAdd:        []string{"NET_ADMIN"},
 		RestartPolicy: container.RestartPolicy{Name: "always"},
-		Mounts: []mount.Mount{{
-			Type:   mount.TypeBind,
-			Source: hostDir,
-			Target: guestControlDir,
-		}},
+		PortBindings: nat.PortMap{
+			exposed: []nat.PortBinding{{
+				HostIP:   "127.0.0.1",
+				HostPort: "0",
+			}},
+		},
 	}
 	netCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
@@ -193,12 +238,55 @@ func (p *Pool) spawnLocked(ctx context.Context) (*Instance, error) {
 		_ = p.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 		return nil, fmt.Errorf("start egress gateway: %w", err)
 	}
-	inst := &Instance{ID: id, CID: resp.ID, SockPath: sock}
-	if err := waitSock(sock, 30*time.Second); err != nil {
+	addr, err := publishedControlAddr(ctx, p.cli, resp.ID)
+	if err != nil {
 		_ = p.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
-		return nil, fmt.Errorf("egress gateway control sock: %w", err)
+		return nil, fmt.Errorf("egress gateway published port: %w", err)
 	}
-	return inst, nil
+	if err := waitTCP(addr, 30*time.Second); err != nil {
+		_ = p.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		return nil, fmt.Errorf("egress gateway control: %w", err)
+	}
+	return &Instance{ID: id, CID: resp.ID, ControlAddr: addr, Token: token}, nil
+}
+
+func mintToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func readToken(dataDir, gwID string) (string, error) {
+	b, err := os.ReadFile(filepath.Join(dataDir, "egress", gwID, tokenFileName))
+	if err != nil {
+		return "", err
+	}
+	tok := string(b)
+	if tok == "" {
+		return "", fmt.Errorf("empty token")
+	}
+	return tok, nil
+}
+
+func publishedControlAddr(ctx context.Context, cli *client.Client, containerID string) (string, error) {
+	ins, err := cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return "", err
+	}
+	if ins.NetworkSettings == nil {
+		return "", fmt.Errorf("no network settings")
+	}
+	bindings := ins.NetworkSettings.Ports[nat.Port(controlPortProto)]
+	if len(bindings) == 0 || bindings[0].HostPort == "" {
+		return "", fmt.Errorf("control port %s not published", controlPort)
+	}
+	hostIP := bindings[0].HostIP
+	if hostIP == "" || hostIP == "0.0.0.0" {
+		hostIP = "127.0.0.1"
+	}
+	return net.JoinHostPort(hostIP, bindings[0].HostPort), nil
 }
 
 func (p *Pool) pullIfMissing(ctx context.Context, ref string) error {
@@ -217,11 +305,11 @@ func (p *Pool) pullIfMissing(ctx context.Context, ref string) error {
 	return nil
 }
 
-func waitSock(path string, timeout time.Duration) error {
+func waitTCP(addr string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("unix", path, 200*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
 		if err == nil {
 			_ = conn.Close()
 			return nil
@@ -230,9 +318,9 @@ func waitSock(path string, timeout time.Duration) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 	if lastErr != nil {
-		return fmt.Errorf("timeout waiting for %s: %w", path, lastErr)
+		return fmt.Errorf("timeout waiting for %s: %w", addr, lastErr)
 	}
-	return fmt.Errorf("timeout waiting for %s", path)
+	return fmt.Errorf("timeout waiting for %s", addr)
 }
 
 // Assign picks the least-loaded gateway under MaxLegs, spawning if needed.
@@ -315,10 +403,59 @@ func (p *Pool) SetAssignment(sandboxID, gwID string) {
 }
 
 // ConnectSandbox attaches the gateway to an internal network at gatewayIP.
+// Idempotent: if already connected at that IP, it succeeds. Stale holders of
+// the address (e.g. an obsolete gateway left after a restart) are disconnected first.
 func (p *Pool) ConnectSandbox(ctx context.Context, gw *Instance, networkID, gatewayIP string) error {
-	return p.cli.NetworkConnect(ctx, networkID, gw.CID, &network.EndpointSettings{
+	if err := p.clearGatewayAddress(ctx, networkID, gw.CID, gatewayIP); err != nil {
+		log.Printf("egress pool: clear gateway address on %s: %v", networkID, err)
+	}
+	err := p.cli.NetworkConnect(ctx, networkID, gw.CID, &network.EndpointSettings{
 		IPAMConfig: &network.EndpointIPAMConfig{IPv4Address: gatewayIP},
 	})
+	if err == nil {
+		return nil
+	}
+	// Already connected with the same endpoint is fine.
+	if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "already connected") {
+		return nil
+	}
+	if strings.Contains(err.Error(), "Address already in use") {
+		_ = p.clearGatewayAddress(ctx, networkID, gw.CID, gatewayIP)
+		return p.cli.NetworkConnect(ctx, networkID, gw.CID, &network.EndpointSettings{
+			IPAMConfig: &network.EndpointIPAMConfig{IPv4Address: gatewayIP},
+		})
+	}
+	return err
+}
+
+func (p *Pool) clearGatewayAddress(ctx context.Context, networkID, gatewayCID, gatewayIP string) error {
+	ins, err := p.cli.NetworkInspect(ctx, networkID, network.InspectOptions{})
+	if err != nil {
+		return err
+	}
+	for cid, ep := range ins.Containers {
+		sameContainer := cid == gatewayCID || strings.HasPrefix(gatewayCID, cid) || strings.HasPrefix(cid, gatewayCID)
+		ip := endpointIPv4(ep.IPv4Address)
+		holdsTarget := gatewayIP != "" && ip == gatewayIP
+		if sameContainer || holdsTarget {
+			_ = p.cli.NetworkDisconnect(ctx, networkID, cid, true)
+		}
+	}
+	return nil
+}
+
+func endpointIPv4(cidrOrIP string) string {
+	if cidrOrIP == "" {
+		return ""
+	}
+	ip, _, err := net.ParseCIDR(cidrOrIP)
+	if err == nil && ip != nil {
+		return ip.String()
+	}
+	if ip := net.ParseIP(cidrOrIP); ip != nil {
+		return ip.String()
+	}
+	return ""
 }
 
 // DisconnectSandbox detaches the gateway from a network.
@@ -326,18 +463,35 @@ func (p *Pool) DisconnectSandbox(ctx context.Context, gw *Instance, networkID st
 	return p.cli.NetworkDisconnect(ctx, networkID, gw.CID, true)
 }
 
-// ControlClient dials the gateway's Unix control socket.
-func ControlClient(sockPath string) (cellarv1.EgressGatewayControlClient, *grpc.ClientConn, error) {
-	conn, err := grpc.NewClient("unix://"+sockPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// ControlClient dials the gateway's published loopback control port with bearer auth.
+func ControlClient(addr, token string) (cellarv1.EgressGatewayControlClient, *grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(bearerUnary(token)),
+		grpc.WithStreamInterceptor(bearerStream(token)),
+	)
 	if err != nil {
 		return nil, nil, err
 	}
 	return cellarv1.NewEgressGatewayControlClient(conn), conn, nil
 }
 
+func bearerUnary(token string) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		return invoker(metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token), method, req, reply, cc, opts...)
+	}
+}
+
+func bearerStream(token string) grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		return streamer(metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token), desc, cc, method, opts...)
+	}
+}
+
 // RegisterSandbox pushes session state to the gateway.
 func (p *Pool) RegisterSandbox(ctx context.Context, gw *Instance, sandboxID, networkID, subnetCIDR, gatewayIP string, policy sandbox.NetworkPolicy) error {
-	cli, conn, err := ControlClient(gw.SockPath)
+	cli, conn, err := ControlClient(gw.ControlAddr, gw.Token)
 	if err != nil {
 		return err
 	}
@@ -355,7 +509,7 @@ func (p *Pool) RegisterSandbox(ctx context.Context, gw *Instance, sandboxID, net
 
 // DeregisterSandbox tells the gateway to drop a sandbox.
 func (p *Pool) DeregisterSandbox(ctx context.Context, gw *Instance, sandboxID string) error {
-	cli, conn, err := ControlClient(gw.SockPath)
+	cli, conn, err := ControlClient(gw.ControlAddr, gw.Token)
 	if err != nil {
 		return err
 	}
@@ -366,7 +520,7 @@ func (p *Pool) DeregisterSandbox(ctx context.Context, gw *Instance, sandboxID st
 
 // UpdatePolicy replaces policy on the gateway.
 func (p *Pool) UpdatePolicy(ctx context.Context, gw *Instance, sandboxID string, policy sandbox.NetworkPolicy) error {
-	cli, conn, err := ControlClient(gw.SockPath)
+	cli, conn, err := ControlClient(gw.ControlAddr, gw.Token)
 	if err != nil {
 		return err
 	}

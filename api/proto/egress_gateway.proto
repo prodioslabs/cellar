@@ -6,8 +6,8 @@ option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
 
 import "sandbox.proto";
 
-// EgressGatewayControl is served by cellar-egress-gateway over a Unix socket.
-// Cellard is the only client; auth is filesystem permissions on the socket.
+// EgressGatewayControl is served by cellar-egress-gateway over a published
+// loopback TCP port. Cellard authenticates with a bearer token.
 service EgressGatewayControl {
   rpc RegisterSandbox(RegisterSandboxRequest) returns (RegisterSandboxResponse);
   rpc DeregisterSandbox(DeregisterSandboxRequest) returns (DeregisterSandboxResponse);

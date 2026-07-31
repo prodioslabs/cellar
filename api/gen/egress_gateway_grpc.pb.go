@@ -28,8 +28,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// EgressGatewayControl is served by cellar-egress-gateway over a Unix socket.
-// Cellard is the only client; auth is filesystem permissions on the socket.
+// EgressGatewayControl is served by cellar-egress-gateway over a published
+// loopback TCP port. Cellard authenticates with a bearer token.
 type EgressGatewayControlClient interface {
 	RegisterSandbox(ctx context.Context, in *RegisterSandboxRequest, opts ...grpc.CallOption) (*RegisterSandboxResponse, error)
 	DeregisterSandbox(ctx context.Context, in *DeregisterSandboxRequest, opts ...grpc.CallOption) (*DeregisterSandboxResponse, error)
@@ -79,8 +79,8 @@ func (c *egressGatewayControlClient) UpdatePolicy(ctx context.Context, in *Updat
 // All implementations must embed UnimplementedEgressGatewayControlServer
 // for forward compatibility.
 //
-// EgressGatewayControl is served by cellar-egress-gateway over a Unix socket.
-// Cellard is the only client; auth is filesystem permissions on the socket.
+// EgressGatewayControl is served by cellar-egress-gateway over a published
+// loopback TCP port. Cellard authenticates with a bearer token.
 type EgressGatewayControlServer interface {
 	RegisterSandbox(context.Context, *RegisterSandboxRequest) (*RegisterSandboxResponse, error)
 	DeregisterSandbox(context.Context, *DeregisterSandboxRequest) (*DeregisterSandboxResponse, error)

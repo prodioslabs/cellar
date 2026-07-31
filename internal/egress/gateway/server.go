@@ -1,5 +1,5 @@
 // Package gateway implements the topology-based egress gateway data plane
-// and gRPC control server (Unix socket).
+// and gRPC control server (TCP + bearer token).
 package gateway
 
 import (
@@ -9,9 +9,7 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -79,8 +77,9 @@ type Server struct {
 	tlsLis   net.Listener
 	otherLis net.Listener
 
-	sockPath string
-	grpcSrv  *grpc.Server
+	controlLis   net.Listener
+	controlToken string
+	grpcSrv      *grpc.Server
 }
 
 // New creates an unstarted gateway server.
@@ -91,60 +90,6 @@ func New() *Server {
 		bySBIP:   make(map[string]string),
 		conns:    make(map[string]map[*liveConn]bool),
 	}
-}
-
-// Start binds data-plane listeners and the control Unix socket.
-func (s *Server) Start(ctx context.Context, sockPath string) error {
-	s.sockPath = sockPath
-	if err := os.MkdirAll(filepath.Dir(sockPath), 0o755); err != nil {
-		return err
-	}
-	_ = os.Remove(sockPath)
-
-	httpLis, err := net.Listen("tcp", "0.0.0.0:80")
-	if err != nil {
-		return fmt.Errorf("listen :80: %w", err)
-	}
-	tlsLis, err := net.Listen("tcp", "0.0.0.0:443")
-	if err != nil {
-		_ = httpLis.Close()
-		return fmt.Errorf("listen :443: %w", err)
-	}
-	otherLis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", catchAllPort))
-	if err != nil {
-		_ = httpLis.Close()
-		_ = tlsLis.Close()
-		return fmt.Errorf("listen :%d: %w", catchAllPort, err)
-	}
-	s.httpLis, s.tlsLis, s.otherLis = httpLis, tlsLis, otherLis
-
-	ul, err := net.Listen("unix", sockPath)
-	if err != nil {
-		s.closeListeners()
-		return fmt.Errorf("listen unix %s: %w", sockPath, err)
-	}
-	// The gateway runs as root in its container, so the bind-mounted sock is
-	// created as root:root on the host. cellard typically runs as a non-root
-	// user (systemd User=cellar), so 0660 would deny dial. Access is still
-	// gated by the host egress gateway dir (0700).
-	if err := os.Chmod(sockPath, 0o666); err != nil {
-		_ = ul.Close()
-		s.closeListeners()
-		return err
-	}
-	s.grpcSrv = grpc.NewServer()
-	cellarv1.RegisterEgressGatewayControlServer(s.grpcSrv, s)
-
-	go s.serveTCP(ctx, s.httpLis, kindHTTP)
-	go s.serveTCP(ctx, s.tlsLis, kindTLS)
-	go s.serveTCP(ctx, s.otherLis, kindOther)
-	go func() {
-		if err := s.grpcSrv.Serve(ul); err != nil {
-			log.Printf("egress-gateway control: %v", err)
-		}
-	}()
-	log.Printf("egress-gateway listening http=:80 tls=:443 other=:%d control=%s", catchAllPort, sockPath)
-	return nil
 }
 
 // Close stops listeners and the control server.
@@ -162,14 +107,11 @@ func (s *Server) Close() error {
 		_, _ = s.DeregisterSandbox(context.Background(), &cellarv1.DeregisterSandboxRequest{SandboxId: id})
 	}
 	s.closeListeners()
-	if s.sockPath != "" {
-		_ = os.Remove(s.sockPath)
-	}
 	return nil
 }
 
 func (s *Server) closeListeners() {
-	for _, l := range []net.Listener{s.httpLis, s.tlsLis, s.otherLis} {
+	for _, l := range []net.Listener{s.httpLis, s.tlsLis, s.otherLis, s.controlLis} {
 		if l != nil {
 			_ = l.Close()
 		}
