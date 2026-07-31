@@ -188,6 +188,16 @@ func TestBlockAllDeniesEverything(t *testing.T) {
 	}
 }
 
+func TestAllowAllAllowsEverything(t *testing.T) {
+	ev := egress.NewEvaluator(sandbox.NetworkPolicy{Mode: sandbox.NetworkAllowAll})
+	if d, _ := ev.AllowConnect("example.com", net.ParseIP("93.184.216.34"), 443); d != egress.Allow {
+		t.Fatal("expected allow connect in allowall")
+	}
+	if ev.AllowDNS("example.com") != egress.Allow {
+		t.Fatal("expected allow dns in allowall")
+	}
+}
+
 func TestEssentialServicesOverride(t *testing.T) {
 	ev := egress.NewEvaluator(sandbox.NetworkPolicy{
 		Mode:              sandbox.NetworkBlockAll,

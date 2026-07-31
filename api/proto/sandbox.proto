@@ -78,19 +78,20 @@ message DNSPolicy {
 }
 
 message NetworkPolicy {
-  string mode = 1; // none | allowlist | denylist | blockall
+  string mode = 1; // none | allowlist | denylist | blockall | allowall
   DNSPolicy dns = 2;
   repeated NetworkRule rules = 3;
   // Network limits (translated to mode/rules server-side; not stored).
-  // At most one of network_allow_list, domain_allow_list, or block_all may be
-  // set, and none may combine with structured mode/rules/dns. Empty strings
-  // count as unset.
+  // At most one of network_allow_list, domain_allow_list, block_all, or
+  // allow_all may be set, and none may combine with structured mode/rules/dns.
+  // Empty strings count as unset.
   string network_allow_list = 4; // comma-separated IPv4 CIDRs, max 10
   string domain_allow_list = 5;  // comma-separated domains / *.wildcards, max 20
-  optional bool block_all = 6;   // true = blockall; false alone = denylist (full open)
+  optional bool block_all = 6;   // true = blockall; false alone = allowall (compat)
   // Opt-in curated package/git/AI allowlist. Alone (no other limit, mode
   // empty/none) implies block_all so those hosts are reachable.
   bool essential_services = 7;
+  optional bool allow_all = 8; // true = allowall (full open with egress topology)
 }
 
 message SandboxSpec {

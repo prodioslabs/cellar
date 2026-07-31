@@ -9,7 +9,7 @@ import (
 )
 
 func TestResolveNetworkAllowList(t *testing.T) {
-	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "208.80.154.232/32, 192.168.1.0/24", "", nil, false)
+	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "208.80.154.232/32, 192.168.1.0/24", "", nil, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestResolveNetworkAllowList(t *testing.T) {
 }
 
 func TestResolveDomainAllowList(t *testing.T) {
-	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "example.com, *.openai.com", nil, true)
+	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "example.com, *.openai.com", nil, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestResolveDomainAllowList(t *testing.T) {
 
 func TestResolveBlockAll(t *testing.T) {
 	tru := true
-	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", &tru, false)
+	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", &tru, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,43 +66,70 @@ func TestResolveBlockAll(t *testing.T) {
 	}
 
 	fals := false
-	np, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", &fals, false)
+	np, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", &fals, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if np.Mode != sandbox.NetworkDenylist {
-		t.Fatalf("mode=%q want denylist", np.Mode)
+	if np.Mode != sandbox.NetworkAllowAll {
+		t.Fatalf("mode=%q want allowall", np.Mode)
 	}
 	if len(np.Rules) != 0 {
 		t.Fatalf("rules=%#v", np.Rules)
 	}
 }
 
-func TestResolveMutualExclusion(t *testing.T) {
+func TestResolveAllowAll(t *testing.T) {
 	tru := true
-	_, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "10.0.0.0/8", "example.com", nil, false)
+	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", nil, &tru, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if np.Mode != sandbox.NetworkAllowAll {
+		t.Fatalf("mode=%q", np.Mode)
+	}
+	if np.DNS.Mode != sandbox.DNSDenylist {
+		t.Fatalf("dns=%q", np.DNS.Mode)
+	}
+
+	np, err = sandbox.ResolveNetworkPolicyFromProto(&cellarv1.NetworkPolicy{AllowAll: &tru})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if np.Mode != sandbox.NetworkAllowAll {
+		t.Fatalf("mode=%q", np.Mode)
+	}
+
+	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "example.com", nil, &tru, false)
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Fatalf("expected mutually exclusive, got %v", err)
 	}
-	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "10.0.0.0/8", "", &tru, false)
+}
+
+func TestResolveMutualExclusion(t *testing.T) {
+	tru := true
+	_, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "10.0.0.0/8", "example.com", nil, nil, false)
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected mutually exclusive, got %v", err)
+	}
+	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "10.0.0.0/8", "", &tru, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Fatalf("expected mutually exclusive, got %v", err)
 	}
 	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{
 		Mode: sandbox.NetworkAllowlist,
 		Rules: []sandbox.NetworkRule{{Hosts: []string{"x.com"}}},
-	}, "10.0.0.0/8", "", nil, false)
+	}, "10.0.0.0/8", "", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "cannot combine") {
 		t.Fatalf("expected cannot combine, got %v", err)
 	}
 }
 
 func TestResolveNetworkAllowListValidation(t *testing.T) {
-	_, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "208.80.154.232", "", nil, false)
+	_, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "208.80.154.232", "", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "CIDR required") {
 		t.Fatalf("expected CIDR required, got %v", err)
 	}
-	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "2001:db8::/32", "", nil, false)
+	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "2001:db8::/32", "", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "IPv4") {
 		t.Fatalf("expected IPv4 only, got %v", err)
 	}
@@ -110,22 +137,22 @@ func TestResolveNetworkAllowListValidation(t *testing.T) {
 	for i := range parts {
 		parts[i] = "10.0.0.0/32"
 	}
-	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, strings.Join(parts, ","), "", nil, false)
+	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, strings.Join(parts, ","), "", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "max 10") {
 		t.Fatalf("expected max 10, got %v", err)
 	}
 }
 
 func TestResolveDomainAllowListValidation(t *testing.T) {
-	_, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "https://example.com", nil, false)
+	_, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "https://example.com", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "domains only") {
 		t.Fatalf("expected domains only, got %v", err)
 	}
-	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "example.com:443", nil, false)
+	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "example.com:443", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "domains only") {
 		t.Fatalf("expected domains only, got %v", err)
 	}
-	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "10.0.0.0/8", nil, false)
+	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "10.0.0.0/8", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "network_allow_list") {
 		t.Fatalf("expected CIDR rejected, got %v", err)
 	}
@@ -133,7 +160,7 @@ func TestResolveDomainAllowListValidation(t *testing.T) {
 	for i := range parts {
 		parts[i] = "example.com"
 	}
-	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", strings.Join(parts, ","), nil, false)
+	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", strings.Join(parts, ","), nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "max 20") {
 		t.Fatalf("expected max 20, got %v", err)
 	}
@@ -167,7 +194,7 @@ func TestResolveNetworkPolicyFromProto(t *testing.T) {
 }
 
 func TestResolveEssentialServicesAloneImpliesBlockAll(t *testing.T) {
-	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", nil, true)
+	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", nil, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +226,7 @@ func TestResolveEssentialServicesAloneImpliesBlockAll(t *testing.T) {
 		EssentialServices: true,
 		Rules:             []sandbox.NetworkRule{{Hosts: []string{"example.com"}}},
 		DNS:               sandbox.DNSPolicy{Mode: sandbox.DNSAllowlist, Names: []string{"example.com"}},
-	}, "", "", nil, true)
+	}, "", "", nil, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}

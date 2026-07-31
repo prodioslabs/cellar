@@ -37,9 +37,11 @@ const (
 	NetworkAllowlist NetworkMode = "allowlist"
 	NetworkDenylist  NetworkMode = "denylist"
 	// NetworkBlockAll is deny-all with egress topology present, so it can be
-	// toggled live to/from allowlist or denylist. Unlike NetworkNone, which
-	// means no bridge / no gateway.
+	// toggled live to/from allowlist, denylist, or allowall. Unlike NetworkNone,
+	// which means no bridge / no gateway.
 	NetworkBlockAll NetworkMode = "blockall"
+	// NetworkAllowAll is allow-all with egress topology present (live-toggleable).
+	NetworkAllowAll NetworkMode = "allowall"
 )
 
 // DNSMode controls DNS resolution policy inside the egress path.
@@ -160,7 +162,7 @@ func ValidateSpec(spec Spec) error {
 // accepted; NormalizeSpec fills in none.
 func ValidateNetworkPolicy(np NetworkPolicy) error {
 	switch np.Mode {
-	case "", NetworkNone, NetworkAllowlist, NetworkDenylist, NetworkBlockAll:
+	case "", NetworkNone, NetworkAllowlist, NetworkDenylist, NetworkBlockAll, NetworkAllowAll:
 	default:
 		return fmt.Errorf("invalid network mode %q", np.Mode)
 	}
@@ -241,7 +243,7 @@ func (m NetworkMode) asDNS() DNSMode {
 	switch m {
 	case NetworkAllowlist:
 		return DNSAllowlist
-	case NetworkDenylist:
+	case NetworkDenylist, NetworkAllowAll:
 		return DNSDenylist
 	case NetworkBlockAll:
 		return DNSNone

@@ -55,6 +55,9 @@ func (e *Evaluator) AllowConnect(hostname string, ip net.IP, port uint32) (Decis
 		}
 		return Deny, MatchNone
 	}
+	if mode == sandbox.NetworkAllowAll {
+		return Allow, MatchNone
+	}
 	if e.policy.EssentialServices && hostname != "" && sandbox.IsEssentialHost(hostname) {
 		return Allow, MatchDomain
 	}
@@ -108,6 +111,9 @@ func (e *Evaluator) AllowDNS(name string) Decision {
 			return Allow
 		}
 		return Deny
+	}
+	if e.policy.Mode == sandbox.NetworkAllowAll {
+		return Allow
 	}
 	if mode == "" || mode == sandbox.DNSNone {
 		return Deny

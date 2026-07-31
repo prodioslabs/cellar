@@ -247,17 +247,20 @@ func (x *DNSPolicy) GetNames() []string {
 
 type NetworkPolicy struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Mode  string                 `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"` // none | allowlist | denylist | blockall
+	Mode  string                 `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"` // none | allowlist | denylist | blockall | allowall
 	Dns   *DNSPolicy             `protobuf:"bytes,2,opt,name=dns,proto3" json:"dns,omitempty"`
 	Rules []*NetworkRule         `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
 	// Network limits (translated to mode/rules server-side; not stored).
-	// At most one of network_allow_list, domain_allow_list, or block_all may be
-	// set, and none may combine with structured mode/rules/dns. Empty strings
-	// count as unset.
-	NetworkAllowList  string `protobuf:"bytes,4,opt,name=network_allow_list,json=networkAllowList,proto3" json:"network_allow_list,omitempty"`   // comma-separated IPv4 CIDRs, max 10
-	DomainAllowList   string `protobuf:"bytes,5,opt,name=domain_allow_list,json=domainAllowList,proto3" json:"domain_allow_list,omitempty"`      // comma-separated domains / *.wildcards, max 20
-	BlockAll          *bool  `protobuf:"varint,6,opt,name=block_all,json=blockAll,proto3,oneof" json:"block_all,omitempty"`                      // true = blockall; false alone = denylist (full open)
-	EssentialServices bool   `protobuf:"varint,7,opt,name=essential_services,json=essentialServices,proto3" json:"essential_services,omitempty"` // opt-in curated package/git/AI allowlist
+	// At most one of network_allow_list, domain_allow_list, block_all, or
+	// allow_all may be set, and none may combine with structured mode/rules/dns.
+	// Empty strings count as unset.
+	NetworkAllowList string `protobuf:"bytes,4,opt,name=network_allow_list,json=networkAllowList,proto3" json:"network_allow_list,omitempty"` // comma-separated IPv4 CIDRs, max 10
+	DomainAllowList  string `protobuf:"bytes,5,opt,name=domain_allow_list,json=domainAllowList,proto3" json:"domain_allow_list,omitempty"`    // comma-separated domains / *.wildcards, max 20
+	BlockAll         *bool  `protobuf:"varint,6,opt,name=block_all,json=blockAll,proto3,oneof" json:"block_all,omitempty"`                    // true = blockall; false alone = allowall (compat)
+	// Opt-in curated package/git/AI allowlist. Alone (no other limit, mode
+	// empty/none) implies block_all so those hosts are reachable.
+	EssentialServices bool  `protobuf:"varint,7,opt,name=essential_services,json=essentialServices,proto3" json:"essential_services,omitempty"`
+	AllowAll          *bool `protobuf:"varint,8,opt,name=allow_all,json=allowAll,proto3,oneof" json:"allow_all,omitempty"` // true = allowall (full open with egress topology)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -337,6 +340,13 @@ func (x *NetworkPolicy) GetBlockAll() bool {
 func (x *NetworkPolicy) GetEssentialServices() bool {
 	if x != nil {
 		return x.EssentialServices
+	}
+	return false
+}
+
+func (x *NetworkPolicy) GetAllowAll() bool {
+	if x != nil && x.AllowAll != nil {
+		return *x.AllowAll
 	}
 	return false
 }
@@ -2479,7 +2489,7 @@ const file_sandbox_proto_rawDesc = "" +
 	"\tprotocols\x18\x03 \x03(\tR\tprotocols\"5\n" +
 	"\tDNSPolicy\x12\x12\n" +
 	"\x04mode\x18\x01 \x01(\tR\x04mode\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\"\xb2\x02\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\"\xe2\x02\n" +
 	"\rNetworkPolicy\x12\x12\n" +
 	"\x04mode\x18\x01 \x01(\tR\x04mode\x12&\n" +
 	"\x03dns\x18\x02 \x01(\v2\x14.cellar.v1.DNSPolicyR\x03dns\x12,\n" +
@@ -2487,9 +2497,12 @@ const file_sandbox_proto_rawDesc = "" +
 	"\x12network_allow_list\x18\x04 \x01(\tR\x10networkAllowList\x12*\n" +
 	"\x11domain_allow_list\x18\x05 \x01(\tR\x0fdomainAllowList\x12 \n" +
 	"\tblock_all\x18\x06 \x01(\bH\x00R\bblockAll\x88\x01\x01\x12-\n" +
-	"\x12essential_services\x18\a \x01(\bR\x11essentialServicesB\f\n" +
+	"\x12essential_services\x18\a \x01(\bR\x11essentialServices\x12 \n" +
+	"\tallow_all\x18\b \x01(\bH\x01R\ballowAll\x88\x01\x01B\f\n" +
 	"\n" +
-	"_block_all\"\xb0\x02\n" +
+	"_block_allB\f\n" +
+	"\n" +
+	"_allow_all\"\xb0\x02\n" +
 	"\vSandboxSpec\x12\x14\n" +
 	"\x05image\x18\x01 \x01(\tR\x05image\x12\x18\n" +
 	"\acommand\x18\x02 \x03(\tR\acommand\x12\x12\n" +

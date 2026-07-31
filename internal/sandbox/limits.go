@@ -19,13 +19,14 @@ const (
 // essential_services with no other network limit (and mode empty or none)
 // implies block_all so curated hosts are reachable; essentials are ignored
 // in mode none.
-func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList string, blockAll *bool, essentialServices bool) (NetworkPolicy, error) {
+func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList string, blockAll, allowAll *bool, essentialServices bool) (NetworkPolicy, error) {
 	out := np
 	out.EssentialServices = essentialServices || np.EssentialServices
 
 	allowCIDRs := strings.TrimSpace(networkAllowList)
 	allowDomains := strings.TrimSpace(domainAllowList)
 	hasBlock := blockAll != nil
+	hasAllowAll := allowAll != nil && *allowAll
 	limitCount := 0
 	if allowCIDRs != "" {
 		limitCount++
@@ -36,19 +37,23 @@ func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList st
 	if hasBlock && *blockAll {
 		limitCount++
 	}
-	// block_all:false alone means "full open" (denylist, no rules).
-	blockAllFalseAlone := hasBlock && !*blockAll && allowCIDRs == "" && allowDomains == ""
-	// essential_services alone (no CIDR/domain/block_all, mode empty/none)
-	// means block everything except curated hosts.
-	essentialsAlone := out.EssentialServices && allowCIDRs == "" && allowDomains == "" && !hasBlock &&
+	if hasAllowAll {
+		limitCount++
+	}
+	// block_all:false alone means "full open" (allowall); kept for compat with
+	// --network-block-all=false. Prefer allow_all:true / --network-allow-all.
+	blockAllFalseAlone := hasBlock && !*blockAll && allowCIDRs == "" && allowDomains == "" && !hasAllowAll
+	// essential_services alone (no other limit, mode empty/none) means block
+	// everything except curated hosts.
+	essentialsAlone := out.EssentialServices && allowCIDRs == "" && allowDomains == "" && !hasBlock && !hasAllowAll &&
 		(np.Mode == "" || np.Mode == NetworkNone) &&
 		len(np.Rules) == 0 && np.DNS.Mode == "" && len(np.DNS.Names) == 0
 
 	if limitCount > 1 {
-		return NetworkPolicy{}, fmt.Errorf("network_allow_list, domain_allow_list, and block_all are mutually exclusive; set at most one")
+		return NetworkPolicy{}, fmt.Errorf("network_allow_list, domain_allow_list, block_all, and allow_all are mutually exclusive; set at most one")
 	}
 	if (limitCount > 0 || blockAllFalseAlone) && hasStructuredNetwork(np) {
-		return NetworkPolicy{}, fmt.Errorf("cannot combine network_allow_list/domain_allow_list/block_all with structured network mode, rules, or dns")
+		return NetworkPolicy{}, fmt.Errorf("cannot combine network_allow_list/domain_allow_list/block_all/allow_all with structured network mode, rules, or dns")
 	}
 
 	switch {
@@ -72,8 +77,8 @@ func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList st
 		out.Mode = NetworkBlockAll
 		out.Rules = nil
 		out.DNS = DNSPolicy{Mode: DNSNone}
-	case blockAllFalseAlone:
-		out.Mode = NetworkDenylist
+	case hasAllowAll, blockAllFalseAlone:
+		out.Mode = NetworkAllowAll
 		out.Rules = nil
 		out.DNS = DNSPolicy{Mode: DNSDenylist}
 	case essentialsAlone:

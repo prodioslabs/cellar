@@ -81,7 +81,12 @@ func ResolveNetworkPolicyFromProto(p *cellarv1.NetworkPolicy) (NetworkPolicy, er
 		v := p.GetBlockAll()
 		blockAll = &v
 	}
-	return ResolveNetworkPolicy(base, p.NetworkAllowList, p.DomainAllowList, blockAll, p.EssentialServices)
+	var allowAll *bool
+	if p.AllowAll != nil {
+		v := p.GetAllowAll()
+		allowAll = &v
+	}
+	return ResolveNetworkPolicy(base, p.NetworkAllowList, p.DomainAllowList, blockAll, allowAll, p.EssentialServices)
 }
 
 // NetworkPolicyToProto converts a network policy.
