@@ -1,0 +1,7 @@
+# Domain allow list (Daytona-style) with essential package registries.
+# Usage: cellar sandbox create -f examples/sandbox-domain-allowlist.yaml
+id: demo-domains
+image: curlimages/curl
+network:
+  domain_allow_list: example.com,*.openai.com
+  essential_services: true

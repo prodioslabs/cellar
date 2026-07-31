@@ -136,6 +136,8 @@ func TestLoadSandboxCreateFileExamples(t *testing.T) {
 	for _, path := range []string{
 		"../../examples/sandbox.yaml",
 		"../../examples/sandbox-allowlist.yaml",
+		"../../examples/sandbox-domain-allowlist.yaml",
+		"../../examples/sandbox-block-all.yaml",
 	} {
 		req, err := loadSandboxCreateFile(path)
 		if err != nil {
@@ -144,5 +146,55 @@ func TestLoadSandboxCreateFileExamples(t *testing.T) {
 		if req.Spec.Image == "" {
 			t.Fatalf("%s: empty image", path)
 		}
+	}
+}
+
+func TestParseSandboxCreateFileDomainAllowList(t *testing.T) {
+	const yamlDoc = `
+id: demo-domains
+image: curlimages/curl
+network:
+  domain_allow_list: example.com,*.openai.com
+  essential_services: true
+`
+	req, err := parseSandboxCreateFile([]byte(yamlDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Spec.Network.GetDomainAllowList() != "example.com,*.openai.com" {
+		t.Fatalf("domain_allow_list: got %q", req.Spec.Network.GetDomainAllowList())
+	}
+	if !req.Spec.Network.EssentialServices {
+		t.Fatal("expected essential_services")
+	}
+	if req.Spec.Network.Mode != "" {
+		t.Fatalf("mode should be empty (sugar), got %q", req.Spec.Network.Mode)
+	}
+}
+
+func TestParseSandboxCreateFileBlockAll(t *testing.T) {
+	const yamlDoc = `
+image: alpine
+network:
+  block_all: true
+`
+	req, err := parseSandboxCreateFile([]byte(yamlDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Spec.Network.BlockAll == nil || !*req.Spec.Network.BlockAll {
+		t.Fatal("expected block_all true")
+	}
+}
+
+func TestParseSandboxCreateFileSugarConflict(t *testing.T) {
+	_, err := parseSandboxCreateFile([]byte(`
+image: alpine
+network:
+  mode: allowlist
+  domain_allow_list: example.com
+`))
+	if err == nil || !strings.Contains(err.Error(), "cannot combine") {
+		t.Fatalf("expected cannot combine, got %v", err)
 	}
 }

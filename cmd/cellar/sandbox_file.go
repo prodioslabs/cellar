@@ -37,9 +37,13 @@ type sandboxCreateResources struct {
 }
 
 type sandboxCreateNetwork struct {
-	Mode       string   `yaml:"mode"`
-	AllowHosts []string `yaml:"allow_hosts"`
-	AllowPorts []uint32 `yaml:"allow_ports"`
+	Mode               string   `yaml:"mode"`
+	AllowHosts         []string `yaml:"allow_hosts"`
+	AllowPorts         []uint32 `yaml:"allow_ports"`
+	NetworkAllowList   string   `yaml:"network_allow_list"`
+	DomainAllowList    string   `yaml:"domain_allow_list"`
+	BlockAll           *bool    `yaml:"block_all"`
+	EssentialServices  bool     `yaml:"essential_services"`
 }
 
 func loadSandboxCreateFile(path string) (*cellarv1.SandboxCreateRequest, error) {
@@ -66,8 +70,46 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 	if mode == "" {
 		mode = "none"
 	}
-	if mode == "allowlist" || mode == "denylist" {
-		warnUnmatchableHostRules(os.Stderr, doc.Network.AllowHosts, doc.Network.AllowPorts)
+
+	sugarCIDRs := strings.TrimSpace(doc.Network.NetworkAllowList)
+	sugarDomains := strings.TrimSpace(doc.Network.DomainAllowList)
+	sugarBlock := doc.Network.BlockAll != nil
+	sugarCount := 0
+	if sugarCIDRs != "" {
+		sugarCount++
+	}
+	if sugarDomains != "" {
+		sugarCount++
+	}
+	if sugarBlock && *doc.Network.BlockAll {
+		sugarCount++
+	}
+	blockAllFalseAlone := sugarBlock && !*doc.Network.BlockAll && sugarCIDRs == "" && sugarDomains == ""
+	structured := doc.Network.Mode != "" || len(doc.Network.AllowHosts) > 0 || len(doc.Network.AllowPorts) > 0
+	if (sugarCount > 0 || blockAllFalseAlone) && structured {
+		return nil, fmt.Errorf("cannot combine network_allow_list/domain_allow_list/block_all with mode/allow_hosts/allow_ports")
+	}
+	if sugarCount > 1 {
+		return nil, fmt.Errorf("network_allow_list, domain_allow_list, and block_all are mutually exclusive")
+	}
+
+	var netPol *cellarv1.NetworkPolicy
+	if sugarCount > 0 || blockAllFalseAlone {
+		netPol = &cellarv1.NetworkPolicy{
+			NetworkAllowList:  sugarCIDRs,
+			DomainAllowList:   sugarDomains,
+			EssentialServices: doc.Network.EssentialServices,
+		}
+		if sugarBlock {
+			v := *doc.Network.BlockAll
+			netPol.BlockAll = &v
+		}
+	} else {
+		if mode == "allowlist" || mode == "denylist" {
+			warnUnmatchableHostRules(os.Stderr, doc.Network.AllowHosts, doc.Network.AllowPorts)
+		}
+		netPol = networkPolicyFromAllow(mode, doc.Network.AllowHosts, doc.Network.AllowPorts)
+		netPol.EssentialServices = doc.Network.EssentialServices
 	}
 
 	spec := &cellarv1.SandboxSpec{
@@ -79,7 +121,7 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 			MemoryBytes:  doc.Resources.MemoryBytes,
 			CpuNanoCores: int64(doc.Resources.CPUs * 1e9),
 		},
-		Network: networkPolicyFromAllow(mode, doc.Network.AllowHosts, doc.Network.AllowPorts),
+		Network: netPol,
 	}
 	for _, m := range doc.Mounts {
 		if m.Source == "" || m.Target == "" {
@@ -101,13 +143,16 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 // networkPolicyFromAllow builds NetworkPolicy the same way as the flag path.
 func networkPolicyFromAllow(mode string, hosts []string, ports []uint32) *cellarv1.NetworkPolicy {
 	np := &cellarv1.NetworkPolicy{Mode: mode}
-	if mode == "allowlist" || mode == "denylist" {
+	switch mode {
+	case "allowlist", "denylist":
 		np.Rules = []*cellarv1.NetworkRule{{
 			Hosts:     hosts,
 			Ports:     ports,
 			Protocols: []string{"tcp"},
 		}}
 		np.Dns = &cellarv1.DNSPolicy{Mode: mode, Names: hosts}
+	case "blockall":
+		np.Dns = &cellarv1.DNSPolicy{Mode: "none"}
 	}
 	return np
 }
