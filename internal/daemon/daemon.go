@@ -211,6 +211,7 @@ func (d *Daemon) shutdown() {
 	raft := d.raft
 	driver := d.driver
 	agent := d.agent
+	gwPool := d.gwPool
 	clusterCancel := d.clusterCancel
 	cancel := d.cancel
 	d.remoteGRPC = nil
@@ -255,6 +256,11 @@ func (d *Daemon) shutdown() {
 		tctx, tcancel := context.WithTimeout(context.Background(), teardownTimeout)
 		agent.TeardownLocal(tctx)
 		tcancel()
+	}
+	if gwPool != nil {
+		pctx, pcancel := context.WithTimeout(context.Background(), teardownTimeout)
+		gwPool.Close(pctx)
+		pcancel()
 	}
 
 	if raft != nil {
@@ -422,6 +428,7 @@ func (d *Daemon) stopClusterLocal() {
 	raft := d.raft
 	driver := d.driver
 	agent := d.agent
+	gwPool := d.gwPool
 	clusterCancel := d.clusterCancel
 	d.remoteGRPC = nil
 	d.remoteLis = nil
@@ -453,6 +460,11 @@ func (d *Daemon) stopClusterLocal() {
 		tctx, tcancel := context.WithTimeout(context.Background(), teardownTimeout)
 		agent.TeardownLocal(tctx)
 		tcancel()
+	}
+	if gwPool != nil {
+		pctx, pcancel := context.WithTimeout(context.Background(), teardownTimeout)
+		gwPool.Close(pctx)
+		pcancel()
 	}
 	if raft != nil {
 		_ = raft.Close()
