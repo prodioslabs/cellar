@@ -20,6 +20,16 @@ sudo cellar sandbox create --image curlimages/curl --network allowlist \
   --allow-host example.com --allow-port 443
 # or: sudo cellar sandbox create -f examples/sandbox-allowlist.yaml
 
+# Daytona-style network limits (mutually exclusive sugar flags):
+sudo cellar sandbox create --image curlimages/curl \
+  --domain-allow-list 'example.com,*.openai.com' --essential-services
+sudo cellar sandbox create --image alpine --network-block-all
+sudo cellar sandbox create --image alpine \
+  --network-allow-list '208.80.154.232/32,192.168.1.0/24'
+# Live update (blockall/allowlist/denylist; not none):
+sudo cellar sandbox network <id> --domain-allow-list 'example.com'
+sudo cellar sandbox network <id> --network-block-all=false
+
 sudo cellar sandbox exec <id> -- uname -a
 sudo cellar sandbox exec --detach <id> -- sleep 3600
 sudo cellar sandbox job ls <id>

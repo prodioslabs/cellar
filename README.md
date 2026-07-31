@@ -161,15 +161,26 @@ sudo cellar sandbox create --runtime node-26
 # or from YAML:
 sudo cellar sandbox create -f examples/sandbox.yaml
 
-# Allowlisted egress (enforced by cellard's userspace proxy + iptables REDIRECT)
+# Allowlisted egress (enforced by topology + egress gateway).
 # See internal/egress/README.md for proxy, DNS bait mount, and policy details.
 sudo cellar sandbox create --image curlimages/curl --network allowlist \
   --allow-host example.com --allow-port 443
 # or: sudo cellar sandbox create -f examples/sandbox-allowlist.yaml
 
+# Daytona-style network limits (at most one of these sugar flags):
+sudo cellar sandbox create --image curlimages/curl \
+  --domain-allow-list 'example.com,*.openai.com' --essential-services
+sudo cellar sandbox create --image alpine --network-block-all
+sudo cellar sandbox create --image alpine \
+  --network-allow-list '208.80.154.232/32,192.168.1.0/24'
+
 # Tighten (or loosen) the policy of a running sandbox. Takes effect immediately
 # and closes connections the new policy no longer allows.
+# Mode none cannot change live; blockall/allowlist/denylist can.
 sudo cellar sandbox network <id> --mode allowlist --allow-host api.example.com --allow-port 443
+sudo cellar sandbox network <id> --domain-allow-list 'example.com'
+sudo cellar sandbox network <id> --network-block-all
+sudo cellar sandbox network <id> --network-block-all=false
 
 # Local node only (default). Use --all for the cluster, or --node <id|prefix>.
 sudo cellar sandbox ls
