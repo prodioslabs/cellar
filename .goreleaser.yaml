@@ -83,13 +83,32 @@ builds:
         -X github.com/prodioslabs/cellar/internal/version.Commit={{.Commit}}
         -X github.com/prodioslabs/cellar/internal/version.Date={{.Date}}
 
+  - id: cellar-egress-gateway
+    main: ./cmd/cellar-egress-gateway
+    binary: cellar-egress-gateway
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+        -X github.com/prodioslabs/cellar/internal/version.Version={{.Version}}
+        -X github.com/prodioslabs/cellar/internal/version.Commit={{.Commit}}
+        -X github.com/prodioslabs/cellar/internal/version.Date={{.Date}}
+
 archives:
   - id: default
     formats:
       - tar.gz
     name_template: >-
       cellar_{{ .Version }}_{{ .Os }}_{{ .Arch }}
-    # cellar-agent is linux-only (runs inside containers); darwin archives omit it.
+    # cellar-agent and cellar-egress-gateway are linux-only (run inside containers);
+    # darwin archives omit them.
     allow_different_binary_count: true
     files:
       - LICENSE

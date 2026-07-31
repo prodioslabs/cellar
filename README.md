@@ -41,13 +41,14 @@ Local disk stores only this node’s leaf cert/key and the public CA cert.
 ## Build & install
 
 ```bash
-make build          # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway
-# or: make cellard / make cellar / make cellar-agent / make cellar-gateway
+make build                  # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway, bin/cellar-egress-gateway
+# or: make cellard / make cellar / make cellar-agent / make cellar-gateway / make cellar-egress-gateway
+make egress-gateway-image   # → cellar/egress-gateway:latest (required for networked sandboxes)
 
-sudo make install   # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
+sudo make install           # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
 ```
 
-Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` and `GOOS=linux` (it runs inside Linux containers, including on Docker Desktop for macOS). `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
+Requires Go 1.26+. `cellar-agent` and `cellar-egress-gateway` are built with `CGO_ENABLED=0` and `GOOS=linux` (they run inside Linux containers, including on Docker Desktop for macOS). `make install` places them next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
 
 | Source                                    | Destination                                       |
 | ----------------------------------------- | ------------------------------------------------- |
@@ -68,30 +69,30 @@ cellar-agent -version
 
 ## Releases
 
-Push a SemVer tag (`vX.Y.Z` or `vX.Y.Z-rc.1`) to publish a [GitHub Release](https://github.com/prodioslabs/cellar/releases) with Linux and macOS **amd64** / **arm64** archives. `cellar-agent` is Linux-only (injected into containers); Darwin archives ship the host tools (`cellar`, `cellard`, `cellar-gateway`) — build or copy a Linux `cellar-agent` beside `cellard` (or set `CELLAR_AGENT_BINARY`).
+Push a SemVer tag (`vX.Y.Z` or `vX.Y.Z-rc.1`) to publish a [GitHub Release](https://github.com/prodioslabs/cellar/releases) with Linux and macOS **amd64** / **arm64** archives. `cellar-agent` and `cellar-egress-gateway` are Linux-only (they run inside containers); Darwin archives ship the host tools (`cellar`, `cellard`, `cellar-gateway`). The installer fetches the matching Linux archive on macOS so it can place `cellar-agent` beside `cellard` and build the egress-gateway image.
 
-Each archive is named `cellar_<version>_linux_<arch>.tar.gz` and contains:
+Each Linux archive is named `cellar_<version>_linux_<arch>.tar.gz` and contains:
 
 ```text
 cellar
 cellard
 cellar-agent
 cellar-gateway
+cellar-egress-gateway
 LICENSE
 README.md
 contrib/systemd/…
 ```
 
-Install the current release on Linux with:
+Darwin archives omit the Linux-only binaries and contain the three host tools plus `LICENSE`, `README.md`, and `contrib/systemd/`.
+
+Install the current release on Linux or macOS with:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/prodioslabs/cellar/main/install.sh | sh
 ```
 
-The installer detects **amd64** or **arm64**, verifies the archive against
-`checksums.txt`, and installs the same binaries, systemd units, and sysusers
-definition as `sudo make install`. It uses `sudo` when needed, but does not
-enable or start the services.
+The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **arm64**), verifies archives against `checksums.txt`, and installs binaries. On Linux it also installs systemd units and the sysusers definition (same as `sudo make install`). When Docker is available it builds `cellar/egress-gateway:latest` from the shipped `cellar-egress-gateway` binary (skip with `CELLAR_SKIP_EGRESS_IMAGE=1`). It uses `sudo` when needed, but does not enable or start the services.
 
 To install a specific version or prefix:
 
