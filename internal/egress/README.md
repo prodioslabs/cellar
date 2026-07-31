@@ -123,7 +123,7 @@ Public sandbox `NetworkPolicy` modes: `none` (no topology), `allowlist`,
 Network limits (`network_allow_list`, `domain_allow_list`, `block_all`) are
 translated to canonical mode/rules on create/update. Optional
 `essential_services` adds a curated package/git/AI domain allowlist evaluated
-in the gateway.
+in the gateway. Alone (no other limit), it implies `block_all`.
 
 ## Image
 

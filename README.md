@@ -168,6 +168,8 @@ sudo cellar sandbox create -f examples/sandbox.yaml
 sudo cellar sandbox create --image curlimages/curl \
   --domain-allow-list 'example.com'
 # or: sudo cellar sandbox create -f examples/sandbox-allowlist.yaml
+# --essential-services alone implies --network-block-all (curated hosts only):
+sudo cellar sandbox create --image curlimages/curl --essential-services
 sudo cellar sandbox create --image curlimages/curl \
   --domain-allow-list 'example.com,*.openai.com' --essential-services
 sudo cellar sandbox create --image alpine --network-block-all
