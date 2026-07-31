@@ -166,6 +166,48 @@ func TestResolveNetworkPolicyFromProto(t *testing.T) {
 	}
 }
 
+func TestResolveEssentialServicesAloneImpliesBlockAll(t *testing.T) {
+	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if np.Mode != sandbox.NetworkBlockAll {
+		t.Fatalf("mode=%q want blockall", np.Mode)
+	}
+	if !np.EssentialServices {
+		t.Fatal("expected essential_services")
+	}
+	if np.DNS.Mode != sandbox.DNSNone {
+		t.Fatalf("dns=%q", np.DNS.Mode)
+	}
+
+	// Mode none + essential_services (legacy CLI/YAML shape) also upgrades.
+	np, err = sandbox.ResolveNetworkPolicyFromProto(&cellarv1.NetworkPolicy{
+		Mode:              "none",
+		EssentialServices: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if np.Mode != sandbox.NetworkBlockAll {
+		t.Fatalf("mode=%q want blockall", np.Mode)
+	}
+
+	// Structured allowlist + essentials must not be rewritten to blockall.
+	np, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{
+		Mode:              sandbox.NetworkAllowlist,
+		EssentialServices: true,
+		Rules:             []sandbox.NetworkRule{{Hosts: []string{"example.com"}}},
+		DNS:               sandbox.DNSPolicy{Mode: sandbox.DNSAllowlist, Names: []string{"example.com"}},
+	}, "", "", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if np.Mode != sandbox.NetworkAllowlist {
+		t.Fatalf("mode=%q want allowlist", np.Mode)
+	}
+}
+
 func TestValidateNetworkPolicyBlockAll(t *testing.T) {
 	err := sandbox.ValidateNetworkPolicy(sandbox.NetworkPolicy{Mode: sandbox.NetworkBlockAll})
 	if err != nil {

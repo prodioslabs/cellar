@@ -91,7 +91,9 @@ type NetworkPolicy struct {
 	NetworkAllowList  string `json:"networkAllowList,omitempty"`
 	DomainAllowList   string `json:"domainAllowList,omitempty"`
 	BlockAll          *bool  `json:"blockAll,omitempty"`
-	EssentialServices bool   `json:"essentialServices,omitempty"`
+	// EssentialServices allows curated package/git/AI domains. Alone (no
+	// other limit) implies BlockAll.
+	EssentialServices bool `json:"essentialServices,omitempty"`
 }
 
 // SandboxSpec is the desired sandbox configuration.

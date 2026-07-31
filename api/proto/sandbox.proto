@@ -88,7 +88,9 @@ message NetworkPolicy {
   string network_allow_list = 4; // comma-separated IPv4 CIDRs, max 10
   string domain_allow_list = 5;  // comma-separated domains / *.wildcards, max 20
   optional bool block_all = 6;   // true = blockall; false alone = denylist (full open)
-  bool essential_services = 7;   // opt-in curated package/git/AI allowlist
+  // Opt-in curated package/git/AI allowlist. Alone (no other limit, mode
+  // empty/none) implies block_all so those hosts are reachable.
+  bool essential_services = 7;
 }
 
 message SandboxSpec {

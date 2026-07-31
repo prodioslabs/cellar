@@ -15,6 +15,10 @@ const (
 // ResolveNetworkPolicy translates network-limit fields into a canonical
 // NetworkPolicy, then normalizes and validates. Limit fields and structured
 // mode/rules/dns are mutually exclusive.
+//
+// essential_services with no other network limit (and mode empty or none)
+// implies block_all so curated hosts are reachable; essentials are ignored
+// in mode none.
 func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList string, blockAll *bool, essentialServices bool) (NetworkPolicy, error) {
 	out := np
 	out.EssentialServices = essentialServices || np.EssentialServices
@@ -34,6 +38,11 @@ func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList st
 	}
 	// block_all:false alone means "full open" (denylist, no rules).
 	blockAllFalseAlone := hasBlock && !*blockAll && allowCIDRs == "" && allowDomains == ""
+	// essential_services alone (no CIDR/domain/block_all, mode empty/none)
+	// means block everything except curated hosts.
+	essentialsAlone := out.EssentialServices && allowCIDRs == "" && allowDomains == "" && !hasBlock &&
+		(np.Mode == "" || np.Mode == NetworkNone) &&
+		len(np.Rules) == 0 && np.DNS.Mode == "" && len(np.DNS.Names) == 0
 
 	if limitCount > 1 {
 		return NetworkPolicy{}, fmt.Errorf("network_allow_list, domain_allow_list, and block_all are mutually exclusive; set at most one")
@@ -67,6 +76,10 @@ func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList st
 		out.Mode = NetworkDenylist
 		out.Rules = nil
 		out.DNS = DNSPolicy{Mode: DNSDenylist}
+	case essentialsAlone:
+		out.Mode = NetworkBlockAll
+		out.Rules = nil
+		out.DNS = DNSPolicy{Mode: DNSNone}
 	}
 
 	out = NormalizeNetworkPolicy(out)
