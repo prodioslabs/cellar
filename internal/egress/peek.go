@@ -23,20 +23,21 @@ var (
 	errShort   = errors.New("truncated")
 )
 
-// peekConn hands buffered bytes back to the upstream splice after inspection.
-type peekConn struct {
+// PeekConn hands buffered bytes back to the upstream splice after inspection.
+type PeekConn struct {
 	net.Conn
-	r *bufio.Reader
+	R *bufio.Reader
 }
 
-func newPeekConn(c net.Conn) *peekConn {
-	return &peekConn{Conn: c, r: bufio.NewReaderSize(c, peekBufSize)}
+// NewPeekConn wraps c with a buffered reader for SNI/Host peeks.
+func NewPeekConn(c net.Conn) *PeekConn {
+	return &PeekConn{Conn: c, R: bufio.NewReaderSize(c, peekBufSize)}
 }
 
-func (c *peekConn) Read(b []byte) (int, error) { return c.r.Read(b) }
+func (c *PeekConn) Read(b []byte) (int, error) { return c.R.Read(b) }
 
-// peekTLSSNI extracts the server_name from a TLS ClientHello without consuming it.
-func peekTLSSNI(br *bufio.Reader) (string, error) {
+// PeekTLSSNI extracts the server_name from a TLS ClientHello without consuming it.
+func PeekTLSSNI(br *bufio.Reader) (string, error) {
 	hdr, err := br.Peek(5)
 	if err != nil {
 		return "", err
@@ -148,8 +149,8 @@ func parseSNIExtension(b []byte) (string, error) {
 	return "", errNoName
 }
 
-// peekHTTPHost extracts the Host header from a request head without consuming it.
-func peekHTTPHost(br *bufio.Reader) (string, error) {
+// PeekHTTPHost extracts the Host header from a request head without consuming it.
+func PeekHTTPHost(br *bufio.Reader) (string, error) {
 	head, err := peekHead(br, maxHTTPHeader)
 	if len(head) == 0 {
 		if err == nil {
@@ -206,9 +207,9 @@ func normalizeHostHeader(v string) string {
 	return strings.TrimSuffix(strings.TrimPrefix(v, "["), "]")
 }
 
-// sanitizeHostname drops guest-supplied names that are not plausible DNS names,
+// SanitizeHostname drops guest-supplied names that are not plausible DNS names,
 // so garbage never reaches policy matching or the resolver.
-func sanitizeHostname(h string) string {
+func SanitizeHostname(h string) string {
 	h = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(h), "."))
 	if h == "" || len(h) > 253 {
 		return ""

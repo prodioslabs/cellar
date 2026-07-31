@@ -50,9 +50,9 @@ func readerFor(b []byte) *bufio.Reader {
 
 func TestPeekTLSSNI(t *testing.T) {
 	hello := captureClientHello(t, "api.example.com")
-	got, err := peekTLSSNI(readerFor(hello))
+	got, err := PeekTLSSNI(readerFor(hello))
 	if err != nil {
-		t.Fatalf("peekTLSSNI: %v", err)
+		t.Fatalf("PeekTLSSNI: %v", err)
 	}
 	if got != "api.example.com" {
 		t.Fatalf("got SNI %q, want api.example.com", got)
@@ -65,7 +65,7 @@ func TestPeekTLSSNIRejectsNonTLS(t *testing.T) {
 		"ssh banner": []byte("SSH-2.0-OpenSSH_9.6\r\n"),
 		"garbage":    bytes.Repeat([]byte{0xff}, 64),
 	} {
-		if _, err := peekTLSSNI(readerFor(input)); err == nil {
+		if _, err := PeekTLSSNI(readerFor(input)); err == nil {
 			t.Errorf("%s: expected an error, got none", name)
 		}
 	}
@@ -75,7 +75,7 @@ func TestPeekTLSSNITruncated(t *testing.T) {
 	hello := captureClientHello(t, "api.example.com")
 	for _, n := range []int{1, 4, 5, 20, len(hello) / 2, len(hello) - 1} {
 		// Must not panic or block; either an error or a best-effort answer.
-		_, _ = peekTLSSNI(readerFor(hello[:n]))
+		_, _ = PeekTLSSNI(readerFor(hello[:n]))
 	}
 }
 
@@ -83,7 +83,7 @@ func TestPeekTLSSNIWithoutServerName(t *testing.T) {
 	// An IP-literal ServerName is dropped by crypto/tls, so this hello has no
 	// server_name extension at all.
 	hello := captureClientHello(t, "203.0.113.9")
-	if _, err := peekTLSSNI(readerFor(hello)); err == nil {
+	if _, err := PeekTLSSNI(readerFor(hello)); err == nil {
 		t.Fatal("expected an error when no server_name is present")
 	}
 }
@@ -91,8 +91,8 @@ func TestPeekTLSSNIWithoutServerName(t *testing.T) {
 func TestPeekTLSSNIDoesNotConsume(t *testing.T) {
 	hello := captureClientHello(t, "api.example.com")
 	br := readerFor(hello)
-	if _, err := peekTLSSNI(br); err != nil {
-		t.Fatalf("peekTLSSNI: %v", err)
+	if _, err := PeekTLSSNI(br); err != nil {
+		t.Fatalf("PeekTLSSNI: %v", err)
 	}
 	rest, err := io.ReadAll(br)
 	if err != nil {
@@ -118,9 +118,9 @@ func TestPeekHTTPHost(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := peekHTTPHost(readerFor([]byte(tt.req)))
+			got, err := PeekHTTPHost(readerFor([]byte(tt.req)))
 			if err != nil {
-				t.Fatalf("peekHTTPHost: %v", err)
+				t.Fatalf("PeekHTTPHost: %v", err)
 			}
 			if got != tt.want {
 				t.Fatalf("got %q, want %q", got, tt.want)
@@ -135,7 +135,7 @@ func TestPeekHTTPHostFailures(t *testing.T) {
 		"not http":       "\x16\x03\x01\x00\x05hello",
 		"garbage":        "\x00\x01\x02\x03",
 	} {
-		if _, err := peekHTTPHost(readerFor([]byte(req))); err == nil {
+		if _, err := PeekHTTPHost(readerFor([]byte(req))); err == nil {
 			t.Errorf("%s: expected an error, got none", name)
 		}
 	}
@@ -145,7 +145,7 @@ func TestPeekHTTPHostBounded(t *testing.T) {
 	// Headers longer than the cap are abandoned rather than buffered forever.
 	req := "GET / HTTP/1.1\r\nX-Pad: " + strings.Repeat("a", maxHTTPHeader*2) +
 		"\r\nHost: example.com\r\n\r\n"
-	if _, err := peekHTTPHost(readerFor([]byte(req))); err == nil {
+	if _, err := PeekHTTPHost(readerFor([]byte(req))); err == nil {
 		t.Fatal("expected an error for an oversized header block")
 	}
 }
@@ -153,8 +153,8 @@ func TestPeekHTTPHostBounded(t *testing.T) {
 func TestPeekHTTPHostDoesNotConsume(t *testing.T) {
 	req := []byte("GET /path HTTP/1.1\r\nHost: example.com\r\n\r\nbody")
 	br := readerFor(req)
-	if _, err := peekHTTPHost(br); err != nil {
-		t.Fatalf("peekHTTPHost: %v", err)
+	if _, err := PeekHTTPHost(br); err != nil {
+		t.Fatalf("PeekHTTPHost: %v", err)
 	}
 	rest, err := io.ReadAll(br)
 	if err != nil {
@@ -179,11 +179,11 @@ func TestSanitizeHostname(t *testing.T) {
 		"héllo.com":         "",
 	}
 	for in, want := range tests {
-		if got := sanitizeHostname(in); got != want {
-			t.Errorf("sanitizeHostname(%q) = %q, want %q", in, got, want)
+		if got := SanitizeHostname(in); got != want {
+			t.Errorf("SanitizeHostname(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if got := sanitizeHostname(strings.Repeat("a", 254)); got != "" {
+	if got := SanitizeHostname(strings.Repeat("a", 254)); got != "" {
 		t.Errorf("over-long name = %q, want empty", got)
 	}
 }

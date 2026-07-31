@@ -336,18 +336,18 @@ func (p *Proxy) handleTCP(conn net.Conn, kind listenerKind) {
 	client := net.Conn(conn)
 	var hostname string
 	if kind != kindOther {
-		pc := newPeekConn(conn)
+		pc := NewPeekConn(conn)
 		client = pc
 		_ = conn.SetReadDeadline(time.Now().Add(peekTimeout))
 		var name string
 		if kind == kindTLS {
-			name, err = peekTLSSNI(pc.r)
+			name, err = PeekTLSSNI(pc.R)
 		} else {
-			name, err = peekHTTPHost(pc.r)
+			name, err = PeekHTTPHost(pc.R)
 		}
 		_ = conn.SetReadDeadline(time.Now().Add(connSetupTimeout))
 		if err == nil {
-			hostname = sanitizeHostname(name)
+			hostname = SanitizeHostname(name)
 		}
 	}
 
@@ -490,7 +490,7 @@ func (p *Proxy) handleDNS(pkt []byte, client *net.UDPAddr) {
 	if a == nil {
 		return
 	}
-	out, err := buildDNSAResponse(pkt, a)
+	out, err := buildDNSAResponse(pkt, a, 60)
 	if err != nil {
 		return
 	}
