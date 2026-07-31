@@ -156,6 +156,38 @@ func (f *fakeUpstream) Exec(_ context.Context, apiKey, _ string, _ []string) (*E
 	return f.execRes, nil
 }
 
+func (f *fakeUpstream) StartJob(_ context.Context, apiKey, _ string, _ []string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return "job1", nil
+}
+
+func (f *fakeUpstream) ListJobs(_ context.Context, apiKey, _ string) ([]*cellarv1.JobInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return nil, nil
+}
+
+func (f *fakeUpstream) GetJob(_ context.Context, apiKey, _, _ string) (*cellarv1.JobInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return &cellarv1.JobInfo{Id: "job1", Phase: "running"}, nil
+}
+
+func (f *fakeUpstream) StopJob(_ context.Context, apiKey, _, _ string, _ int32) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return nil
+}
+
+func (f *fakeUpstream) JobLogs(ctx context.Context, apiKey string, _ *cellarv1.JobLogsRequest) (LogsStream, error) {
+	return f.Logs(ctx, apiKey, &cellarv1.SandboxLogsRequest{})
+}
+
 func (f *fakeUpstream) Ready(_ context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

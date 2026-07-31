@@ -43,10 +43,10 @@ func (s *Sandbox) DesiredState() string { return s.data.DesiredState }
 func (s *Sandbox) Status() *SandboxStatus { return s.data.Status }
 
 // CreatedAtUnixNano returns the creation timestamp.
-func (s *Sandbox) CreatedAtUnixNano() int64 { return s.data.CreatedAtUnixNano }
+func (s *Sandbox) CreatedAtUnixNano() int64 { return s.data.CreatedAtUnixNano.Int64() }
 
 // UpdatedAtUnixNano returns the last update timestamp.
-func (s *Sandbox) UpdatedAtUnixNano() int64 { return s.data.UpdatedAtUnixNano }
+func (s *Sandbox) UpdatedAtUnixNano() int64 { return s.data.UpdatedAtUnixNano.Int64() }
 
 // Snapshot returns a defensive copy of the current gateway snapshot.
 func (s *Sandbox) Snapshot() SandboxSnapshot {
@@ -133,6 +133,26 @@ func (s *Sandbox) WaitUntilReady(ctx context.Context, opt WaitUntilReadyOptions)
 // Exec runs a command in this sandbox and collects output until exit.
 func (s *Sandbox) Exec(ctx context.Context, command []string) (*ExecResult, error) {
 	return s.client.execCommand(ctx, s.data.ID, command)
+}
+
+// StartJob runs a command in the background and returns its job id.
+func (s *Sandbox) StartJob(ctx context.Context, command []string) (string, error) {
+	return s.client.startJob(ctx, s.data.ID, command)
+}
+
+// ListJobs lists background jobs for this sandbox.
+func (s *Sandbox) ListJobs(ctx context.Context) ([]JobInfo, error) {
+	return s.client.listJobs(ctx, s.data.ID)
+}
+
+// GetJob returns status for a background job.
+func (s *Sandbox) GetJob(ctx context.Context, jobID string) (*JobInfo, error) {
+	return s.client.getJob(ctx, s.data.ID, jobID)
+}
+
+// StopJob stops a background job.
+func (s *Sandbox) StopJob(ctx context.Context, jobID string) error {
+	return s.client.stopJob(ctx, s.data.ID, jobID)
 }
 
 // Logs streams sandbox logs as NDJSON chunks until EOF or ctx cancel.

@@ -6,6 +6,7 @@ export {
   type Config,
   type DeepPartial,
   type ExecResult,
+  type JobInfo,
   type LogsChunk,
   type LogsOptions,
 } from './client.js'

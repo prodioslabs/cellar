@@ -27,6 +27,11 @@ service SandboxAPI {
   rpc UpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
   rpc Logs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
   rpc Exec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
+  rpc StartJob(StartJobRequest) returns (StartJobResponse);
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc StopJob(StopJobRequest) returns (StopJobResponse);
+  rpc JobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
 }
 
 // RuntimeAgent is served on managers. Nodes report heartbeats and status.
@@ -43,6 +48,11 @@ service SandboxRuntime {
   // Applies a committed network policy to a running sandbox immediately,
   // instead of waiting for the next reconcile tick.
   rpc ApplyNetworkPolicy(ApplyNetworkPolicyRequest) returns (ApplyNetworkPolicyResponse);
+  rpc StartJob(StartJobRequest) returns (StartJobResponse);
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc StopJob(StopJobRequest) returns (StopJobResponse);
+  rpc JobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
 }
 
 message Mount {
@@ -220,4 +230,52 @@ message SandboxExecStart {
 message SandboxExecExit {
   int32 exit_code = 1;
   string error = 2;
+}
+
+message StartJobRequest {
+  string sandbox_id = 1;
+  repeated string command = 2;
+}
+
+message StartJobResponse {
+  string job_id = 1;
+}
+
+message ListJobsRequest {
+  string sandbox_id = 1;
+}
+
+message JobInfo {
+  string id = 1;
+  repeated string command = 2;
+  string phase = 3; // running | exited | unknown
+  int32 exit_code = 4;
+  int64 started_at_unix_nano = 5;
+}
+
+message ListJobsResponse {
+  repeated JobInfo jobs = 1;
+}
+
+message GetJobRequest {
+  string sandbox_id = 1;
+  string job_id = 2;
+}
+
+message GetJobResponse {
+  JobInfo job = 1;
+}
+
+message StopJobRequest {
+  string sandbox_id = 1;
+  string job_id = 2;
+  int32 timeout_sec = 3;
+}
+
+message StopJobResponse {}
+
+message JobLogsRequest {
+  string sandbox_id = 1;
+  string job_id = 2;
+  bool follow = 3;
 }

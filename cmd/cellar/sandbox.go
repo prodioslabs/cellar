@@ -26,6 +26,7 @@ func newSandboxCmd() *cobra.Command {
 	cmd.AddCommand(newSandboxListCmd())
 	cmd.AddCommand(newSandboxLogsCmd())
 	cmd.AddCommand(newSandboxExecCmd())
+	cmd.AddCommand(newSandboxJobCmd())
 	return cmd
 }
 
@@ -384,7 +385,7 @@ func newSandboxLogsCmd() *cobra.Command {
 }
 
 func newSandboxExecCmd() *cobra.Command {
-	var tty bool
+	var tty, detach bool
 	cmd := &cobra.Command{
 		Use:   "exec <sandbox-id> -- <command> [args...]",
 		Short: "Run a command in a sandbox",
@@ -399,6 +400,17 @@ func newSandboxExecCmd() *cobra.Command {
 				return err
 			}
 			defer closeFn()
+			if detach {
+				resp, err := client.SandboxStartJob(cmd.Context(), &cellarv1.StartJobRequest{
+					SandboxId: args[0],
+					Command:   command,
+				})
+				if err != nil {
+					return err
+				}
+				fmt.Println(resp.JobId)
+				return nil
+			}
 			stream, err := client.SandboxExec(cmd.Context())
 			if err != nil {
 				return err
@@ -441,5 +453,128 @@ func newSandboxExecCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVarP(&tty, "tty", "t", false, "allocate a pseudo-TTY")
+	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "run in background and print job id")
+	return cmd
+}
+
+func newSandboxJobCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "job",
+		Short: "Manage background jobs in a sandbox",
+	}
+	cmd.AddCommand(newSandboxJobListCmd())
+	cmd.AddCommand(newSandboxJobStopCmd())
+	cmd.AddCommand(newSandboxJobLogsCmd())
+	cmd.AddCommand(newSandboxJobGetCmd())
+	return cmd
+}
+
+func newSandboxJobListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "ls <sandbox-id>",
+		Short: "List background jobs",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+			resp, err := client.SandboxListJobs(cmd.Context(), &cellarv1.ListJobsRequest{SandboxId: args[0]})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%-18s %-10s %-8s %s\n", "JOB", "PHASE", "EXIT", "COMMAND")
+			for _, j := range resp.Jobs {
+				fmt.Printf("%-18s %-10s %-8d %s\n", j.Id, j.Phase, j.ExitCode, strings.Join(j.Command, " "))
+			}
+			return nil
+		},
+	}
+}
+
+func newSandboxJobGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "inspect <sandbox-id> <job-id>",
+		Short: "Inspect a background job",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+			resp, err := client.SandboxGetJob(cmd.Context(), &cellarv1.GetJobRequest{
+				SandboxId: args[0],
+				JobId:     args[1],
+			})
+			if err != nil {
+				return err
+			}
+			j := resp.Job
+			fmt.Printf("id:      %s\nphase:   %s\nexit:    %d\ncommand: %s\n",
+				j.Id, j.Phase, j.ExitCode, strings.Join(j.Command, " "))
+			return nil
+		},
+	}
+}
+
+func newSandboxJobStopCmd() *cobra.Command {
+	var timeout int32
+	cmd := &cobra.Command{
+		Use:   "stop <sandbox-id> <job-id>",
+		Short: "Stop a background job",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+			_, err = client.SandboxStopJob(cmd.Context(), &cellarv1.StopJobRequest{
+				SandboxId:  args[0],
+				JobId:      args[1],
+				TimeoutSec: timeout,
+			})
+			return err
+		},
+	}
+	cmd.Flags().Int32Var(&timeout, "timeout", 10, "seconds to wait before SIGKILL")
+	return cmd
+}
+
+func newSandboxJobLogsCmd() *cobra.Command {
+	var follow bool
+	cmd := &cobra.Command{
+		Use:   "logs <sandbox-id> <job-id>",
+		Short: "Show background job logs",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+			stream, err := client.SandboxJobLogs(cmd.Context(), &cellarv1.JobLogsRequest{
+				SandboxId: args[0],
+				JobId:     args[1],
+				Follow:    follow,
+			})
+			if err != nil {
+				return err
+			}
+			for {
+				chunk, err := stream.Recv()
+				if err == io.EOF {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				_, _ = os.Stdout.Write(chunk.Data)
+			}
+		},
+	}
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow log output")
 	return cmd
 }

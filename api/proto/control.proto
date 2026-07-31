@@ -23,6 +23,11 @@ service Control {
   rpc SandboxList(SandboxListRequest) returns (SandboxListResponse);
   rpc SandboxLogs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
   rpc SandboxExec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
+  rpc SandboxStartJob(StartJobRequest) returns (StartJobResponse);
+  rpc SandboxListJobs(ListJobsRequest) returns (ListJobsResponse);
+  rpc SandboxGetJob(GetJobRequest) returns (GetJobResponse);
+  rpc SandboxStopJob(StopJobRequest) returns (StopJobResponse);
+  rpc SandboxJobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
 
   // API key management (local unix socket; writes require Raft leader).
   rpc APIKeyCreate(APIKeyCreateRequest) returns (APIKeyCreateResponse);

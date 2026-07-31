@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -33,8 +34,6 @@ import (
 )
 
 const (
-	DefaultSocket     = "/var/run/cellar/cellar.sock"
-	DefaultDataDir    = "/var/lib/cellar"
 	DefaultListenAddr = ":17946"
 	DefaultRaftAddr   = ":17947"
 
@@ -42,6 +41,32 @@ const (
 	wgWaitTimeout       = 5 * time.Second
 	teardownTimeout     = 20 * time.Second
 )
+
+// DefaultSocketPath returns the platform default control socket path.
+func DefaultSocketPath() string {
+	if goruntime.GOOS == "darwin" {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			return filepath.Join(home, ".cellar", "cellar.sock")
+		}
+	}
+	return "/var/run/cellar/cellar.sock"
+}
+
+// DefaultDataDirPath returns the platform default data directory.
+func DefaultDataDirPath() string {
+	if goruntime.GOOS == "darwin" {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			return filepath.Join(home, ".cellar")
+		}
+	}
+	return "/var/lib/cellar"
+}
+
+// DefaultSocket is resolved at init for the current platform.
+var DefaultSocket = DefaultSocketPath()
+
+// DefaultDataDir is resolved at init for the current platform.
+var DefaultDataDir = DefaultDataDirPath()
 
 // Config configures the always-on cellard process.
 type Config struct {
@@ -76,7 +101,7 @@ type Daemon struct {
 	gwPool   *pool.Pool
 	ipam     *ipam.Allocator
 	agent    *runtime.Agent
-	// runtimeErr is set when this node cannot start a Docker/runsc agent.
+	// runtimeErr is set when this node cannot start a Docker runtime agent.
 	// SandboxCreate surfaces it when no other node has a live runtime.
 	runtimeErr   error
 	lastAssigned []*sandbox.Sandbox
@@ -1014,6 +1039,21 @@ func (c *controlServer) SandboxLogs(req *cellarv1.SandboxLogsRequest, stream cel
 }
 func (c *controlServer) SandboxExec(stream cellarv1.Control_SandboxExecServer) error {
 	return c.d.SandboxExec(stream)
+}
+func (c *controlServer) SandboxStartJob(ctx context.Context, req *cellarv1.StartJobRequest) (*cellarv1.StartJobResponse, error) {
+	return c.d.SandboxStartJob(ctx, req)
+}
+func (c *controlServer) SandboxListJobs(ctx context.Context, req *cellarv1.ListJobsRequest) (*cellarv1.ListJobsResponse, error) {
+	return c.d.SandboxListJobs(ctx, req)
+}
+func (c *controlServer) SandboxGetJob(ctx context.Context, req *cellarv1.GetJobRequest) (*cellarv1.GetJobResponse, error) {
+	return c.d.SandboxGetJob(ctx, req)
+}
+func (c *controlServer) SandboxStopJob(ctx context.Context, req *cellarv1.StopJobRequest) (*cellarv1.StopJobResponse, error) {
+	return c.d.SandboxStopJob(ctx, req)
+}
+func (c *controlServer) SandboxJobLogs(req *cellarv1.JobLogsRequest, stream cellarv1.Control_SandboxJobLogsServer) error {
+	return c.d.SandboxJobLogs(req, stream)
 }
 func (c *controlServer) APIKeyCreate(ctx context.Context, req *cellarv1.APIKeyCreateRequest) (*cellarv1.APIKeyCreateResponse, error) {
 	return c.d.APIKeyCreate(ctx, req)

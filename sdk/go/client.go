@@ -350,3 +350,70 @@ func (c *Client) execCommand(ctx context.Context, sandboxID string, command []st
 		Error:    out.Error,
 	}, nil
 }
+
+// JobInfo describes a background job.
+type JobInfo struct {
+	ID        string   `json:"id"`
+	Command   []string `json:"command"`
+	Phase     string   `json:"phase"`
+	ExitCode  int32    `json:"exitCode"`
+	StartedAt int64    `json:"startedAt"`
+}
+
+func (c *Client) startJob(ctx context.Context, sandboxID string, command []string) (string, error) {
+	payload, err := json.Marshal(map[string]any{"command": command, "detach": true})
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.base+"/v1/sandboxes/"+url.PathEscape(sandboxID)+"/exec",
+		bytes.NewReader(payload))
+	if err != nil {
+		return "", err
+	}
+	c.authHeaders(req.Header)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", parseAPIError(resp.StatusCode, data)
+	}
+	var out struct {
+		JobID string `json:"jobId"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return "", err
+	}
+	return out.JobID, nil
+}
+
+func (c *Client) listJobs(ctx context.Context, sandboxID string) ([]JobInfo, error) {
+	var out struct {
+		Jobs []JobInfo `json:"jobs"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes/"+url.PathEscape(sandboxID)+"/jobs", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Jobs, nil
+}
+
+func (c *Client) getJob(ctx context.Context, sandboxID, jobID string) (*JobInfo, error) {
+	var out JobInfo
+	if err := c.doJSON(ctx, http.MethodGet,
+		"/v1/sandboxes/"+url.PathEscape(sandboxID)+"/jobs/"+url.PathEscape(jobID), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) stopJob(ctx context.Context, sandboxID, jobID string) error {
+	return c.doJSON(ctx, http.MethodDelete,
+		"/v1/sandboxes/"+url.PathEscape(sandboxID)+"/jobs/"+url.PathEscape(jobID), nil, nil)
+}

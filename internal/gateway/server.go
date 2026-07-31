@@ -58,6 +58,10 @@ func (s *Server) routes() {
 		v1.PUT("/sandboxes/:id/network", s.handleUpdateNetwork)
 		v1.GET("/sandboxes/:id/logs", s.handleLogs)
 		v1.POST("/sandboxes/:id/exec", s.handleExec)
+		v1.GET("/sandboxes/:id/jobs", s.handleListJobs)
+		v1.GET("/sandboxes/:id/jobs/:jobId", s.handleGetJob)
+		v1.DELETE("/sandboxes/:id/jobs/:jobId", s.handleStopJob)
+		v1.GET("/sandboxes/:id/jobs/:jobId/logs", s.handleJobLogs)
 	}
 }
 

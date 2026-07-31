@@ -55,7 +55,7 @@ await sb.remove()
 
 `Client` ops: `create`, `get`, `list`.
 
-`Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `logs`, `stop`, `remove`, `updateNetwork`.
+`Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `startJob`, `listJobs`, `getJob`, `stopJob`, `logs`, `stop`, `remove`, `updateNetwork`.
 
 Creation is asynchronous with respect to runtime readiness. Prefer `await sb.waitUntilReady()` before `exec`. Status is refreshed from cellar-gateway via `GET /v1/sandboxes/:id`.
 

@@ -325,6 +325,11 @@ const (
 	SandboxAPI_UpdateNetwork_FullMethodName = "/cellar.v1.SandboxAPI/UpdateNetwork"
 	SandboxAPI_Logs_FullMethodName          = "/cellar.v1.SandboxAPI/Logs"
 	SandboxAPI_Exec_FullMethodName          = "/cellar.v1.SandboxAPI/Exec"
+	SandboxAPI_StartJob_FullMethodName      = "/cellar.v1.SandboxAPI/StartJob"
+	SandboxAPI_ListJobs_FullMethodName      = "/cellar.v1.SandboxAPI/ListJobs"
+	SandboxAPI_GetJob_FullMethodName        = "/cellar.v1.SandboxAPI/GetJob"
+	SandboxAPI_StopJob_FullMethodName       = "/cellar.v1.SandboxAPI/StopJob"
+	SandboxAPI_JobLogs_FullMethodName       = "/cellar.v1.SandboxAPI/JobLogs"
 )
 
 // SandboxAPIClient is the client API for SandboxAPI service.
@@ -343,6 +348,11 @@ type SandboxAPIClient interface {
 	UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error)
 	Logs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
 	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
+	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error)
+	ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error)
+	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
+	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
+	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
 }
 
 type sandboxAPIClient struct {
@@ -445,6 +455,65 @@ func (c *sandboxAPIClient) Exec(ctx context.Context, opts ...grpc.CallOption) (g
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxAPI_ExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
 
+func (c *sandboxAPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartJobResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_StartJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListJobsResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_ListJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetJobResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_GetJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopJobResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_StopJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[2], SandboxAPI_JobLogs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[JobLogsRequest, SandboxLogsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_JobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
+
 // SandboxAPIServer is the server API for SandboxAPI service.
 // All implementations must embed UnimplementedSandboxAPIServer
 // for forward compatibility.
@@ -461,6 +530,11 @@ type SandboxAPIServer interface {
 	UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error)
 	Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
 	Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
+	StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error)
+	ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error)
+	GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
+	StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
+	JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
 	mustEmbedUnimplementedSandboxAPIServer()
 }
 
@@ -494,6 +568,21 @@ func (UnimplementedSandboxAPIServer) Logs(*SandboxLogsRequest, grpc.ServerStream
 }
 func (UnimplementedSandboxAPIServer) Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
 	return status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedSandboxAPIServer) StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartJob not implemented")
+}
+func (UnimplementedSandboxAPIServer) ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListJobs not implemented")
+}
+func (UnimplementedSandboxAPIServer) GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetJob not implemented")
+}
+func (UnimplementedSandboxAPIServer) StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StopJob not implemented")
+}
+func (UnimplementedSandboxAPIServer) JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
+	return status.Error(codes.Unimplemented, "method JobLogs not implemented")
 }
 func (UnimplementedSandboxAPIServer) mustEmbedUnimplementedSandboxAPIServer() {}
 func (UnimplementedSandboxAPIServer) testEmbeddedByValue()                    {}
@@ -642,6 +731,89 @@ func _SandboxAPI_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxAPI_ExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
 
+func _SandboxAPI_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).StartJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_StartJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).StartJob(ctx, req.(*StartJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_ListJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).ListJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_ListJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).ListJobs(ctx, req.(*ListJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).GetJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_GetJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).GetJob(ctx, req.(*GetJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_StopJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).StopJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_StopJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).StopJob(ctx, req.(*StopJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_JobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(JobLogsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SandboxAPIServer).JobLogs(m, &grpc.GenericServerStream[JobLogsRequest, SandboxLogsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_JobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
+
 // SandboxAPI_ServiceDesc is the grpc.ServiceDesc for SandboxAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -673,6 +845,22 @@ var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "UpdateNetwork",
 			Handler:    _SandboxAPI_UpdateNetwork_Handler,
 		},
+		{
+			MethodName: "StartJob",
+			Handler:    _SandboxAPI_StartJob_Handler,
+		},
+		{
+			MethodName: "ListJobs",
+			Handler:    _SandboxAPI_ListJobs_Handler,
+		},
+		{
+			MethodName: "GetJob",
+			Handler:    _SandboxAPI_GetJob_Handler,
+		},
+		{
+			MethodName: "StopJob",
+			Handler:    _SandboxAPI_StopJob_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -685,6 +873,11 @@ var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _SandboxAPI_Exec_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "JobLogs",
+			Handler:       _SandboxAPI_JobLogs_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "sandbox.proto",
@@ -876,6 +1069,11 @@ const (
 	SandboxRuntime_Logs_FullMethodName               = "/cellar.v1.SandboxRuntime/Logs"
 	SandboxRuntime_Exec_FullMethodName               = "/cellar.v1.SandboxRuntime/Exec"
 	SandboxRuntime_ApplyNetworkPolicy_FullMethodName = "/cellar.v1.SandboxRuntime/ApplyNetworkPolicy"
+	SandboxRuntime_StartJob_FullMethodName           = "/cellar.v1.SandboxRuntime/StartJob"
+	SandboxRuntime_ListJobs_FullMethodName           = "/cellar.v1.SandboxRuntime/ListJobs"
+	SandboxRuntime_GetJob_FullMethodName             = "/cellar.v1.SandboxRuntime/GetJob"
+	SandboxRuntime_StopJob_FullMethodName            = "/cellar.v1.SandboxRuntime/StopJob"
+	SandboxRuntime_JobLogs_FullMethodName            = "/cellar.v1.SandboxRuntime/JobLogs"
 )
 
 // SandboxRuntimeClient is the client API for SandboxRuntime service.
@@ -889,6 +1087,11 @@ type SandboxRuntimeClient interface {
 	// Applies a committed network policy to a running sandbox immediately,
 	// instead of waiting for the next reconcile tick.
 	ApplyNetworkPolicy(ctx context.Context, in *ApplyNetworkPolicyRequest, opts ...grpc.CallOption) (*ApplyNetworkPolicyResponse, error)
+	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error)
+	ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error)
+	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
+	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
+	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
 }
 
 type sandboxRuntimeClient struct {
@@ -941,6 +1144,65 @@ func (c *sandboxRuntimeClient) ApplyNetworkPolicy(ctx context.Context, in *Apply
 	return out, nil
 }
 
+func (c *sandboxRuntimeClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartJobResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_StartJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListJobsResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_ListJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetJobResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_GetJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopJobResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_StopJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[2], SandboxRuntime_JobLogs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[JobLogsRequest, SandboxLogsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxRuntime_JobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
+
 // SandboxRuntimeServer is the server API for SandboxRuntime service.
 // All implementations must embed UnimplementedSandboxRuntimeServer
 // for forward compatibility.
@@ -952,6 +1214,11 @@ type SandboxRuntimeServer interface {
 	// Applies a committed network policy to a running sandbox immediately,
 	// instead of waiting for the next reconcile tick.
 	ApplyNetworkPolicy(context.Context, *ApplyNetworkPolicyRequest) (*ApplyNetworkPolicyResponse, error)
+	StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error)
+	ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error)
+	GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
+	StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
+	JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
 	mustEmbedUnimplementedSandboxRuntimeServer()
 }
 
@@ -970,6 +1237,21 @@ func (UnimplementedSandboxRuntimeServer) Exec(grpc.BidiStreamingServer[SandboxEx
 }
 func (UnimplementedSandboxRuntimeServer) ApplyNetworkPolicy(context.Context, *ApplyNetworkPolicyRequest) (*ApplyNetworkPolicyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ApplyNetworkPolicy not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartJob not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListJobs not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetJob not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StopJob not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
+	return status.Error(codes.Unimplemented, "method JobLogs not implemented")
 }
 func (UnimplementedSandboxRuntimeServer) mustEmbedUnimplementedSandboxRuntimeServer() {}
 func (UnimplementedSandboxRuntimeServer) testEmbeddedByValue()                        {}
@@ -1028,6 +1310,89 @@ func _SandboxRuntime_ApplyNetworkPolicy_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SandboxRuntime_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).StartJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_StartJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).StartJob(ctx, req.(*StartJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_ListJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).ListJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_ListJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).ListJobs(ctx, req.(*ListJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).GetJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_GetJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).GetJob(ctx, req.(*GetJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_StopJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).StopJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_StopJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).StopJob(ctx, req.(*StopJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_JobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(JobLogsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SandboxRuntimeServer).JobLogs(m, &grpc.GenericServerStream[JobLogsRequest, SandboxLogsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxRuntime_JobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
+
 // SandboxRuntime_ServiceDesc is the grpc.ServiceDesc for SandboxRuntime service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1038,6 +1403,22 @@ var SandboxRuntime_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ApplyNetworkPolicy",
 			Handler:    _SandboxRuntime_ApplyNetworkPolicy_Handler,
+		},
+		{
+			MethodName: "StartJob",
+			Handler:    _SandboxRuntime_StartJob_Handler,
+		},
+		{
+			MethodName: "ListJobs",
+			Handler:    _SandboxRuntime_ListJobs_Handler,
+		},
+		{
+			MethodName: "GetJob",
+			Handler:    _SandboxRuntime_GetJob_Handler,
+		},
+		{
+			MethodName: "StopJob",
+			Handler:    _SandboxRuntime_StopJob_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -1051,6 +1432,11 @@ var SandboxRuntime_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _SandboxRuntime_Exec_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "JobLogs",
+			Handler:       _SandboxRuntime_JobLogs_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "sandbox.proto",

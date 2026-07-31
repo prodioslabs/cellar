@@ -32,6 +32,11 @@ const (
 	Control_SandboxList_FullMethodName          = "/cellar.v1.Control/SandboxList"
 	Control_SandboxLogs_FullMethodName          = "/cellar.v1.Control/SandboxLogs"
 	Control_SandboxExec_FullMethodName          = "/cellar.v1.Control/SandboxExec"
+	Control_SandboxStartJob_FullMethodName      = "/cellar.v1.Control/SandboxStartJob"
+	Control_SandboxListJobs_FullMethodName      = "/cellar.v1.Control/SandboxListJobs"
+	Control_SandboxGetJob_FullMethodName        = "/cellar.v1.Control/SandboxGetJob"
+	Control_SandboxStopJob_FullMethodName       = "/cellar.v1.Control/SandboxStopJob"
+	Control_SandboxJobLogs_FullMethodName       = "/cellar.v1.Control/SandboxJobLogs"
 	Control_APIKeyCreate_FullMethodName         = "/cellar.v1.Control/APIKeyCreate"
 	Control_APIKeyList_FullMethodName           = "/cellar.v1.Control/APIKeyList"
 	Control_APIKeyDelete_FullMethodName         = "/cellar.v1.Control/APIKeyDelete"
@@ -63,6 +68,11 @@ type ControlClient interface {
 	SandboxList(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
 	SandboxLogs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
 	SandboxExec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
+	SandboxStartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error)
+	SandboxListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error)
+	SandboxGetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
+	SandboxStopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
+	SandboxJobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
 	// API key management (local unix socket; writes require Raft leader).
 	APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error)
 	APIKeyList(ctx context.Context, in *APIKeyListRequest, opts ...grpc.CallOption) (*APIKeyListResponse, error)
@@ -226,6 +236,65 @@ func (c *controlClient) SandboxExec(ctx context.Context, opts ...grpc.CallOption
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
 
+func (c *controlClient) SandboxStartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartJobResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxStartJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListJobsResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxListJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxGetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetJobResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxGetJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxStopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopJobResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxStopJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxJobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Control_ServiceDesc.Streams[2], Control_SandboxJobLogs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[JobLogsRequest, SandboxLogsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxJobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
+
 func (c *controlClient) APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(APIKeyCreateResponse)
@@ -336,6 +405,11 @@ type ControlServer interface {
 	SandboxList(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
 	SandboxLogs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
 	SandboxExec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
+	SandboxStartJob(context.Context, *StartJobRequest) (*StartJobResponse, error)
+	SandboxListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error)
+	SandboxGetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
+	SandboxStopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
+	SandboxJobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
 	// API key management (local unix socket; writes require Raft leader).
 	APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error)
 	APIKeyList(context.Context, *APIKeyListRequest) (*APIKeyListResponse, error)
@@ -395,6 +469,21 @@ func (UnimplementedControlServer) SandboxLogs(*SandboxLogsRequest, grpc.ServerSt
 }
 func (UnimplementedControlServer) SandboxExec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
 	return status.Error(codes.Unimplemented, "method SandboxExec not implemented")
+}
+func (UnimplementedControlServer) SandboxStartJob(context.Context, *StartJobRequest) (*StartJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxStartJob not implemented")
+}
+func (UnimplementedControlServer) SandboxListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxListJobs not implemented")
+}
+func (UnimplementedControlServer) SandboxGetJob(context.Context, *GetJobRequest) (*GetJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxGetJob not implemented")
+}
+func (UnimplementedControlServer) SandboxStopJob(context.Context, *StopJobRequest) (*StopJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxStopJob not implemented")
+}
+func (UnimplementedControlServer) SandboxJobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
+	return status.Error(codes.Unimplemented, "method SandboxJobLogs not implemented")
 }
 func (UnimplementedControlServer) APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method APIKeyCreate not implemented")
@@ -660,6 +749,89 @@ func _Control_SandboxExec_Handler(srv interface{}, stream grpc.ServerStream) err
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
 
+func _Control_SandboxStartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxStartJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxStartJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxStartJob(ctx, req.(*StartJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxListJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxListJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxListJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxListJobs(ctx, req.(*ListJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxGetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxGetJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxGetJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxGetJob(ctx, req.(*GetJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxStopJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxStopJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxStopJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxStopJob(ctx, req.(*StopJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxJobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(JobLogsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ControlServer).SandboxJobLogs(m, &grpc.GenericServerStream[JobLogsRequest, SandboxLogsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxJobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
+
 func _Control_APIKeyCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(APIKeyCreateRequest)
 	if err := dec(in); err != nil {
@@ -874,6 +1046,22 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Control_SandboxList_Handler,
 		},
 		{
+			MethodName: "SandboxStartJob",
+			Handler:    _Control_SandboxStartJob_Handler,
+		},
+		{
+			MethodName: "SandboxListJobs",
+			Handler:    _Control_SandboxListJobs_Handler,
+		},
+		{
+			MethodName: "SandboxGetJob",
+			Handler:    _Control_SandboxGetJob_Handler,
+		},
+		{
+			MethodName: "SandboxStopJob",
+			Handler:    _Control_SandboxStopJob_Handler,
+		},
+		{
 			MethodName: "APIKeyCreate",
 			Handler:    _Control_APIKeyCreate_Handler,
 		},
@@ -921,6 +1109,11 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _Control_SandboxExec_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "SandboxJobLogs",
+			Handler:       _Control_SandboxJobLogs_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "control.proto",

@@ -1,5 +1,11 @@
 package client
 
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+)
+
 // SandboxPhase is the observed lifecycle phase from cellar-gateway.
 type SandboxPhase string
 
@@ -11,6 +17,44 @@ const (
 	PhaseFailed   SandboxPhase = "failed"
 )
 
+// FlexInt64 unmarshals JSON numbers or protobuf-JSON string-encoded int64s.
+type FlexInt64 int64
+
+func (v *FlexInt64) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" || len(b) == 0 {
+		*v = 0
+		return nil
+	}
+	if b[0] == '"' {
+		var s string
+		if err := json.Unmarshal(b, &s); err != nil {
+			return err
+		}
+		if s == "" {
+			*v = 0
+			return nil
+		}
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return fmt.Errorf("flex int64: %w", err)
+		}
+		*v = FlexInt64(n)
+		return nil
+	}
+	var n int64
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	*v = FlexInt64(n)
+	return nil
+}
+
+func (v FlexInt64) MarshalJSON() ([]byte, error) {
+	return json.Marshal(int64(v))
+}
+
+func (v FlexInt64) Int64() int64 { return int64(v) }
+
 // Mount is a host bind mount.
 type Mount struct {
 	Source   string `json:"source,omitempty"`
@@ -20,8 +64,8 @@ type Mount struct {
 
 // Resources are container resource limits.
 type Resources struct {
-	CPUNanoCores int64 `json:"cpuNanoCores,omitempty"`
-	MemoryBytes  int64 `json:"memoryBytes,omitempty"`
+	CPUNanoCores FlexInt64 `json:"cpuNanoCores,omitempty"`
+	MemoryBytes  FlexInt64 `json:"memoryBytes,omitempty"`
 }
 
 // NetworkRule matches destinations for egress policy.
@@ -60,13 +104,13 @@ type SandboxSpec struct {
 
 // SandboxStatus is observed runtime state.
 type SandboxStatus struct {
-	Phase              string `json:"phase,omitempty"`
-	ContainerID        string `json:"containerId,omitempty"`
-	ExitCode           int32  `json:"exitCode,omitempty"`
-	Message            string `json:"message,omitempty"`
-	StartedAtUnixNano  int64  `json:"startedAtUnixNano,omitempty"`
-	FinishedAtUnixNano int64  `json:"finishedAtUnixNano,omitempty"`
-	UpdatedAtUnixNano  int64  `json:"updatedAtUnixNano,omitempty"`
+	Phase              string    `json:"phase,omitempty"`
+	ContainerID        string    `json:"containerId,omitempty"`
+	ExitCode           int32     `json:"exitCode,omitempty"`
+	Message            string    `json:"message,omitempty"`
+	StartedAtUnixNano  FlexInt64 `json:"startedAtUnixNano,omitempty"`
+	FinishedAtUnixNano FlexInt64 `json:"finishedAtUnixNano,omitempty"`
+	UpdatedAtUnixNano  FlexInt64 `json:"updatedAtUnixNano,omitempty"`
 }
 
 // SandboxSnapshot is the wire shape returned by the gateway (no behavior).
@@ -76,8 +120,8 @@ type SandboxSnapshot struct {
 	NodeID            string         `json:"nodeId,omitempty"`
 	DesiredState      string         `json:"desiredState,omitempty"`
 	Status            *SandboxStatus `json:"status,omitempty"`
-	CreatedAtUnixNano int64          `json:"createdAtUnixNano,omitempty"`
-	UpdatedAtUnixNano int64          `json:"updatedAtUnixNano,omitempty"`
+	CreatedAtUnixNano FlexInt64      `json:"createdAtUnixNano,omitempty"`
+	UpdatedAtUnixNano FlexInt64      `json:"updatedAtUnixNano,omitempty"`
 }
 
 // SandboxCreateRequest creates a sandbox.

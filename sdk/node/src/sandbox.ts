@@ -1,4 +1,4 @@
-import type { Client, DeepPartial, ExecResult, LogsChunk, LogsOptions } from './client.js'
+import type { Client, DeepPartial, ExecResult, JobInfo, LogsChunk, LogsOptions } from './client.js'
 import type { NetworkPolicy, SandboxSnapshot, SandboxSpec, SandboxStatus } from './types.js'
 
 export interface WaitUntilReadyOptions {
@@ -137,6 +137,26 @@ export class Sandbox {
   /** Runs a command in this sandbox and collects output until exit. */
   async exec(command: string[]): Promise<ExecResult> {
     return this.client.execCommand(this.id, command)
+  }
+
+  /** Starts a background job and returns its id. */
+  async startJob(command: string[]): Promise<string> {
+    return this.client.startJob(this.id, command)
+  }
+
+  /** Lists background jobs. */
+  async listJobs(): Promise<JobInfo[]> {
+    return this.client.listJobs(this.id)
+  }
+
+  /** Gets a background job. */
+  async getJob(jobId: string): Promise<JobInfo> {
+    return this.client.getJob(this.id, jobId)
+  }
+
+  /** Stops a background job. */
+  async stopJob(jobId: string): Promise<void> {
+    await this.client.stopJob(this.id, jobId)
   }
 
   /** Streams sandbox logs as NDJSON chunks. */

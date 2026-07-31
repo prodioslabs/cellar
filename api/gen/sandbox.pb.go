@@ -1897,6 +1897,518 @@ func (x *SandboxExecExit) GetError() string {
 	return ""
 }
 
+type StartJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Command       []string               `protobuf:"bytes,2,rep,name=command,proto3" json:"command,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartJobRequest) Reset() {
+	*x = StartJobRequest{}
+	mi := &file_sandbox_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartJobRequest) ProtoMessage() {}
+
+func (x *StartJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartJobRequest.ProtoReflect.Descriptor instead.
+func (*StartJobRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *StartJobRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *StartJobRequest) GetCommand() []string {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+type StartJobResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartJobResponse) Reset() {
+	*x = StartJobResponse{}
+	mi := &file_sandbox_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartJobResponse) ProtoMessage() {}
+
+func (x *StartJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartJobResponse.ProtoReflect.Descriptor instead.
+func (*StartJobResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *StartJobResponse) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type ListJobsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListJobsRequest) Reset() {
+	*x = ListJobsRequest{}
+	mi := &file_sandbox_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListJobsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListJobsRequest) ProtoMessage() {}
+
+func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListJobsRequest.ProtoReflect.Descriptor instead.
+func (*ListJobsRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ListJobsRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+type JobInfo struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Command           []string               `protobuf:"bytes,2,rep,name=command,proto3" json:"command,omitempty"`
+	Phase             string                 `protobuf:"bytes,3,opt,name=phase,proto3" json:"phase,omitempty"` // running | exited | unknown
+	ExitCode          int32                  `protobuf:"varint,4,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	StartedAtUnixNano int64                  `protobuf:"varint,5,opt,name=started_at_unix_nano,json=startedAtUnixNano,proto3" json:"started_at_unix_nano,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *JobInfo) Reset() {
+	*x = JobInfo{}
+	mi := &file_sandbox_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobInfo) ProtoMessage() {}
+
+func (x *JobInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobInfo.ProtoReflect.Descriptor instead.
+func (*JobInfo) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *JobInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *JobInfo) GetCommand() []string {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *JobInfo) GetPhase() string {
+	if x != nil {
+		return x.Phase
+	}
+	return ""
+}
+
+func (x *JobInfo) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *JobInfo) GetStartedAtUnixNano() int64 {
+	if x != nil {
+		return x.StartedAtUnixNano
+	}
+	return 0
+}
+
+type ListJobsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Jobs          []*JobInfo             `protobuf:"bytes,1,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListJobsResponse) Reset() {
+	*x = ListJobsResponse{}
+	mi := &file_sandbox_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListJobsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListJobsResponse) ProtoMessage() {}
+
+func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListJobsResponse.ProtoReflect.Descriptor instead.
+func (*ListJobsResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListJobsResponse) GetJobs() []*JobInfo {
+	if x != nil {
+		return x.Jobs
+	}
+	return nil
+}
+
+type GetJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	JobId         string                 `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetJobRequest) Reset() {
+	*x = GetJobRequest{}
+	mi := &file_sandbox_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetJobRequest) ProtoMessage() {}
+
+func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetJobRequest.ProtoReflect.Descriptor instead.
+func (*GetJobRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *GetJobRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *GetJobRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type GetJobResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Job           *JobInfo               `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetJobResponse) Reset() {
+	*x = GetJobResponse{}
+	mi := &file_sandbox_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetJobResponse) ProtoMessage() {}
+
+func (x *GetJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetJobResponse.ProtoReflect.Descriptor instead.
+func (*GetJobResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *GetJobResponse) GetJob() *JobInfo {
+	if x != nil {
+		return x.Job
+	}
+	return nil
+}
+
+type StopJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	JobId         string                 `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	TimeoutSec    int32                  `protobuf:"varint,3,opt,name=timeout_sec,json=timeoutSec,proto3" json:"timeout_sec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopJobRequest) Reset() {
+	*x = StopJobRequest{}
+	mi := &file_sandbox_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopJobRequest) ProtoMessage() {}
+
+func (x *StopJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopJobRequest.ProtoReflect.Descriptor instead.
+func (*StopJobRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *StopJobRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *StopJobRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *StopJobRequest) GetTimeoutSec() int32 {
+	if x != nil {
+		return x.TimeoutSec
+	}
+	return 0
+}
+
+type StopJobResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopJobResponse) Reset() {
+	*x = StopJobResponse{}
+	mi := &file_sandbox_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopJobResponse) ProtoMessage() {}
+
+func (x *StopJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopJobResponse.ProtoReflect.Descriptor instead.
+func (*StopJobResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{41}
+}
+
+type JobLogsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	JobId         string                 `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Follow        bool                   `protobuf:"varint,3,opt,name=follow,proto3" json:"follow,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobLogsRequest) Reset() {
+	*x = JobLogsRequest{}
+	mi := &file_sandbox_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobLogsRequest) ProtoMessage() {}
+
+func (x *JobLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobLogsRequest.ProtoReflect.Descriptor instead.
+func (*JobLogsRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *JobLogsRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *JobLogsRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *JobLogsRequest) GetFollow() bool {
+	if x != nil {
+		return x.Follow
+	}
+	return false
+}
+
 var File_sandbox_proto protoreflect.FileDescriptor
 
 const file_sandbox_proto_rawDesc = "" +
@@ -2025,14 +2537,49 @@ const file_sandbox_proto_rawDesc = "" +
 	"\x05stdin\x18\x04 \x01(\bR\x05stdin\"D\n" +
 	"\x0fSandboxExecExit\x12\x1b\n" +
 	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\xde\x03\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"J\n" +
+	"\x0fStartJobRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x18\n" +
+	"\acommand\x18\x02 \x03(\tR\acommand\")\n" +
+	"\x10StartJobResponse\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"0\n" +
+	"\x0fListJobsRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\"\x97\x01\n" +
+	"\aJobInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\acommand\x18\x02 \x03(\tR\acommand\x12\x14\n" +
+	"\x05phase\x18\x03 \x01(\tR\x05phase\x12\x1b\n" +
+	"\texit_code\x18\x04 \x01(\x05R\bexitCode\x12/\n" +
+	"\x14started_at_unix_nano\x18\x05 \x01(\x03R\x11startedAtUnixNano\":\n" +
+	"\x10ListJobsResponse\x12&\n" +
+	"\x04jobs\x18\x01 \x03(\v2\x12.cellar.v1.JobInfoR\x04jobs\"E\n" +
+	"\rGetJobRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\tR\x05jobId\"6\n" +
+	"\x0eGetJobResponse\x12$\n" +
+	"\x03job\x18\x01 \x01(\v2\x12.cellar.v1.JobInfoR\x03job\"g\n" +
+	"\x0eStopJobRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x1f\n" +
+	"\vtimeout_sec\x18\x03 \x01(\x05R\n" +
+	"timeoutSec\"\x11\n" +
+	"\x0fStopJobResponse\"^\n" +
+	"\x0eJobLogsRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x16\n" +
+	"\x06follow\x18\x03 \x01(\bR\x06follow2\xde\x03\n" +
 	"\x0eSandboxControl\x12K\n" +
 	"\x06Create\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12E\n" +
 	"\x04Stop\x12\x1d.cellar.v1.SandboxStopRequest\x1a\x1e.cellar.v1.SandboxStopResponse\x12K\n" +
 	"\x06Remove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12B\n" +
 	"\x03Get\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12E\n" +
 	"\x04List\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12`\n" +
-	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse2\xea\x04\n" +
+	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse2\xba\a\n" +
 	"\n" +
 	"SandboxAPI\x12K\n" +
 	"\x06Create\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12E\n" +
@@ -2042,15 +2589,25 @@ const file_sandbox_proto_rawDesc = "" +
 	"\x04List\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12`\n" +
 	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse\x12D\n" +
 	"\x04Logs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12H\n" +
-	"\x04Exec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x012\xaa\x02\n" +
+	"\x04Exec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01\x12C\n" +
+	"\bStartJob\x12\x1a.cellar.v1.StartJobRequest\x1a\x1b.cellar.v1.StartJobResponse\x12C\n" +
+	"\bListJobs\x12\x1a.cellar.v1.ListJobsRequest\x1a\x1b.cellar.v1.ListJobsResponse\x12=\n" +
+	"\x06GetJob\x12\x18.cellar.v1.GetJobRequest\x1a\x19.cellar.v1.GetJobResponse\x12@\n" +
+	"\aStopJob\x12\x19.cellar.v1.StopJobRequest\x1a\x1a.cellar.v1.StopJobResponse\x12C\n" +
+	"\aJobLogs\x12\x19.cellar.v1.JobLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x012\xaa\x02\n" +
 	"\fRuntimeAgent\x12T\n" +
 	"\tHeartbeat\x12\".cellar.v1.RuntimeHeartbeatRequest\x1a#.cellar.v1.RuntimeHeartbeatResponse\x12d\n" +
 	"\x13UpdateSandboxStatus\x12%.cellar.v1.UpdateSandboxStatusRequest\x1a&.cellar.v1.UpdateSandboxStatusResponse\x12^\n" +
-	"\x11ListNodeSandboxes\x12#.cellar.v1.ListNodeSandboxesRequest\x1a$.cellar.v1.ListNodeSandboxesResponse2\x83\x02\n" +
+	"\x11ListNodeSandboxes\x12#.cellar.v1.ListNodeSandboxesRequest\x1a$.cellar.v1.ListNodeSandboxesResponse2\xd3\x04\n" +
 	"\x0eSandboxRuntime\x12D\n" +
 	"\x04Logs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12H\n" +
 	"\x04Exec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01\x12a\n" +
-	"\x12ApplyNetworkPolicy\x12$.cellar.v1.ApplyNetworkPolicyRequest\x1a%.cellar.v1.ApplyNetworkPolicyResponseB0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
+	"\x12ApplyNetworkPolicy\x12$.cellar.v1.ApplyNetworkPolicyRequest\x1a%.cellar.v1.ApplyNetworkPolicyResponse\x12C\n" +
+	"\bStartJob\x12\x1a.cellar.v1.StartJobRequest\x1a\x1b.cellar.v1.StartJobResponse\x12C\n" +
+	"\bListJobs\x12\x1a.cellar.v1.ListJobsRequest\x1a\x1b.cellar.v1.ListJobsResponse\x12=\n" +
+	"\x06GetJob\x12\x18.cellar.v1.GetJobRequest\x1a\x19.cellar.v1.GetJobResponse\x12@\n" +
+	"\aStopJob\x12\x19.cellar.v1.StopJobRequest\x1a\x1a.cellar.v1.StopJobResponse\x12C\n" +
+	"\aJobLogs\x12\x19.cellar.v1.JobLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01B0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
 
 var (
 	file_sandbox_proto_rawDescOnce sync.Once
@@ -2064,7 +2621,7 @@ func file_sandbox_proto_rawDescGZIP() []byte {
 	return file_sandbox_proto_rawDescData
 }
 
-var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_sandbox_proto_goTypes = []any{
 	(*Mount)(nil),                        // 0: cellar.v1.Mount
 	(*Resources)(nil),                    // 1: cellar.v1.Resources
@@ -2099,6 +2656,16 @@ var file_sandbox_proto_goTypes = []any{
 	(*SandboxExecMessage)(nil),           // 30: cellar.v1.SandboxExecMessage
 	(*SandboxExecStart)(nil),             // 31: cellar.v1.SandboxExecStart
 	(*SandboxExecExit)(nil),              // 32: cellar.v1.SandboxExecExit
+	(*StartJobRequest)(nil),              // 33: cellar.v1.StartJobRequest
+	(*StartJobResponse)(nil),             // 34: cellar.v1.StartJobResponse
+	(*ListJobsRequest)(nil),              // 35: cellar.v1.ListJobsRequest
+	(*JobInfo)(nil),                      // 36: cellar.v1.JobInfo
+	(*ListJobsResponse)(nil),             // 37: cellar.v1.ListJobsResponse
+	(*GetJobRequest)(nil),                // 38: cellar.v1.GetJobRequest
+	(*GetJobResponse)(nil),               // 39: cellar.v1.GetJobResponse
+	(*StopJobRequest)(nil),               // 40: cellar.v1.StopJobRequest
+	(*StopJobResponse)(nil),              // 41: cellar.v1.StopJobResponse
+	(*JobLogsRequest)(nil),               // 42: cellar.v1.JobLogsRequest
 }
 var file_sandbox_proto_depIdxs = []int32{
 	3,  // 0: cellar.v1.NetworkPolicy.dns:type_name -> cellar.v1.DNSPolicy
@@ -2121,51 +2688,73 @@ var file_sandbox_proto_depIdxs = []int32{
 	7,  // 17: cellar.v1.ListNodeSandboxesResponse.sandboxes:type_name -> cellar.v1.Sandbox
 	31, // 18: cellar.v1.SandboxExecMessage.start:type_name -> cellar.v1.SandboxExecStart
 	32, // 19: cellar.v1.SandboxExecMessage.exit:type_name -> cellar.v1.SandboxExecExit
-	8,  // 20: cellar.v1.SandboxControl.Create:input_type -> cellar.v1.SandboxCreateRequest
-	10, // 21: cellar.v1.SandboxControl.Stop:input_type -> cellar.v1.SandboxStopRequest
-	12, // 22: cellar.v1.SandboxControl.Remove:input_type -> cellar.v1.SandboxRemoveRequest
-	14, // 23: cellar.v1.SandboxControl.Get:input_type -> cellar.v1.SandboxGetRequest
-	20, // 24: cellar.v1.SandboxControl.List:input_type -> cellar.v1.SandboxListRequest
-	16, // 25: cellar.v1.SandboxControl.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	8,  // 26: cellar.v1.SandboxAPI.Create:input_type -> cellar.v1.SandboxCreateRequest
-	10, // 27: cellar.v1.SandboxAPI.Stop:input_type -> cellar.v1.SandboxStopRequest
-	12, // 28: cellar.v1.SandboxAPI.Remove:input_type -> cellar.v1.SandboxRemoveRequest
-	14, // 29: cellar.v1.SandboxAPI.Get:input_type -> cellar.v1.SandboxGetRequest
-	20, // 30: cellar.v1.SandboxAPI.List:input_type -> cellar.v1.SandboxListRequest
-	16, // 31: cellar.v1.SandboxAPI.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	28, // 32: cellar.v1.SandboxAPI.Logs:input_type -> cellar.v1.SandboxLogsRequest
-	30, // 33: cellar.v1.SandboxAPI.Exec:input_type -> cellar.v1.SandboxExecMessage
-	22, // 34: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
-	24, // 35: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
-	26, // 36: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
-	28, // 37: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
-	30, // 38: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
-	18, // 39: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:input_type -> cellar.v1.ApplyNetworkPolicyRequest
-	9,  // 40: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
-	11, // 41: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
-	13, // 42: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
-	15, // 43: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
-	21, // 44: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
-	17, // 45: cellar.v1.SandboxControl.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	9,  // 46: cellar.v1.SandboxAPI.Create:output_type -> cellar.v1.SandboxCreateResponse
-	11, // 47: cellar.v1.SandboxAPI.Stop:output_type -> cellar.v1.SandboxStopResponse
-	13, // 48: cellar.v1.SandboxAPI.Remove:output_type -> cellar.v1.SandboxRemoveResponse
-	15, // 49: cellar.v1.SandboxAPI.Get:output_type -> cellar.v1.SandboxGetResponse
-	21, // 50: cellar.v1.SandboxAPI.List:output_type -> cellar.v1.SandboxListResponse
-	17, // 51: cellar.v1.SandboxAPI.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	29, // 52: cellar.v1.SandboxAPI.Logs:output_type -> cellar.v1.SandboxLogsChunk
-	30, // 53: cellar.v1.SandboxAPI.Exec:output_type -> cellar.v1.SandboxExecMessage
-	23, // 54: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
-	25, // 55: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
-	27, // 56: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
-	29, // 57: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
-	30, // 58: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
-	19, // 59: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:output_type -> cellar.v1.ApplyNetworkPolicyResponse
-	40, // [40:60] is the sub-list for method output_type
-	20, // [20:40] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	36, // 20: cellar.v1.ListJobsResponse.jobs:type_name -> cellar.v1.JobInfo
+	36, // 21: cellar.v1.GetJobResponse.job:type_name -> cellar.v1.JobInfo
+	8,  // 22: cellar.v1.SandboxControl.Create:input_type -> cellar.v1.SandboxCreateRequest
+	10, // 23: cellar.v1.SandboxControl.Stop:input_type -> cellar.v1.SandboxStopRequest
+	12, // 24: cellar.v1.SandboxControl.Remove:input_type -> cellar.v1.SandboxRemoveRequest
+	14, // 25: cellar.v1.SandboxControl.Get:input_type -> cellar.v1.SandboxGetRequest
+	20, // 26: cellar.v1.SandboxControl.List:input_type -> cellar.v1.SandboxListRequest
+	16, // 27: cellar.v1.SandboxControl.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	8,  // 28: cellar.v1.SandboxAPI.Create:input_type -> cellar.v1.SandboxCreateRequest
+	10, // 29: cellar.v1.SandboxAPI.Stop:input_type -> cellar.v1.SandboxStopRequest
+	12, // 30: cellar.v1.SandboxAPI.Remove:input_type -> cellar.v1.SandboxRemoveRequest
+	14, // 31: cellar.v1.SandboxAPI.Get:input_type -> cellar.v1.SandboxGetRequest
+	20, // 32: cellar.v1.SandboxAPI.List:input_type -> cellar.v1.SandboxListRequest
+	16, // 33: cellar.v1.SandboxAPI.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	28, // 34: cellar.v1.SandboxAPI.Logs:input_type -> cellar.v1.SandboxLogsRequest
+	30, // 35: cellar.v1.SandboxAPI.Exec:input_type -> cellar.v1.SandboxExecMessage
+	33, // 36: cellar.v1.SandboxAPI.StartJob:input_type -> cellar.v1.StartJobRequest
+	35, // 37: cellar.v1.SandboxAPI.ListJobs:input_type -> cellar.v1.ListJobsRequest
+	38, // 38: cellar.v1.SandboxAPI.GetJob:input_type -> cellar.v1.GetJobRequest
+	40, // 39: cellar.v1.SandboxAPI.StopJob:input_type -> cellar.v1.StopJobRequest
+	42, // 40: cellar.v1.SandboxAPI.JobLogs:input_type -> cellar.v1.JobLogsRequest
+	22, // 41: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
+	24, // 42: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
+	26, // 43: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
+	28, // 44: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
+	30, // 45: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
+	18, // 46: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:input_type -> cellar.v1.ApplyNetworkPolicyRequest
+	33, // 47: cellar.v1.SandboxRuntime.StartJob:input_type -> cellar.v1.StartJobRequest
+	35, // 48: cellar.v1.SandboxRuntime.ListJobs:input_type -> cellar.v1.ListJobsRequest
+	38, // 49: cellar.v1.SandboxRuntime.GetJob:input_type -> cellar.v1.GetJobRequest
+	40, // 50: cellar.v1.SandboxRuntime.StopJob:input_type -> cellar.v1.StopJobRequest
+	42, // 51: cellar.v1.SandboxRuntime.JobLogs:input_type -> cellar.v1.JobLogsRequest
+	9,  // 52: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
+	11, // 53: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
+	13, // 54: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
+	15, // 55: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
+	21, // 56: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
+	17, // 57: cellar.v1.SandboxControl.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	9,  // 58: cellar.v1.SandboxAPI.Create:output_type -> cellar.v1.SandboxCreateResponse
+	11, // 59: cellar.v1.SandboxAPI.Stop:output_type -> cellar.v1.SandboxStopResponse
+	13, // 60: cellar.v1.SandboxAPI.Remove:output_type -> cellar.v1.SandboxRemoveResponse
+	15, // 61: cellar.v1.SandboxAPI.Get:output_type -> cellar.v1.SandboxGetResponse
+	21, // 62: cellar.v1.SandboxAPI.List:output_type -> cellar.v1.SandboxListResponse
+	17, // 63: cellar.v1.SandboxAPI.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	29, // 64: cellar.v1.SandboxAPI.Logs:output_type -> cellar.v1.SandboxLogsChunk
+	30, // 65: cellar.v1.SandboxAPI.Exec:output_type -> cellar.v1.SandboxExecMessage
+	34, // 66: cellar.v1.SandboxAPI.StartJob:output_type -> cellar.v1.StartJobResponse
+	37, // 67: cellar.v1.SandboxAPI.ListJobs:output_type -> cellar.v1.ListJobsResponse
+	39, // 68: cellar.v1.SandboxAPI.GetJob:output_type -> cellar.v1.GetJobResponse
+	41, // 69: cellar.v1.SandboxAPI.StopJob:output_type -> cellar.v1.StopJobResponse
+	29, // 70: cellar.v1.SandboxAPI.JobLogs:output_type -> cellar.v1.SandboxLogsChunk
+	23, // 71: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
+	25, // 72: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
+	27, // 73: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
+	29, // 74: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
+	30, // 75: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
+	19, // 76: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:output_type -> cellar.v1.ApplyNetworkPolicyResponse
+	34, // 77: cellar.v1.SandboxRuntime.StartJob:output_type -> cellar.v1.StartJobResponse
+	37, // 78: cellar.v1.SandboxRuntime.ListJobs:output_type -> cellar.v1.ListJobsResponse
+	39, // 79: cellar.v1.SandboxRuntime.GetJob:output_type -> cellar.v1.GetJobResponse
+	41, // 80: cellar.v1.SandboxRuntime.StopJob:output_type -> cellar.v1.StopJobResponse
+	29, // 81: cellar.v1.SandboxRuntime.JobLogs:output_type -> cellar.v1.SandboxLogsChunk
+	52, // [52:82] is the sub-list for method output_type
+	22, // [22:52] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_sandbox_proto_init() }
@@ -2187,7 +2776,7 @@ func file_sandbox_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sandbox_proto_rawDesc), len(file_sandbox_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   33,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

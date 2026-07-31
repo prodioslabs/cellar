@@ -240,13 +240,15 @@ func (s *Server) handleLogs(c *gin.Context) {
 
 type execRequestBody struct {
 	Command []string `json:"command"`
+	Detach  bool     `json:"detach,omitempty"`
 }
 
 type execResponseBody struct {
-	Stdout   string `json:"stdout"`
-	Stderr   string `json:"stderr"`
-	ExitCode int32  `json:"exitCode"`
+	Stdout   string `json:"stdout,omitempty"`
+	Stderr   string `json:"stderr,omitempty"`
+	ExitCode int32  `json:"exitCode,omitempty"`
 	Error    string `json:"error,omitempty"`
+	JobID    string `json:"jobId,omitempty"`
 }
 
 func (s *Server) handleExec(c *gin.Context) {
@@ -275,6 +277,15 @@ func (s *Server) handleExec(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, errorBody{Error: "command is required", Code: "invalid_argument"})
 		return
 	}
+	if req.Detach {
+		jobID, err := s.up.StartJob(c.Request.Context(), apiKey, id, req.Command)
+		if err != nil {
+			writeGRPCError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, execResponseBody{JobID: jobID})
+		return
+	}
 	res, err := s.up.Exec(c.Request.Context(), apiKey, id, req.Command)
 	if err != nil {
 		writeGRPCError(c, err)
@@ -286,6 +297,102 @@ func (s *Server) handleExec(c *gin.Context) {
 		ExitCode: res.ExitCode,
 		Error:    res.Error,
 	})
+}
+
+func (s *Server) handleListJobs(c *gin.Context) {
+	apiKey, ok := requireAPIKey(c)
+	if !ok {
+		return
+	}
+	jobs, err := s.up.ListJobs(c.Request.Context(), apiKey, c.Param("id"))
+	if err != nil {
+		writeGRPCError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"jobs": jobsToJSON(jobs)})
+}
+
+func (s *Server) handleGetJob(c *gin.Context) {
+	apiKey, ok := requireAPIKey(c)
+	if !ok {
+		return
+	}
+	job, err := s.up.GetJob(c.Request.Context(), apiKey, c.Param("id"), c.Param("jobId"))
+	if err != nil {
+		writeGRPCError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, jobToJSON(job))
+}
+
+func (s *Server) handleStopJob(c *gin.Context) {
+	apiKey, ok := requireAPIKey(c)
+	if !ok {
+		return
+	}
+	if err := s.up.StopJob(c.Request.Context(), apiKey, c.Param("id"), c.Param("jobId"), 10); err != nil {
+		writeGRPCError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (s *Server) handleJobLogs(c *gin.Context) {
+	apiKey, ok := requireAPIKey(c)
+	if !ok {
+		return
+	}
+	stream, err := s.up.JobLogs(c.Request.Context(), apiKey, &cellarv1.JobLogsRequest{
+		SandboxId: c.Param("id"),
+		JobId:     c.Param("jobId"),
+		Follow:    queryBool(c, "follow"),
+	})
+	if err != nil {
+		writeGRPCError(c, err)
+		return
+	}
+	defer stream.Close()
+	c.Header("Content-Type", "application/x-ndjson")
+	c.Status(http.StatusOK)
+	flusher, canFlush := c.Writer.(http.Flusher)
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			return
+		}
+		if err != nil {
+			return
+		}
+		line, _ := json.Marshal(gin.H{"data": string(chunk.Data)})
+		_, _ = c.Writer.Write(append(line, '\n'))
+		if canFlush {
+			flusher.Flush()
+		}
+		if c.Request.Context().Err() != nil {
+			return
+		}
+	}
+}
+
+func jobsToJSON(jobs []*cellarv1.JobInfo) []gin.H {
+	out := make([]gin.H, 0, len(jobs))
+	for _, j := range jobs {
+		out = append(out, jobToJSON(j))
+	}
+	return out
+}
+
+func jobToJSON(j *cellarv1.JobInfo) gin.H {
+	if j == nil {
+		return gin.H{}
+	}
+	return gin.H{
+		"id":        j.Id,
+		"command":   j.Command,
+		"phase":     j.Phase,
+		"exitCode":  j.ExitCode,
+		"startedAt": j.StartedAtUnixNano,
+	}
 }
 
 func (s *Server) handleHealthz(c *gin.Context) {

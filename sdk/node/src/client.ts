@@ -34,6 +34,14 @@ export interface ExecResult {
   error: string
 }
 
+export interface JobInfo {
+  id: string
+  command?: string[]
+  phase?: string
+  exitCode?: number
+  startedAt?: number | string
+}
+
 export interface LogsOptions {
   follow?: boolean
   tail?: number
@@ -271,5 +279,40 @@ export class Client {
       exitCode: out?.exitCode ?? 0,
       error: out?.error ?? '',
     }
+  }
+
+  /** @internal Used by {@link Sandbox}. */
+  async startJob(sandboxId: string, command: string[]): Promise<string> {
+    const out = (await this.requestJSON(
+      'POST',
+      `/v1/sandboxes/${encodeURIComponent(sandboxId)}/exec`,
+      { command, detach: true },
+    )) as { jobId?: string }
+    return out?.jobId ?? ''
+  }
+
+  /** @internal Used by {@link Sandbox}. */
+  async listJobs(sandboxId: string): Promise<JobInfo[]> {
+    const out = (await this.requestJSON(
+      'GET',
+      `/v1/sandboxes/${encodeURIComponent(sandboxId)}/jobs`,
+    )) as { jobs?: JobInfo[] }
+    return out?.jobs ?? []
+  }
+
+  /** @internal Used by {@link Sandbox}. */
+  async getJob(sandboxId: string, jobId: string): Promise<JobInfo> {
+    return (await this.requestJSON(
+      'GET',
+      `/v1/sandboxes/${encodeURIComponent(sandboxId)}/jobs/${encodeURIComponent(jobId)}`,
+    )) as JobInfo
+  }
+
+  /** @internal Used by {@link Sandbox}. */
+  async stopJob(sandboxId: string, jobId: string): Promise<void> {
+    await this.requestJSON(
+      'DELETE',
+      `/v1/sandboxes/${encodeURIComponent(sandboxId)}/jobs/${encodeURIComponent(jobId)}`,
+    )
   }
 }

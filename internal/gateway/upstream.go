@@ -30,6 +30,11 @@ type Upstream interface {
 	UpdateNetwork(ctx context.Context, apiKey string, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.Sandbox, error)
 	Logs(ctx context.Context, apiKey string, req *cellarv1.SandboxLogsRequest) (LogsStream, error)
 	Exec(ctx context.Context, apiKey, sandboxID string, command []string) (*ExecResult, error)
+	StartJob(ctx context.Context, apiKey, sandboxID string, command []string) (jobID string, err error)
+	ListJobs(ctx context.Context, apiKey, sandboxID string) ([]*cellarv1.JobInfo, error)
+	GetJob(ctx context.Context, apiKey, sandboxID, jobID string) (*cellarv1.JobInfo, error)
+	StopJob(ctx context.Context, apiKey, sandboxID, jobID string, timeoutSec int32) error
+	JobLogs(ctx context.Context, apiKey string, req *cellarv1.JobLogsRequest) (LogsStream, error)
 	// Ready probes whether SandboxAPI is reachable (Unauthenticated counts as ready).
 	Ready(ctx context.Context) error
 }
@@ -315,7 +320,9 @@ func (u *GRPCUpstream) UpdateNetwork(ctx context.Context, apiKey string, req *ce
 }
 
 type grpcLogsStream struct {
-	stream cellarv1.SandboxAPI_LogsClient
+	stream interface {
+		Recv() (*cellarv1.SandboxLogsChunk, error)
+	}
 	conn   *grpc.ClientConn
 	cancel context.CancelFunc
 }
@@ -416,6 +423,97 @@ func (u *GRPCUpstream) Exec(ctx context.Context, apiKey, sandboxID string, comma
 		return nil
 	})
 	return res, err
+}
+
+func (u *GRPCUpstream) StartJob(ctx context.Context, apiKey, sandboxID string, command []string) (string, error) {
+	var jobID string
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.StartJob(withAPIKey(ctx, apiKey), &cellarv1.StartJobRequest{
+			SandboxId: sandboxID,
+			Command:   command,
+		})
+		if err != nil {
+			return err
+		}
+		jobID = resp.JobId
+		return nil
+	})
+	return jobID, err
+}
+
+func (u *GRPCUpstream) ListJobs(ctx context.Context, apiKey, sandboxID string) ([]*cellarv1.JobInfo, error) {
+	var jobs []*cellarv1.JobInfo
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.ListJobs(withAPIKey(ctx, apiKey), &cellarv1.ListJobsRequest{SandboxId: sandboxID})
+		if err != nil {
+			return err
+		}
+		jobs = resp.Jobs
+		return nil
+	})
+	return jobs, err
+}
+
+func (u *GRPCUpstream) GetJob(ctx context.Context, apiKey, sandboxID, jobID string) (*cellarv1.JobInfo, error) {
+	var job *cellarv1.JobInfo
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.GetJob(withAPIKey(ctx, apiKey), &cellarv1.GetJobRequest{
+			SandboxId: sandboxID,
+			JobId:     jobID,
+		})
+		if err != nil {
+			return err
+		}
+		job = resp.Job
+		return nil
+	})
+	return job, err
+}
+
+func (u *GRPCUpstream) StopJob(ctx context.Context, apiKey, sandboxID, jobID string, timeoutSec int32) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		_, err := api.StopJob(withAPIKey(ctx, apiKey), &cellarv1.StopJobRequest{
+			SandboxId:  sandboxID,
+			JobId:      jobID,
+			TimeoutSec: timeoutSec,
+		})
+		return err
+	})
+}
+
+func (u *GRPCUpstream) JobLogs(ctx context.Context, apiKey string, req *cellarv1.JobLogsRequest) (LogsStream, error) {
+	addrs, caPEM, err := u.Resolver.Resolve()
+	if err != nil {
+		return nil, err
+	}
+	tlsCfg, err := grpcapi.ClientTLSFromPEMs(nil, nil, caPEM, grpcapi.TLSServerName)
+	if err != nil {
+		return nil, err
+	}
+	var lastErr error
+	for _, addr := range addrs {
+		conn, err := grpc.NewClient(
+			normalizeGRPCAddr(addr),
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)),
+		)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		ctx2, cancel := context.WithCancel(ctx)
+		stream, err := cellarv1.NewSandboxAPIClient(conn).JobLogs(withAPIKey(ctx2, apiKey), req)
+		if err != nil {
+			cancel()
+			_ = conn.Close()
+			lastErr = err
+			continue
+		}
+		return &grpcLogsStream{stream: stream, conn: conn, cancel: cancel}, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no upstream managers reachable")
+	}
+	return nil, lastErr
 }
 
 // Ready dials SandboxAPI without an API key. Unauthenticated means the service
