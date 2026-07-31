@@ -32,22 +32,19 @@ func newSandboxCmd() *cobra.Command {
 
 func newSandboxCreateCmd() *cobra.Command {
 	var (
-		file               string
-		image              string
-		runtime            string
-		name               string
-		network            string
-		env                []string
-		mounts             []string
-		workdir            string
-		memory             int64
-		cpus               float64
-		allowHosts         []string
-		allowPorts         []int
-		networkAllowList   string
-		domainAllowList    string
-		networkBlockAll    bool
-		essentialServices  bool
+		file              string
+		image             string
+		runtime           string
+		name              string
+		env               []string
+		mounts            []string
+		workdir           string
+		memory            int64
+		cpus              float64
+		networkAllowList  string
+		domainAllowList   string
+		networkBlockAll   bool
+		essentialServices bool
 	)
 	cmd := &cobra.Command{
 		Use:   "create (--image <image> | --runtime <runtime> | -f <file>)",
@@ -70,7 +67,7 @@ func newSandboxCreateCmd() *cobra.Command {
 				if image != "" && runtime != "" {
 					return fmt.Errorf("specify --image or --runtime, not both")
 				}
-				netPol, err := buildCreateNetworkPolicy(cmd, network, allowHosts, allowPorts, networkAllowList, domainAllowList, networkBlockAll, essentialServices)
+				netPol, err := buildCreateNetworkPolicy(cmd, networkAllowList, domainAllowList, networkBlockAll, essentialServices)
 				if err != nil {
 					return err
 				}
@@ -121,71 +118,57 @@ func newSandboxCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&image, "image", "", "container image")
 	cmd.Flags().StringVar(&runtime, "runtime", "", "language runtime preset (node-26, bun-1.3, python-3.13, go-1.26)")
 	cmd.Flags().StringVar(&name, "id", "", "optional sandbox id")
-	cmd.Flags().StringVar(&network, "network", "none", "none|allowlist|denylist|blockall")
 	cmd.Flags().StringArrayVar(&env, "env", nil, "KEY=VALUE")
 	cmd.Flags().StringArrayVar(&mounts, "mount", nil, "src:dst[:ro]")
 	cmd.Flags().StringVar(&workdir, "workdir", "", "working directory")
 	cmd.Flags().Int64Var(&memory, "memory", 0, "memory bytes")
 	cmd.Flags().Float64Var(&cpus, "cpus", 0, "CPU limit (e.g. 0.5)")
-	cmd.Flags().StringArrayVar(&allowHosts, "allow-host", nil, "host/CIDR for network policy")
-	cmd.Flags().IntSliceVar(&allowPorts, "allow-port", nil, "ports for network policy")
-	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (Daytona-style)")
-	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (Daytona-style)")
+	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (max 10)")
+	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (max 20)")
 	cmd.Flags().BoolVar(&networkBlockAll, "network-block-all", false, "block all outbound traffic (keeps egress topology)")
 	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains")
 	return cmd
 }
 
-// buildCreateNetworkPolicy builds a NetworkPolicy from either structured flags or
-// Daytona-style sugar flags. Sugar is mutually exclusive with --network/--allow-*.
-func buildCreateNetworkPolicy(cmd *cobra.Command, network string, allowHosts []string, allowPorts []int, networkAllowList, domainAllowList string, networkBlockAll, essentialServices bool) (*cellarv1.NetworkPolicy, error) {
-	sugarSet := (cmd.Flags().Changed("network-allow-list") && strings.TrimSpace(networkAllowList) != "") ||
+// buildCreateNetworkPolicy builds a NetworkPolicy from flat network-limit flags.
+// With no limits set, the sandbox has no external network (mode none).
+func buildCreateNetworkPolicy(cmd *cobra.Command, networkAllowList, domainAllowList string, networkBlockAll, essentialServices bool) (*cellarv1.NetworkPolicy, error) {
+	limitsSet := (cmd.Flags().Changed("network-allow-list") && strings.TrimSpace(networkAllowList) != "") ||
 		(cmd.Flags().Changed("domain-allow-list") && strings.TrimSpace(domainAllowList) != "") ||
 		cmd.Flags().Changed("network-block-all")
-	structuredSet := cmd.Flags().Changed("network") || cmd.Flags().Changed("allow-host") || cmd.Flags().Changed("allow-port")
-	if sugarSet && structuredSet {
-		return nil, fmt.Errorf("cannot combine --network-allow-list/--domain-allow-list/--network-block-all with --network/--allow-host/--allow-port")
+	if !limitsSet {
+		return &cellarv1.NetworkPolicy{Mode: "none", EssentialServices: essentialServices}, nil
 	}
-	if sugarSet {
-		sugarCount := 0
-		if strings.TrimSpace(networkAllowList) != "" {
-			sugarCount++
-		}
-		if strings.TrimSpace(domainAllowList) != "" {
-			sugarCount++
-		}
-		if cmd.Flags().Changed("network-block-all") {
-			sugarCount++
-		}
-		if sugarCount > 1 {
-			return nil, fmt.Errorf("--network-allow-list, --domain-allow-list, and --network-block-all are mutually exclusive")
-		}
-		np := &cellarv1.NetworkPolicy{
-			NetworkAllowList:  strings.TrimSpace(networkAllowList),
-			DomainAllowList:   strings.TrimSpace(domainAllowList),
-			EssentialServices: essentialServices,
-		}
-		if cmd.Flags().Changed("network-block-all") {
-			v := networkBlockAll
-			np.BlockAll = &v
-		}
-		return np, nil
+	limitCount := 0
+	if strings.TrimSpace(networkAllowList) != "" {
+		limitCount++
 	}
-	ports := make([]uint32, 0, len(allowPorts))
-	for _, p := range allowPorts {
-		ports = append(ports, uint32(p))
+	if strings.TrimSpace(domainAllowList) != "" {
+		limitCount++
 	}
-	warnUnmatchableHostRules(cmd.ErrOrStderr(), allowHosts, ports)
-	np := networkPolicyFromAllow(network, allowHosts, ports)
-	np.EssentialServices = essentialServices
+	if cmd.Flags().Changed("network-block-all") {
+		limitCount++
+	}
+	if limitCount > 1 {
+		return nil, fmt.Errorf("--network-allow-list, --domain-allow-list, and --network-block-all are mutually exclusive")
+	}
+	np := &cellarv1.NetworkPolicy{
+		NetworkAllowList:  strings.TrimSpace(networkAllowList),
+		DomainAllowList:   strings.TrimSpace(domainAllowList),
+		EssentialServices: essentialServices,
+	}
+	if cmd.Flags().Changed("network-block-all") {
+		v := networkBlockAll
+		np.BlockAll = &v
+	}
 	return np, nil
 }
 
 // rejectCreateFlagsWithFile errors if any create flag other than --file was set.
 func rejectCreateFlagsWithFile(cmd *cobra.Command) error {
 	exclusive := []string{
-		"image", "runtime", "id", "network", "env", "mount",
-		"workdir", "memory", "cpus", "allow-host", "allow-port",
+		"image", "runtime", "id", "env", "mount",
+		"workdir", "memory", "cpus",
 		"network-allow-list", "domain-allow-list", "network-block-all", "essential-services",
 	}
 	var set []string
@@ -240,9 +223,6 @@ func newSandboxRemoveCmd() *cobra.Command {
 
 func newSandboxNetworkCmd() *cobra.Command {
 	var (
-		mode              string
-		allowHosts        []string
-		allowPorts        []int
 		networkAllowList  string
 		domainAllowList   string
 		networkBlockAll   bool
@@ -253,13 +233,13 @@ func newSandboxNetworkCmd() *cobra.Command {
 		Short: "Replace the network policy of a running sandbox",
 		Long: "Replace the network policy of a running sandbox. Takes effect immediately, " +
 			"closing established connections the new policy no longer allows.\n\n" +
-			"Use either structured --mode/--allow-host/--allow-port, or Daytona-style " +
-			"--network-allow-list / --domain-allow-list / --network-block-all.\n\n" +
-			"Switching to or from mode none is rejected: that is fixed when the container is created. " +
-			"Mode blockall keeps egress topology and may be toggled live.",
+			"Set one of --network-allow-list, --domain-allow-list, or --network-block-all " +
+			"(mutually exclusive). Optional --essential-services allows curated package/git/AI domains.\n\n" +
+			"Sandboxes created with no network (mode none) cannot gain egress later; recreate them instead. " +
+			"block_all keeps egress topology and may be toggled live.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			netPol, err := buildUpdateNetworkPolicy(cmd, mode, allowHosts, allowPorts, networkAllowList, domainAllowList, networkBlockAll, essentialServices)
+			netPol, err := buildUpdateNetworkPolicy(cmd, networkAllowList, domainAllowList, networkBlockAll, essentialServices)
 			if err != nil {
 				return err
 			}
@@ -283,62 +263,42 @@ func newSandboxNetworkCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&mode, "mode", "", "allowlist|denylist|blockall")
-	cmd.Flags().StringArrayVar(&allowHosts, "allow-host", nil, "host/CIDR for network policy")
-	cmd.Flags().IntSliceVar(&allowPorts, "allow-port", nil, "ports for network policy")
-	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (Daytona-style)")
-	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (Daytona-style)")
+	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (max 10)")
+	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (max 20)")
 	cmd.Flags().BoolVar(&networkBlockAll, "network-block-all", false, "block all outbound (true) or open denylist (false)")
 	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains")
 	return cmd
 }
 
-func buildUpdateNetworkPolicy(cmd *cobra.Command, mode string, allowHosts []string, allowPorts []int, networkAllowList, domainAllowList string, networkBlockAll, essentialServices bool) (*cellarv1.NetworkPolicy, error) {
-	sugarSet := (cmd.Flags().Changed("network-allow-list") && strings.TrimSpace(networkAllowList) != "") ||
+func buildUpdateNetworkPolicy(cmd *cobra.Command, networkAllowList, domainAllowList string, networkBlockAll, essentialServices bool) (*cellarv1.NetworkPolicy, error) {
+	limitsSet := (cmd.Flags().Changed("network-allow-list") && strings.TrimSpace(networkAllowList) != "") ||
 		(cmd.Flags().Changed("domain-allow-list") && strings.TrimSpace(domainAllowList) != "") ||
 		cmd.Flags().Changed("network-block-all")
-	structuredSet := cmd.Flags().Changed("mode") || cmd.Flags().Changed("allow-host") || cmd.Flags().Changed("allow-port")
-	if sugarSet && structuredSet {
-		return nil, fmt.Errorf("cannot combine Daytona-style flags with --mode/--allow-host/--allow-port")
+	if !limitsSet {
+		return nil, fmt.Errorf("set --network-allow-list, --domain-allow-list, or --network-block-all")
 	}
-	if !sugarSet && !structuredSet {
-		return nil, fmt.Errorf("set --mode or a Daytona-style network flag")
+	limitCount := 0
+	if strings.TrimSpace(networkAllowList) != "" {
+		limitCount++
 	}
-	if sugarSet {
-		sugarCount := 0
-		if strings.TrimSpace(networkAllowList) != "" {
-			sugarCount++
-		}
-		if strings.TrimSpace(domainAllowList) != "" {
-			sugarCount++
-		}
-		if cmd.Flags().Changed("network-block-all") {
-			sugarCount++
-		}
-		if sugarCount > 1 {
-			return nil, fmt.Errorf("--network-allow-list, --domain-allow-list, and --network-block-all are mutually exclusive")
-		}
-		np := &cellarv1.NetworkPolicy{
-			NetworkAllowList:  strings.TrimSpace(networkAllowList),
-			DomainAllowList:   strings.TrimSpace(domainAllowList),
-			EssentialServices: essentialServices,
-		}
-		if cmd.Flags().Changed("network-block-all") {
-			v := networkBlockAll
-			np.BlockAll = &v
-		}
-		return np, nil
+	if strings.TrimSpace(domainAllowList) != "" {
+		limitCount++
 	}
-	if mode != "allowlist" && mode != "denylist" && mode != "blockall" {
-		return nil, fmt.Errorf("--mode must be allowlist, denylist, or blockall")
+	if cmd.Flags().Changed("network-block-all") {
+		limitCount++
 	}
-	ports := make([]uint32, 0, len(allowPorts))
-	for _, p := range allowPorts {
-		ports = append(ports, uint32(p))
+	if limitCount > 1 {
+		return nil, fmt.Errorf("--network-allow-list, --domain-allow-list, and --network-block-all are mutually exclusive")
 	}
-	warnUnmatchableHostRules(cmd.ErrOrStderr(), allowHosts, ports)
-	np := networkPolicyFromAllow(mode, allowHosts, ports)
-	np.EssentialServices = essentialServices
+	np := &cellarv1.NetworkPolicy{
+		NetworkAllowList:  strings.TrimSpace(networkAllowList),
+		DomainAllowList:   strings.TrimSpace(domainAllowList),
+		EssentialServices: essentialServices,
+	}
+	if cmd.Flags().Changed("network-block-all") {
+		v := networkBlockAll
+		np.BlockAll = &v
+	}
 	return np, nil
 }
 

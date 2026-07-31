@@ -1,4 +1,4 @@
-# Domain allow list (Daytona-style) with essential package registries.
+# Domain allow list with essential package registries.
 # Usage: cellar sandbox create -f examples/sandbox-domain-allowlist.yaml
 id: demo-domains
 image: curlimages/curl

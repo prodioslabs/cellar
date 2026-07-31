@@ -4,8 +4,4 @@
 id: demo-curl
 image: curlimages/curl
 network:
-  mode: allowlist
-  allow_hosts:
-    - example.com
-  allow_ports:
-    - 443
+  domain_allow_list: example.com

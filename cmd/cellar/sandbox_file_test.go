@@ -9,8 +9,6 @@ func TestParseSandboxCreateFileNone(t *testing.T) {
 	const yamlDoc = `
 id: demo-alpine
 image: alpine
-network:
-  mode: none
 `
 	req, err := parseSandboxCreateFile([]byte(yamlDoc))
 	if err != nil {
@@ -38,11 +36,7 @@ resources:
   memory_bytes: 268435456
   cpus: 0.5
 network:
-  mode: allowlist
-  allow_hosts:
-    - example.com
-  allow_ports:
-    - 443
+  domain_allow_list: example.com
 `
 	req, err := parseSandboxCreateFile([]byte(yamlDoc))
 	if err != nil {
@@ -54,32 +48,16 @@ network:
 	if req.Spec.Resources.CpuNanoCores != 500000000 {
 		t.Fatalf("cpu nano: got %d", req.Spec.Resources.CpuNanoCores)
 	}
-	if req.Spec.Network.Mode != "allowlist" {
-		t.Fatalf("mode: got %q", req.Spec.Network.Mode)
+	if req.Spec.Network.GetDomainAllowList() != "example.com" {
+		t.Fatalf("domain_allow_list: got %q", req.Spec.Network.GetDomainAllowList())
 	}
-	if len(req.Spec.Network.Rules) != 1 {
-		t.Fatalf("rules: got %d", len(req.Spec.Network.Rules))
-	}
-	rule := req.Spec.Network.Rules[0]
-	if len(rule.Hosts) != 1 || rule.Hosts[0] != "example.com" {
-		t.Fatalf("hosts: got %#v", rule.Hosts)
-	}
-	if len(rule.Ports) != 1 || rule.Ports[0] != 443 {
-		t.Fatalf("ports: got %#v", rule.Ports)
-	}
-	if len(rule.Protocols) != 1 || rule.Protocols[0] != "tcp" {
-		t.Fatalf("protocols: got %#v", rule.Protocols)
-	}
-	if req.Spec.Network.Dns == nil || req.Spec.Network.Dns.Mode != "allowlist" {
-		t.Fatalf("dns: got %#v", req.Spec.Network.Dns)
-	}
-	if len(req.Spec.Network.Dns.Names) != 1 || req.Spec.Network.Dns.Names[0] != "example.com" {
-		t.Fatalf("dns names: got %#v", req.Spec.Network.Dns.Names)
+	if req.Spec.Network.Mode != "" {
+		t.Fatalf("mode should be empty (limits), got %q", req.Spec.Network.Mode)
 	}
 }
 
 func TestParseSandboxCreateFileMissingImage(t *testing.T) {
-	_, err := parseSandboxCreateFile([]byte("network:\n  mode: none\n"))
+	_, err := parseSandboxCreateFile([]byte("network:\n  block_all: true\n"))
 	if err == nil || !strings.Contains(err.Error(), "image or runtime is required") {
 		t.Fatalf("expected image or runtime required error, got %v", err)
 	}
@@ -89,8 +67,6 @@ func TestParseSandboxCreateFileRuntime(t *testing.T) {
 	const yamlDoc = `
 id: demo-node
 runtime: node-26
-network:
-  mode: none
 `
 	req, err := parseSandboxCreateFile([]byte(yamlDoc))
 	if err != nil {
@@ -138,13 +114,14 @@ func TestLoadSandboxCreateFileExamples(t *testing.T) {
 		"../../examples/sandbox-allowlist.yaml",
 		"../../examples/sandbox-domain-allowlist.yaml",
 		"../../examples/sandbox-block-all.yaml",
+		"../../examples/sandbox-runtime.yaml",
 	} {
 		req, err := loadSandboxCreateFile(path)
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
-		if req.Spec.Image == "" {
-			t.Fatalf("%s: empty image", path)
+		if req.Spec.Image == "" && req.Spec.Runtime == "" {
+			t.Fatalf("%s: empty image and runtime", path)
 		}
 	}
 }
@@ -168,7 +145,7 @@ network:
 		t.Fatal("expected essential_services")
 	}
 	if req.Spec.Network.Mode != "" {
-		t.Fatalf("mode should be empty (sugar), got %q", req.Spec.Network.Mode)
+		t.Fatalf("mode should be empty (limits), got %q", req.Spec.Network.Mode)
 	}
 }
 
@@ -187,14 +164,14 @@ network:
 	}
 }
 
-func TestParseSandboxCreateFileSugarConflict(t *testing.T) {
+func TestParseSandboxCreateFileLimitConflict(t *testing.T) {
 	_, err := parseSandboxCreateFile([]byte(`
 image: alpine
 network:
-  mode: allowlist
   domain_allow_list: example.com
+  block_all: true
 `))
-	if err == nil || !strings.Contains(err.Error(), "cannot combine") {
-		t.Fatalf("expected cannot combine, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected mutually exclusive, got %v", err)
 	}
 }

@@ -3,5 +3,3 @@
 # Usage: cellar sandbox create -f examples/sandbox.yaml
 id: demo-alpine
 image: alpine
-network:
-  mode: none

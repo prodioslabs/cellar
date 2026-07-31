@@ -3,8 +3,4 @@
 id: demo-node
 runtime: node-26
 network:
-  mode: allowlist
-  allow_hosts:
-    - registry.npmjs.org
-  allow_ports:
-    - 443
+  domain_allow_list: registry.npmjs.org
