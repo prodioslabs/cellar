@@ -6,13 +6,14 @@ description: Build Cellar binaries, install systemd units, and download GitHub R
 ## From source
 
 ```bash
-make build          # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway
-# or: make cellard / make cellar / make cellar-agent / make cellar-gateway
+make build          # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway, bin/cellar-egress-gateway
+# or: make cellard / make cellar / make cellar-agent / make cellar-gateway / make cellar-egress-gateway
+make egress-gateway-image   # → cellar/egress-gateway:latest (required for networked sandboxes)
 
 sudo make install   # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
 ```
 
-Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
+Requires Go 1.26+. `cellar-agent` and `cellar-egress-gateway` are built with `CGO_ENABLED=0`. `make install` places them next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
 
 | Source                                   | Destination                                      |
 | ---------------------------------------- | ------------------------------------------------ |
@@ -35,7 +36,7 @@ cellar-agent -version
 
 ## GitHub Releases
 
-Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux **amd64** and **arm64** bundles. macOS and Windows are not supported release targets — Cellar’s runtime depends on Linux Docker, gVisor `runsc`, and iptables.
+Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux **amd64** and **arm64** bundles. macOS and Windows are not supported release targets — Cellar’s runtime depends on Linux Docker and gVisor `runsc` (egress iptables runs only inside the gateway container).
 
 Download URLs follow a stable layout intended for a future curl installer:
 
@@ -45,4 +46,4 @@ https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linu
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/checksums.txt
 ```
 
-Each tarball co-locates all four binaries (so `cellard` can find `cellar-agent` beside itself) plus `LICENSE`, `README.md`, and `contrib/systemd/`. Verify the archive against `checksums.txt` before installing.
+Each tarball co-locates the Cellar binaries (so `cellard` can find `cellar-agent` beside itself) plus `LICENSE`, `README.md`, and `contrib/systemd/`. Build and load `cellar/egress-gateway` separately with `make egress-gateway-image`. Verify the archive against `checksums.txt` before installing.
