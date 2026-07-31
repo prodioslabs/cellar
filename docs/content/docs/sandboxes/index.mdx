@@ -1,33 +1,11 @@
 ---
 title: Sandboxes
-description: Create and manage isolated sandboxes with Docker and gVisor
+description: Create and manage isolated sandboxes with Docker
 ---
 
-Requires Docker with the gVisor [runsc](https://gvisor.dev/docs/user_guide/install/) runtime registered. After `sudo runsc install`, allow the guest to **create** host Unix-domain sockets so `cellar-agent` can bind its control socket at `/run/cellar/agent.sock` on the bind-mounted sandbox dir (gVisor blocks this by default). `--host-uds=create` is enough; `all` would also let the guest `connect()` to other host sockets visible via mounts:
+Requires Docker Engine (Linux) or Docker Desktop (macOS). Sandboxes run under Docker's default OCI runtime (`runc`) with `CapDrop: ALL`, `no-new-privileges`, a pids limit, and default seccomp/AppArmor. Egress is enforced by topology (internal Docker networks + shared egress gateway).
 
-```json
-{
-  "runtimes": {
-    "runsc": {
-      "path": "/usr/bin/runsc",
-      "runtimeArgs": ["--host-uds=create"]
-    }
-  }
-}
-```
-
-Put that in `/etc/docker/daemon.json` (merge with any existing config), then `sudo systemctl restart docker`. Adjust `"path"` if `runsc` lives elsewhere (`which runsc`).
-
-On Arch Linux–based systems:
-
-```bash
-yay -Sy gvisor-bin
-sudo runsc install
-# then add runtimeArgs as above and restart docker
-sudo systemctl restart docker
-```
-
-Each sandbox runs with `cellar-agent` **as the container entrypoint** (PID 1). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec`, which talks to the agent over a bind-mounted Unix socket authenticated with a per-sandbox bearer token.
+Each sandbox runs with `cellar-agent` **as the container entrypoint** (PID 1 init + job supervisor). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec` (Docker exec). Use `--detach` for background jobs.
 
 ```bash
 # Create an isolated sandbox (no external network)
@@ -38,36 +16,16 @@ sudo cellar sandbox create --runtime node-26
 sudo cellar sandbox create -f examples/sandbox.yaml
 
 # Allowlisted egress (topology gateway — see internal/egress/README.md).
-# Sandboxes sit on an isolated internal network; only the shared egress-gateway
-# can reach the internet. Policy is accept-then-decide (connect may succeed
-# before SNI/Host deny). Raw IPs have no route. QUIC/HTTP3 is unsupported.
 sudo cellar sandbox create --image curlimages/curl --network allowlist \
   --allow-host example.com --allow-port 443
 # or: sudo cellar sandbox create -f examples/sandbox-allowlist.yaml
 
-# Tighten (or loosen) the policy of a running sandbox. Takes effect immediately
-# (full replace) and closes connections the new policy no longer allows.
-sudo cellar sandbox network <id> --mode allowlist --allow-host api.example.com --allow-port 443
-
-# Local node only (default). Use --all for the cluster, or --node <id|prefix>.
-sudo cellar sandbox ls
-sudo cellar sandbox ls --all
-sudo cellar sandbox ls --node <id> --filter phase=running --format json
-sudo cellar sandbox inspect <id>
-sudo cellar sandbox logs -f <id>
 sudo cellar sandbox exec <id> -- uname -a
+sudo cellar sandbox exec --detach <id> -- sleep 3600
+sudo cellar sandbox job ls <id>
+sudo cellar sandbox job stop <id> <job-id>
 sudo cellar sandbox stop <id>
 sudo cellar sandbox rm <id>
 ```
 
-## Runtime presets
-
-| Runtime       | Image                         |
-| ------------- | ----------------------------- |
-| `node-26`     | `node:26-alpine`              |
-| `bun-1.3`     | `oven/bun:1.3-alpine`         |
-| `python-3.13` | `astral/uv:python3.13-alpine` |
-| `go-1.26`     | `golang:1.26-alpine`          |
-
-Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node
-(nodes with availability `pause` or `drain` are skipped).
+**Security model.** Isolation is runc + dropped capabilities + no-new-privileges + pids limit + Docker seccomp/AppArmor + topology-based egress. Sandboxes share the host (or Docker Desktop VM) kernel. For production Linux hosts, enable dockerd `userns-remap`.

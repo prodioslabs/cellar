@@ -15,9 +15,7 @@ export default function HomePage() {
       <h1 className="mb-4 text-4xl font-bold tracking-tight">Cellar</h1>
       <p className="mb-8 max-w-2xl text-lg text-fd-muted-foreground">
         A container orchestrator control plane for isolated sandboxes — cluster identity over mTLS
-        gRPC, Raft-replicated CA, Docker + gVisor{' '}
-        <code className="rounded bg-fd-muted px-1.5 py-0.5 text-sm">runsc</code>, and userspace
-        egress policy.
+        gRPC, Raft-replicated CA, Docker + hardened runc, and userspace egress policy.
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Link

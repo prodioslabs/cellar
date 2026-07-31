@@ -36,7 +36,7 @@ cellar-agent -version
 
 ## GitHub Releases
 
-Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux **amd64** and **arm64** bundles. macOS and Windows are not supported release targets — Cellar’s runtime depends on Linux Docker and gVisor `runsc` (egress iptables runs only inside the gateway container).
+Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles. `cellar-agent` is Linux-only (injected into containers); Darwin archives ship host tools — place a Linux `cellar-agent` beside `cellard` or set `CELLAR_AGENT_BINARY`.
 
 Download URLs follow a stable layout intended for a future curl installer:
 

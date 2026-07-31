@@ -6,7 +6,7 @@
 
 Cellar is a container orchestrator control plane for isolated sandboxes.
 This repository implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
-**sandbox lifecycle** (desired state in Raft, Docker + gVisor `runsc` on every node, userspace egress policy).
+**sandbox lifecycle** (desired state in Raft, Docker + hardened runc on every node, userspace egress policy).
 
 Clients: Go [`sdk/go`](sdk/go) and TypeScript [`@cellar/node`](sdk/node) talk to **`cellar-gateway`** over HTTPS — see [Client API](#client-api-remote-apps) and [`sdk/node/README.md`](sdk/node/README.md).
 
@@ -14,7 +14,7 @@ Clients: Go [`sdk/go`](sdk/go) and TypeScript [`@cellar/node`](sdk/node) talk to
 
 | Binary           | Role                                                                                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker + `runsc`. |
+| `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker. |
 | `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                           |
 | `cellar-gateway` | HTTP/JSON front door (Gin). Runs beside `cellard` on manager or worker hosts; proxies to manager `SandboxAPI` with the caller’s API key. Default listen `:8080`. |
 | `cellar-agent`   | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                       |
@@ -47,7 +47,7 @@ make build          # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-
 sudo make install   # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
 ```
 
-Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` for gVisor. `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
+Requires Go 1.26+. `cellar-agent` is built with `CGO_ENABLED=0` and `GOOS=linux` (it runs inside Linux containers, including on Docker Desktop for macOS). `make install` places it next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
 
 | Source                                    | Destination                                       |
 | ----------------------------------------- | ------------------------------------------------- |
@@ -68,7 +68,7 @@ cellar-agent -version
 
 ## Releases
 
-Push a SemVer tag (`vX.Y.Z` or `vX.Y.Z-rc.1`) to publish a [GitHub Release](https://github.com/prodioslabs/cellar/releases) with Linux **amd64** and **arm64** archives. macOS and Windows artifacts are not published — the node stack (Docker + gVisor `runsc`, iptables egress) is Linux-only.
+Push a SemVer tag (`vX.Y.Z` or `vX.Y.Z-rc.1`) to publish a [GitHub Release](https://github.com/prodioslabs/cellar/releases) with Linux and macOS **amd64** / **arm64** archives. `cellar-agent` is Linux-only (injected into containers); Darwin archives ship the host tools (`cellar`, `cellard`, `cellar-gateway`) — build or copy a Linux `cellar-agent` beside `cellard` (or set `CELLAR_AGENT_BINARY`).
 
 Each archive is named `cellar_<version>_linux_<arch>.tar.gz` and contains:
 
@@ -149,31 +149,9 @@ The control socket is mode `0660` and owned by `cellar:cellar`. By default only 
 
 ## Sandboxes
 
-Requires Docker with the gVisor `[runsc](https://gvisor.dev/docs/user_guide/install/)` runtime registered. After `sudo runsc install`, allow the guest to **create** host Unix-domain sockets so `cellar-agent` can bind its control socket at `/run/cellar/agent.sock` on the bind-mounted sandbox dir (gVisor blocks this by default). `--host-uds=create` is enough; `all` would also let the guest `connect()` to other host sockets visible via mounts:
+Requires Docker Engine (Linux) or Docker Desktop (macOS). Sandboxes run under Docker's default OCI runtime (`runc`) with `CapDrop: ALL`, `no-new-privileges`, a pids limit, and default seccomp/AppArmor. Egress is enforced by topology (internal Docker networks + shared egress gateway), not by host iptables.
 
-```json
-{
-  "runtimes": {
-    "runsc": {
-      "path": "/usr/bin/runsc",
-      "runtimeArgs": ["--host-uds=create"]
-    }
-  }
-}
-```
-
-Put that in `/etc/docker/daemon.json` (merge with any existing config), then `sudo systemctl restart docker`. Adjust `"path"` if `runsc` lives elsewhere (`which runsc`).
-
-On Arch Linux–based systems:
-
-```bash
-yay -Sy gvisor-bin
-sudo runsc install
-# then add runtimeArgs as above and restart docker
-sudo systemctl restart docker
-```
-
-Each sandbox runs with `cellar-agent` **as the container entrypoint** (PID 1). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec`, which talks to the agent over a bind-mounted Unix socket authenticated with a per-sandbox bearer token.
+Each sandbox runs with `cellar-agent` **as the container entrypoint** (PID 1 init + job supervisor). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec` (Docker exec). Use `--detach` for background jobs.
 
 ```bash
 # Create an isolated sandbox (no external network)
@@ -200,9 +178,16 @@ sudo cellar sandbox ls --node <id> --filter phase=running --format json
 sudo cellar sandbox inspect <id>
 sudo cellar sandbox logs -f <id>
 sudo cellar sandbox exec <id> -- uname -a
+# Background job (returns a job id):
+sudo cellar sandbox exec --detach <id> -- sleep 3600
+sudo cellar sandbox job ls <id>
+sudo cellar sandbox job stop <id> <job-id>
+sudo cellar sandbox job logs <id> <job-id>
 sudo cellar sandbox stop <id>
 sudo cellar sandbox rm <id>
 ```
+
+**Security model.** Isolation is runc + dropped capabilities + no-new-privileges + pids limit + Docker seccomp/AppArmor + topology-based egress. Unlike gVisor, sandboxes share the host (or Docker Desktop VM) kernel — a kernel exploit in untrusted code can escape the container. For production Linux hosts, enable dockerd `userns-remap` so guest root maps to an unprivileged host UID. On macOS, blast radius is limited to the Docker Desktop Linux VM.
 
 Runtime presets and their images:
 
@@ -310,7 +295,11 @@ HTTP API (all require `Authorization: Bearer cellar_…` or `X-Api-Key`):
 | POST   | `/v1/sandboxes/:id/stop`     | stop                                       |
 | PUT    | `/v1/sandboxes/:id/network`  | update network policy                      |
 | GET    | `/v1/sandboxes/:id/logs`     | NDJSON stream (`follow`, `tail`, `timestamps` query params) |
-| POST   | `/v1/sandboxes/:id/exec`     | `{"command":[…]}` → collected stdout/stderr/exitCode |
+| POST   | `/v1/sandboxes/:id/exec`     | `{"command":[…]}` → stdout/stderr/exitCode; `{"detach":true}` → `jobId` |
+| GET    | `/v1/sandboxes/:id/jobs`     | list background jobs                   |
+| GET    | `/v1/sandboxes/:id/jobs/:jobId` | get job status                      |
+| DELETE | `/v1/sandboxes/:id/jobs/:jobId` | stop job                            |
+| GET    | `/v1/sandboxes/:id/jobs/:jobId/logs` | job logs (`follow` query)      |
 
 ### AWS load balancer
 
@@ -386,7 +375,7 @@ func main() {
 }
 ```
 
-`Client` ops: `Create`, `Get`, `List`. `Sandbox` ops: `WaitUntilReady`, `GetStatus`, `Exec`, `Logs`, `Stop`, `Remove`, `UpdateNetwork`.
+`Client` ops: `Create`, `Get`, `List`. `Sandbox` ops: `WaitUntilReady`, `GetStatus`, `Exec`, `StartJob`, `ListJobs`, `GetJob`, `StopJob`, `Logs`, `Stop`, `Remove`, `UpdateNetwork`.
 
 ### Use the TypeScript client
 
@@ -417,7 +406,7 @@ console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`)
 await sb.remove()
 ```
 
-`Client` ops: `create`, `get`, `list`. `Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `logs`, `stop`, `remove`, `updateNetwork`.
+`Client` ops: `create`, `get`, `list`. `Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `startJob`, `listJobs`, `getJob`, `stopJob`, `logs`, `stop`, `remove`, `updateNetwork`.
 
 ### Rotation
 

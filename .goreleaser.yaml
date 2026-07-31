@@ -15,6 +15,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -33,6 +34,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -51,6 +53,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -86,6 +89,8 @@ archives:
       - tar.gz
     name_template: >-
       cellar_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # cellar-agent is linux-only (runs inside containers); darwin archives omit it.
+    allow_different_binary_count: true
     files:
       - LICENSE
       - README.md
