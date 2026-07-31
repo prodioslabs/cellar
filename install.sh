@@ -42,6 +42,16 @@ case "$(uname -m)" in
 		;;
 esac
 
+# Prefer the invoking user's home when the installer itself runs under sudo, so
+# macOS data-dir staging lands under /Users/... (Docker Desktop file sharing).
+install_home=${HOME:-}
+if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+	sudo_home=$(eval echo "~$SUDO_USER" 2>/dev/null || true)
+	[ -n "$sudo_home" ] && [ "$sudo_home" != "~$SUDO_USER" ] && install_home=$sudo_home
+fi
+[ -n "$install_home" ] || fail "HOME is unset"
+CELLAR_DATA_DIR="${CELLAR_DATA_DIR:-$install_home/.cellar}"
+
 if [ "$VERSION" = "latest" ]; then
 	printf 'Resolving latest cellar release...\n'
 	VERSION=$(
@@ -97,8 +107,9 @@ download_and_extract() {
 	archive=$1
 	dir=$2
 	label=$3
+	binaries=$4
 
-	printf 'Downloading cellar %s for %s...\n' "$VERSION" "$label"
+	printf 'Downloading cellar %s for %s (%s)...\n' "$VERSION" "$label" "$binaries"
 	curl -fsSL --retry 3 -o "$dir/$archive" "$release_url/$archive"
 	verify_archive "$archive" "$dir"
 	tar -xzf "$dir/$archive" -C "$dir"
@@ -108,16 +119,20 @@ printf 'Fetching checksums for cellar %s...\n' "$VERSION"
 curl -fsSL --retry 3 -o "$tmp_dir/checksums.txt" "$release_url/checksums.txt"
 
 host_archive="cellar_${release_version}_${os}_${arch}.tar.gz"
-download_and_extract "$host_archive" "$host_dir" "${os}/${arch}"
-
-# On macOS, also fetch the linux archive for cellar-agent and the egress-gateway
-# binary used to build the Docker image (both run inside Linux containers).
 if [ "$os" = "darwin" ]; then
+	download_and_extract "$host_archive" "$host_dir" "${os}/${arch}" \
+		"cellar, cellard, cellar-gateway"
+
+	# Also fetch the linux archive for cellar-agent and the egress-gateway
+	# binary used to build the Docker image (both run inside Linux containers).
 	linux_archive="cellar_${release_version}_linux_${arch}.tar.gz"
-	download_and_extract "$linux_archive" "$linux_dir" "linux/${arch}"
+	download_and_extract "$linux_archive" "$linux_dir" "linux/${arch}" \
+		"cellar-agent, cellar-egress-gateway"
 	agent_src="$linux_dir/cellar-agent"
 	egress_src="$linux_dir/cellar-egress-gateway"
 else
+	download_and_extract "$host_archive" "$host_dir" "${os}/${arch}" \
+		"cellar, cellard, cellar-gateway, cellar-agent, cellar-egress-gateway"
 	agent_src="$host_dir/cellar-agent"
 	egress_src="$host_dir/cellar-egress-gateway"
 fi
@@ -137,12 +152,21 @@ if [ "$os" = "linux" ]; then
 		fail "cellar.sysusers is missing from the release archive"
 fi
 
+# sudo for PREFIX when needed; Docker Desktop on macOS is user-scoped (no sudo).
 if [ "$(id -u)" -eq 0 ]; then
+	sudo_cmd=""
+elif mkdir -p "$PREFIX/bin" 2>/dev/null && [ -w "$PREFIX/bin" ]; then
 	sudo_cmd=""
 elif command -v sudo >/dev/null 2>&1; then
 	sudo_cmd="sudo"
 else
-	fail "run as root or install sudo"
+	fail "run as root, install sudo, or set CELLAR_PREFIX to a writable directory"
+fi
+
+if [ "$os" = "darwin" ]; then
+	docker_cmd="docker"
+else
+	docker_cmd="${sudo_cmd:+$sudo_cmd }docker"
 fi
 
 $sudo_cmd install -d "$PREFIX/bin"
@@ -150,6 +174,14 @@ for file in cellar cellard cellar-gateway; do
 	$sudo_cmd install -m 755 "$host_dir/$file" "$PREFIX/bin/$file"
 done
 $sudo_cmd install -m 755 "$agent_src" "$PREFIX/bin/cellar-agent"
+
+# On macOS, also stage cellar-agent under the default data dir so Docker Desktop
+# can bind-mount it (paths under /usr/local and Homebrew prefixes are not shared).
+if [ "$os" = "darwin" ]; then
+	install -d "$CELLAR_DATA_DIR"
+	install -m 755 "$agent_src" "$CELLAR_DATA_DIR/cellar-agent"
+	printf 'Staged cellar-agent for Docker Desktop at %s/cellar-agent\n' "$CELLAR_DATA_DIR"
+fi
 
 # On Linux, also install the egress-gateway binary next to cellard (parity with
 # make install). On macOS the host never executes it — only the Docker image does.
@@ -181,11 +213,11 @@ if [ -n "$SKIP_EGRESS_IMAGE" ]; then
 	printf '\nSkipping egress-gateway image build (CELLAR_SKIP_EGRESS_IMAGE is set).\n'
 elif ! command -v docker >/dev/null 2>&1; then
 	printf '\nDocker not found; skipping egress-gateway image build.\n'
-elif ! $sudo_cmd docker info >/dev/null 2>&1; then
+elif ! $docker_cmd info >/dev/null 2>&1; then
 	printf '\nDocker daemon not reachable; skipping egress-gateway image build.\n'
 else
 	printf '\nBuilding %s Docker image...\n' "$EGRESS_IMAGE"
-	$sudo_cmd docker build \
+	$docker_cmd build \
 		-t "${EGRESS_IMAGE}:latest" \
 		-t "${EGRESS_IMAGE}:${VERSION}" \
 		-f - "$image_ctx" <<'EOF'
@@ -219,7 +251,8 @@ if [ "$os" = "linux" ]; then
 else
 	printf '\nNext steps on macOS:\n'
 	printf '  1. Ensure Docker Desktop is running\n'
-	printf '  2. Start the daemon:  sudo cellard\n'
-	printf '  3. Initialize:        sudo cellar init --advertise-addr 127.0.0.1:17946\n'
+	printf '  2. Start the daemon:  cellard\n'
+	printf '  3. Initialize:        cellar init --advertise-addr 127.0.0.1:17946\n'
 	printf '  (Optional gateway):   cellar-gateway --listen 127.0.0.1:8080\n'
+	printf '  Data, socket, and staged cellar-agent live under %s.\n' "$CELLAR_DATA_DIR"
 fi

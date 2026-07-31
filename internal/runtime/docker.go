@@ -221,7 +221,11 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 	if opts.DataDir == "" {
 		return "", fmt.Errorf("data dir required for sandbox")
 	}
-	agentBin, err := ResolveAgentBinary(opts.AgentBinary)
+	agentSrc, err := ResolveAgentBinary(opts.AgentBinary)
+	if err != nil {
+		return "", err
+	}
+	agentBin, err := StageAgentBinary(opts.DataDir, agentSrc)
 	if err != nil {
 		return "", err
 	}

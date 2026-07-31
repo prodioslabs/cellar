@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/user"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -45,7 +46,7 @@ const (
 // DefaultSocketPath returns the platform default control socket path.
 func DefaultSocketPath() string {
 	if goruntime.GOOS == "darwin" {
-		if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if home := darwinHomeDir(); home != "" {
 			return filepath.Join(home, ".cellar", "cellar.sock")
 		}
 	}
@@ -55,11 +56,29 @@ func DefaultSocketPath() string {
 // DefaultDataDirPath returns the platform default data directory.
 func DefaultDataDirPath() string {
 	if goruntime.GOOS == "darwin" {
-		if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if home := darwinHomeDir(); home != "" {
 			return filepath.Join(home, ".cellar")
 		}
 	}
 	return "/var/lib/cellar"
+}
+
+// darwinHomeDir returns the macOS home directory that Docker Desktop can share.
+// When cellard is started via sudo, prefer SUDO_USER's home over /var/root so
+// bind mounts (agent binary, resolv.conf) remain visible to the Docker VM.
+func darwinHomeDir() string {
+	if os.Geteuid() == 0 {
+		if name := os.Getenv("SUDO_USER"); name != "" && name != "root" {
+			if u, err := user.Lookup(name); err == nil && u.HomeDir != "" {
+				return u.HomeDir
+			}
+		}
+	}
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" {
+		return home
+	}
+	return ""
 }
 
 // DefaultSocket is resolved at init for the current platform.

@@ -23,6 +23,17 @@ BUN         ?= bun
 UNAME_S     := $(shell uname -s)
 DOCKER      ?= docker
 
+# On macOS, stage cellar-agent under the user data dir so Docker Desktop can
+# bind-mount it. Prefer SUDO_USER's home when `sudo make install` is used.
+ifeq ($(UNAME_S),Darwin)
+  ifneq ($(SUDO_USER),)
+    DARWIN_HOME := $(shell eval echo ~$(SUDO_USER))
+  else
+    DARWIN_HOME := $(HOME)
+  endif
+  CELLAR_DATA_DIR ?= $(DARWIN_HOME)/.cellar
+endif
+
 SDK_NODE_DIR := sdk/node
 EGRESS_IMAGE ?= cellar/egress-gateway
 
@@ -51,8 +62,8 @@ help:
 	@echo "  make cellar-egress-gateway Build cellar-egress-gateway binary"
 	@echo "  make egress-gateway-image  Build $(EGRESS_IMAGE) Docker image"
 	@echo "  make sdk-node       Build the Node SDK"
-	@echo "  make install        Install binaries, systemd units, and sysusers drop-in (Linux)"
-	@echo "  make uninstall      Remove installed binaries, systemd units, and sysusers drop-in (Linux)"
+	@echo "  make install        Install binaries (Linux: +systemd/sysusers; macOS: stage agent under ~/.cellar)"
+	@echo "  make uninstall      Remove installed binaries (and Linux systemd/sysusers drop-ins)"
 	@echo "  make proto          Regenerate gRPC stubs from $(PROTO_DIR)/"
 	@echo "  make tools          Install protoc-gen-go and protoc-gen-go-grpc"
 	@echo "  make test           Run go test ./..."
@@ -90,13 +101,12 @@ egress-gateway-image:
 sdk-node:
 	cd $(SDK_NODE_DIR) && $(BUN) run build
 
-# Linux only for now. Installs cellar + cellard + cellar-gateway, plus cellar-agent
-# (required next to cellard; default lookup is $(PREFIX)/bin/cellar-agent), and the
-# systemd units + sysusers drop-in. Does not run systemctl enable/start.
+# Installs cellar + cellard + cellar-gateway + cellar-agent next to cellard.
+# Linux also installs cellar-egress-gateway, systemd units, and sysusers (does
+# not enable/start units). macOS additionally stages cellar-agent under
+# $(CELLAR_DATA_DIR) so Docker Desktop can bind-mount it.
 install: build
-ifneq ($(UNAME_S),Linux)
-	$(error make install is currently only supported on Linux (got $(UNAME_S)))
-endif
+ifeq ($(UNAME_S),Linux)
 	install -d $(BINDIR)
 	install -m 755 $(CELLAR) $(BINDIR)/cellar
 	install -m 755 $(CELLARD) $(BINDIR)/cellard
@@ -108,14 +118,30 @@ endif
 	install -m 644 contrib/systemd/cellar-gateway.service $(SYSTEMDUNITDIR)/cellar-gateway.service
 	install -d $(SYSUSERSDIR)
 	install -m 644 contrib/systemd/cellar.sysusers $(SYSUSERSDIR)/cellar.conf
+else ifeq ($(UNAME_S),Darwin)
+	install -d $(BINDIR)
+	install -m 755 $(CELLAR) $(BINDIR)/cellar
+	install -m 755 $(CELLARD) $(BINDIR)/cellard
+	install -m 755 $(CELLAR_AGENT) $(BINDIR)/cellar-agent
+	install -m 755 $(CELLAR_GATEWAY) $(BINDIR)/cellar-gateway
+	install -d $(CELLAR_DATA_DIR)
+	install -m 755 $(CELLAR_AGENT) $(CELLAR_DATA_DIR)/cellar-agent
+	@echo "Staged cellar-agent for Docker Desktop at $(CELLAR_DATA_DIR)/cellar-agent"
+else
+	$(error make install is only supported on Linux and macOS (got $(UNAME_S)))
+endif
 
 uninstall:
-ifneq ($(UNAME_S),Linux)
-	$(error make uninstall is currently only supported on Linux (got $(UNAME_S)))
-endif
+ifeq ($(UNAME_S),Linux)
 	rm -f $(BINDIR)/cellar $(BINDIR)/cellard $(BINDIR)/cellar-agent $(BINDIR)/cellar-gateway $(BINDIR)/cellar-egress-gateway
 	rm -f $(SYSTEMDUNITDIR)/cellard.service $(SYSTEMDUNITDIR)/cellar-gateway.service
 	rm -f $(SYSUSERSDIR)/cellar.conf
+else ifeq ($(UNAME_S),Darwin)
+	rm -f $(BINDIR)/cellar $(BINDIR)/cellard $(BINDIR)/cellar-agent $(BINDIR)/cellar-gateway
+	rm -f $(CELLAR_DATA_DIR)/cellar-agent
+else
+	$(error make uninstall is only supported on Linux and macOS (got $(UNAME_S)))
+endif
 
 tools:
 	$(GO) install google.golang.org/protobuf/cmd/protoc-gen-go@latest

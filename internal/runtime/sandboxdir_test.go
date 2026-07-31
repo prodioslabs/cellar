@@ -76,3 +76,87 @@ func TestResolveAgentBinary(t *testing.T) {
 		t.Fatalf("got %q want %q", got, bin)
 	}
 }
+
+func TestStageAgentBinary(t *testing.T) {
+	srcDir := t.TempDir()
+	dataDir := t.TempDir()
+	src := filepath.Join(srcDir, "cellar-agent")
+	content := []byte("fake-agent-binary")
+	if err := os.WriteFile(src, content, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	staged, err := StageAgentBinary(dataDir, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(dataDir, stagedAgentName)
+	if staged != want {
+		t.Fatalf("staged path: got %q want %q", staged, want)
+	}
+	got, err := os.ReadFile(staged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(content) {
+		t.Fatalf("staged contents: got %q want %q", got, content)
+	}
+	st, err := os.Stat(staged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o755 {
+		t.Fatalf("staged perms: %o", st.Mode().Perm())
+	}
+	if !st.ModTime().Equal(srcInfo.ModTime()) {
+		t.Fatalf("staged mtime: got %v want %v", st.ModTime(), srcInfo.ModTime())
+	}
+
+	// Second call should reuse the staged copy without error.
+	again, err := StageAgentBinary(dataDir, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again != staged {
+		t.Fatalf("reuse path: got %q want %q", again, staged)
+	}
+
+	// Staging from an already-staged path is a no-op.
+	same, err := StageAgentBinary(dataDir, staged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if same != staged {
+		t.Fatalf("self-stage path: got %q want %q", same, staged)
+	}
+}
+
+func TestStageAgentBinaryRefresh(t *testing.T) {
+	srcDir := t.TempDir()
+	dataDir := t.TempDir()
+	src := filepath.Join(srcDir, "cellar-agent")
+	if err := os.WriteFile(src, []byte("v1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := StageAgentBinary(dataDir, src); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(src, []byte("v2-longer"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	staged, err := StageAgentBinary(dataDir, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(staged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "v2-longer" {
+		t.Fatalf("refreshed contents: got %q", got)
+	}
+}

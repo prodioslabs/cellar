@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -21,5 +22,18 @@ func TestNewResolvesRelativePaths(t *testing.T) {
 	}
 	if filepath.Base(d.cfg.SocketPath) != "cellar-a.sock" {
 		t.Fatalf("SocketPath=%q, want base cellar-a.sock", d.cfg.SocketPath)
+	}
+}
+
+func TestDarwinHomeDirNonRoot(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Fatalf("UserHomeDir: %v %q", err, home)
+	}
+	if got := darwinHomeDir(); got != home {
+		t.Fatalf("darwinHomeDir=%q, want %q", got, home)
 	}
 }
