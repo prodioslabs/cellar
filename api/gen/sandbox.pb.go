@@ -250,7 +250,7 @@ type NetworkPolicy struct {
 	Mode  string                 `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"` // none | allowlist | denylist | blockall
 	Dns   *DNSPolicy             `protobuf:"bytes,2,opt,name=dns,proto3" json:"dns,omitempty"`
 	Rules []*NetworkRule         `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
-	// Daytona-style sugar (translated to mode/rules server-side; not stored).
+	// Network limits (translated to mode/rules server-side; not stored).
 	// At most one of network_allow_list, domain_allow_list, or block_all may be
 	// set, and none may combine with structured mode/rules/dns. Empty strings
 	// count as unset.

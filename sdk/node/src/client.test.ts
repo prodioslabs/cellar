@@ -96,7 +96,7 @@ describe('Client HTTP API', () => {
     await created.remove()
   })
 
-  it('create sends Daytona-style network sugar', async () => {
+  it('create sends network limits', async () => {
     let createBody: string | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)

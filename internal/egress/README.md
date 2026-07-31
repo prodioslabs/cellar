@@ -99,8 +99,8 @@ gRPC over a published loopback TCP port (`127.0.0.1:<ephemeral>` → container
 
 Public sandbox `NetworkPolicy` modes: `none` (no topology), `allowlist`,
 `denylist`, and `blockall` (deny-all with topology, so it can toggle live).
-Daytona-style sugar (`network_allow_list`, `domain_allow_list`, `block_all`)
-is translated to canonical mode/rules on create/update. Optional
+Network limits (`network_allow_list`, `domain_allow_list`, `block_all`) are
+translated to canonical mode/rules on create/update. Optional
 `essential_services` adds a curated package/git/AI domain allowlist evaluated
 in the gateway.
 

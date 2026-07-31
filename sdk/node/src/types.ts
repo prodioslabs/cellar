@@ -26,9 +26,9 @@ export interface NetworkPolicy {
   mode?: string
   dns?: DNSPolicy | undefined
   rules?: NetworkRule[]
-  /** Comma-separated IPv4 CIDRs (Daytona-style; translated server-side). */
+  /** Comma-separated IPv4 CIDRs (translated server-side). */
   networkAllowList?: string
-  /** Comma-separated domains / *.wildcards (Daytona-style). */
+  /** Comma-separated domains / *.wildcards (translated server-side). */
   domainAllowList?: string
   /** true = blockall; false alone = denylist (full open). */
   blockAll?: boolean

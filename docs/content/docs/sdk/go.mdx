@@ -50,8 +50,9 @@ func main() {
 
 `Client` ops: `Create`, `Get`, `List`. `Sandbox` ops: `WaitUntilReady`, `GetStatus`, `Exec`, `Logs`, `Stop`, `Remove`, `UpdateNetwork`.
 
-Network limits accept structured `mode`/`rules` or Daytona-style sugar on `NetworkPolicy`:
-`networkAllowList` (IPv4 CIDRs), `domainAllowList` (domains / `*.` wildcards), `blockAll`,
-and opt-in `essentialServices`. At most one sugar field may be set.
+Network limits on `NetworkPolicy`: `networkAllowList` (IPv4 CIDRs), `domainAllowList`
+(domains / `*.` wildcards), `blockAll`, and opt-in `essentialServices`. At most one of
+`networkAllowList` / `domainAllowList` / `blockAll` may be set; they translate to
+canonical `mode`/`rules`/`dns` server-side.
 
 See [configure the client](/docs/api/configure) for environment variables.

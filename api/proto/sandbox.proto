@@ -81,7 +81,7 @@ message NetworkPolicy {
   string mode = 1; // none | allowlist | denylist | blockall
   DNSPolicy dns = 2;
   repeated NetworkRule rules = 3;
-  // Daytona-style sugar (translated to mode/rules server-side; not stored).
+  // Network limits (translated to mode/rules server-side; not stored).
   // At most one of network_allow_list, domain_allow_list, or block_all may be
   // set, and none may combine with structured mode/rules/dns. Empty strings
   // count as unset.
