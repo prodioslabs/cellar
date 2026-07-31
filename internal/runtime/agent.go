@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -368,6 +369,21 @@ func (a *Agent) setupTopology(ctx context.Context, sb *sandbox.Sandbox) (topolog
 	if err != nil {
 		_ = a.IPAM.Free(sb.ID)
 		return topologyOpts{}, fmt.Errorf("create sandbox network: %w", err)
+	}
+	// Prefer the live Docker subnet when reusing an existing network so IPAM
+	// and ConnectSandbox agree after a partial teardown left the net behind.
+	if liveCIDR, err := a.Driver.SandboxNetworkSubnet(ctx, sb.ID); err == nil && liveCIDR != "" && liveCIDR != subnet.String() {
+		if err := a.IPAM.Adopt(sb.ID, liveCIDR); err != nil {
+			_ = a.Driver.RemoveSandboxNetwork(ctx, sb.ID)
+			_ = a.IPAM.Free(sb.ID)
+			return topologyOpts{}, fmt.Errorf("adopt live subnet: %w", err)
+		}
+		_, subnet, err = net.ParseCIDR(liveCIDR)
+		if err != nil {
+			return topologyOpts{}, err
+		}
+		gwIP = ipam.GatewayIP(subnet)
+		sbIP = ipam.SandboxIP(subnet)
 	}
 	gw, err := a.Pool.Assign(ctx, sb.ID)
 	if err != nil {

@@ -152,6 +152,35 @@ func (a *Allocator) Free(sandboxID string) error {
 	return a.saveLocked()
 }
 
+// Adopt forces sandboxID to own cidr (removing it from free if present).
+// Used when reusing an existing Docker network whose subnet must win.
+func (a *Allocator) Adopt(sandboxID, cidr string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, _, err := net.ParseCIDR(cidr); err != nil {
+		return fmt.Errorf("adopt: invalid cidr %q: %w", cidr, err)
+	}
+	if prev, ok := a.assigned[sandboxID]; ok && prev != cidr {
+		a.free = append(a.free, prev)
+	}
+	// Drop cidr from free if present.
+	next := a.free[:0]
+	for _, f := range a.free {
+		if f != cidr {
+			next = append(next, f)
+		}
+	}
+	a.free = next
+	// If another sandbox owns this cidr, steal it (orphan recovery).
+	for id, c := range a.assigned {
+		if c == cidr && id != sandboxID {
+			delete(a.assigned, id)
+		}
+	}
+	a.assigned[sandboxID] = cidr
+	return a.saveLocked()
+}
+
 // Lookup returns the allocated subnet for a sandbox, if any.
 func (a *Allocator) Lookup(sandboxID string) (*net.IPNet, bool) {
 	a.mu.Lock()
