@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package cellar.v1;
+
+option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
+
+import "sandbox.proto";
+
+// EgressGatewayControl is served by cellar-egress-gateway over a Unix socket.
+// Cellard is the only client; auth is filesystem permissions on the socket.
+service EgressGatewayControl {
+  rpc RegisterSandbox(RegisterSandboxRequest) returns (RegisterSandboxResponse);
+  rpc DeregisterSandbox(DeregisterSandboxRequest) returns (DeregisterSandboxResponse);
+  // UpdatePolicy replaces (does not merge) the sandbox's network policy.
+  rpc UpdatePolicy(UpdatePolicyRequest) returns (UpdatePolicyResponse);
+}
+
+message RegisterSandboxRequest {
+  string sandbox_id = 1;
+  string network_id = 2;
+  string subnet_cidr = 3; // e.g. 172.30.0.0/29
+  string gateway_ip = 4;  // conventional .2 on the sandbox net
+  NetworkPolicy policy = 5;
+  // Node-level carve-outs from always-denied private CIDRs.
+  repeated string private_exceptions = 6;
+}
+
+message RegisterSandboxResponse {}
+
+message DeregisterSandboxRequest {
+  string sandbox_id = 1;
+}
+
+message DeregisterSandboxResponse {}
+
+message UpdatePolicyRequest {
+  string sandbox_id = 1;
+  NetworkPolicy policy = 2;
+}
+
+message UpdatePolicyResponse {}

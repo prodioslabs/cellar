@@ -5,6 +5,7 @@ CELLARD     := $(BIN_DIR)/cellard
 CELLAR      := $(BIN_DIR)/cellar
 CELLAR_AGENT := $(BIN_DIR)/cellar-agent
 CELLAR_GATEWAY := $(BIN_DIR)/cellar-gateway
+CELLAR_EGRESS_GATEWAY := $(BIN_DIR)/cellar-egress-gateway
 
 PREFIX      ?= /usr/local
 DESTDIR     ?=
@@ -21,8 +22,10 @@ GO          ?= go
 PROTOC      ?= protoc
 BUN         ?= bun
 UNAME_S     := $(shell uname -s)
+DOCKER      ?= docker
 
 SDK_NODE_DIR := sdk/node
+EGRESS_IMAGE ?= cellar/egress-gateway
 
 # Build identity — override with VERSION=… COMMIT=… BUILD_DATE=…
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -34,7 +37,7 @@ LDFLAGS    := -X $(VERSION_PKG).Version=$(VERSION) \
 	-X $(VERSION_PKG).Date=$(BUILD_DATE)
 GO_BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
 
-.PHONY: all build build-sdk cellard cellar cellar-agent cellar-gateway install uninstall proto tools test clean help sdk-node
+.PHONY: all build build-sdk cellard cellar cellar-agent cellar-gateway cellar-egress-gateway egress-gateway-image install uninstall proto tools test clean help sdk-node
 
 all: build
 
@@ -46,6 +49,8 @@ help:
 	@echo "  make cellar         Build cellar only"
 	@echo "  make cellar-agent   Build cellar-agent (static, for sandbox injection)"
 	@echo "  make cellar-gateway Build cellar-gateway only"
+	@echo "  make cellar-egress-gateway Build cellar-egress-gateway binary"
+	@echo "  make egress-gateway-image  Build $(EGRESS_IMAGE) Docker image"
 	@echo "  make sdk-node       Build the Node SDK"
 	@echo "  make install        Install binaries, systemd units, and sysusers drop-in (Linux)"
 	@echo "  make uninstall      Remove installed binaries, systemd units, and sysusers drop-in (Linux)"
@@ -56,7 +61,7 @@ help:
 	@echo ""
 	@echo "Version overrides: VERSION=… COMMIT=… BUILD_DATE=…"
 
-build: cellard cellar cellar-agent cellar-gateway
+build: cellard cellar cellar-agent cellar-gateway cellar-egress-gateway
 
 build-sdk: sdk-node
 
@@ -76,6 +81,13 @@ cellar-gateway:
 	@mkdir -p $(BIN_DIR)
 	$(GO) build $(GO_BUILD_FLAGS) -o $(CELLAR_GATEWAY) ./cmd/cellar-gateway
 
+cellar-egress-gateway:
+	@mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 $(GO) build $(GO_BUILD_FLAGS) -o $(CELLAR_EGRESS_GATEWAY) ./cmd/cellar-egress-gateway
+
+egress-gateway-image:
+	$(DOCKER) build -f images/egress-gateway/Dockerfile -t $(EGRESS_IMAGE):$(VERSION) -t $(EGRESS_IMAGE):latest .
+
 sdk-node:
 	cd $(SDK_NODE_DIR) && $(BUN) run build
 
@@ -91,6 +103,7 @@ endif
 	install -m 755 $(CELLARD) $(BINDIR)/cellard
 	install -m 755 $(CELLAR_AGENT) $(BINDIR)/cellar-agent
 	install -m 755 $(CELLAR_GATEWAY) $(BINDIR)/cellar-gateway
+	install -m 755 $(CELLAR_EGRESS_GATEWAY) $(BINDIR)/cellar-egress-gateway
 	install -d $(SYSTEMDUNITDIR)
 	install -m 644 contrib/systemd/cellard.service $(SYSTEMDUNITDIR)/cellard.service
 	install -m 644 contrib/systemd/cellar-gateway.service $(SYSTEMDUNITDIR)/cellar-gateway.service
@@ -101,7 +114,7 @@ uninstall:
 ifneq ($(UNAME_S),Linux)
 	$(error make uninstall is currently only supported on Linux (got $(UNAME_S)))
 endif
-	rm -f $(BINDIR)/cellar $(BINDIR)/cellard $(BINDIR)/cellar-agent $(BINDIR)/cellar-gateway
+	rm -f $(BINDIR)/cellar $(BINDIR)/cellard $(BINDIR)/cellar-agent $(BINDIR)/cellar-gateway $(BINDIR)/cellar-egress-gateway
 	rm -f $(SYSTEMDUNITDIR)/cellard.service $(SYSTEMDUNITDIR)/cellar-gateway.service
 	rm -f $(SYSUSERSDIR)/cellar.conf
 
