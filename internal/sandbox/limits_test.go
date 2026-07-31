@@ -31,7 +31,7 @@ func TestResolveNetworkAllowList(t *testing.T) {
 }
 
 func TestResolveDomainAllowList(t *testing.T) {
-	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "example.com, *.daytona.io", nil, true)
+	np, err := sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{}, "", "example.com, *.openai.com", nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,10 +44,10 @@ func TestResolveDomainAllowList(t *testing.T) {
 	if len(np.Rules) != 1 || len(np.Rules[0].Hosts) != 2 {
 		t.Fatalf("rules=%#v", np.Rules)
 	}
-	if np.Rules[0].Hosts[0] != "example.com" || np.Rules[0].Hosts[1] != "*.daytona.io" {
+	if np.Rules[0].Hosts[0] != "example.com" || np.Rules[0].Hosts[1] != "*.openai.com" {
 		t.Fatalf("hosts=%#v", np.Rules[0].Hosts)
 	}
-	if len(np.DNS.Names) != 2 || np.DNS.Names[1] != "*.daytona.io" {
+	if len(np.DNS.Names) != 2 || np.DNS.Names[1] != "*.openai.com" {
 		t.Fatalf("dns names=%#v", np.DNS.Names)
 	}
 }

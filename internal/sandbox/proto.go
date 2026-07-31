@@ -40,7 +40,7 @@ func SpecFromProto(p *cellarv1.SandboxSpec) Spec {
 }
 
 // NetworkPolicyFromProto converts a proto network policy (canonical fields only).
-// Sugar fields are ignored here; use ResolveNetworkPolicyFromProto at API boundaries.
+// Limit fields are ignored here; use ResolveNetworkPolicyFromProto at API boundaries.
 func NetworkPolicyFromProto(p *cellarv1.NetworkPolicy) NetworkPolicy {
 	var out NetworkPolicy
 	if p == nil {
@@ -67,14 +67,13 @@ func NetworkPolicyFromProto(p *cellarv1.NetworkPolicy) NetworkPolicy {
 	return out
 }
 
-// ResolveNetworkPolicyFromProto translates Daytona-style sugar, normalizes, and
+// ResolveNetworkPolicyFromProto translates network limits, normalizes, and
 // validates. Used by Create and UpdateNetwork.
 func ResolveNetworkPolicyFromProto(p *cellarv1.NetworkPolicy) (NetworkPolicy, error) {
 	if p == nil {
 		return NormalizeNetworkPolicy(NetworkPolicy{}), nil
 	}
 	base := NetworkPolicyFromProto(p)
-	// Clear structured fields from the sugar-check view when only sugar is set:
 	// NetworkPolicyFromProto already copied mode/rules; ResolveNetworkPolicy
 	// detects conflicts with hasStructuredNetwork.
 	var blockAll *bool

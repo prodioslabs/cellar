@@ -12,8 +12,8 @@ const (
 	maxDomainAllowListEntries  = 20
 )
 
-// ResolveNetworkPolicy translates Daytona-style sugar fields into a canonical
-// NetworkPolicy, then normalizes and validates. Sugar fields and structured
+// ResolveNetworkPolicy translates network-limit fields into a canonical
+// NetworkPolicy, then normalizes and validates. Limit fields and structured
 // mode/rules/dns are mutually exclusive.
 func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList string, blockAll *bool, essentialServices bool) (NetworkPolicy, error) {
 	out := np
@@ -22,23 +22,23 @@ func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList st
 	allowCIDRs := strings.TrimSpace(networkAllowList)
 	allowDomains := strings.TrimSpace(domainAllowList)
 	hasBlock := blockAll != nil
-	sugarCount := 0
+	limitCount := 0
 	if allowCIDRs != "" {
-		sugarCount++
+		limitCount++
 	}
 	if allowDomains != "" {
-		sugarCount++
+		limitCount++
 	}
 	if hasBlock && *blockAll {
-		sugarCount++
+		limitCount++
 	}
-	// block_all:false alone is sugar that means "full open" (denylist, no rules).
+	// block_all:false alone means "full open" (denylist, no rules).
 	blockAllFalseAlone := hasBlock && !*blockAll && allowCIDRs == "" && allowDomains == ""
 
-	if sugarCount > 1 {
+	if limitCount > 1 {
 		return NetworkPolicy{}, fmt.Errorf("network_allow_list, domain_allow_list, and block_all are mutually exclusive; set at most one")
 	}
-	if (sugarCount > 0 || blockAllFalseAlone) && hasStructuredNetwork(np) {
+	if (limitCount > 0 || blockAllFalseAlone) && hasStructuredNetwork(np) {
 		return NetworkPolicy{}, fmt.Errorf("cannot combine network_allow_list/domain_allow_list/block_all with structured network mode, rules, or dns")
 	}
 
