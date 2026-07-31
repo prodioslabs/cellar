@@ -114,6 +114,7 @@ func TestLoadSandboxCreateFileExamples(t *testing.T) {
 		"../../examples/sandbox-allowlist.yaml",
 		"../../examples/sandbox-domain-allowlist.yaml",
 		"../../examples/sandbox-block-all.yaml",
+		"../../examples/sandbox-essential-services.yaml",
 		"../../examples/sandbox-runtime.yaml",
 	} {
 		req, err := loadSandboxCreateFile(path)
@@ -161,6 +162,27 @@ network:
 	}
 	if req.Spec.Network.BlockAll == nil || !*req.Spec.Network.BlockAll {
 		t.Fatal("expected block_all true")
+	}
+}
+
+func TestParseSandboxCreateFileEssentialServicesAlone(t *testing.T) {
+	const yamlDoc = `
+image: alpine
+network:
+  essential_services: true
+`
+	req, err := parseSandboxCreateFile([]byte(yamlDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !req.Spec.Network.EssentialServices {
+		t.Fatal("expected essential_services")
+	}
+	if req.Spec.Network.BlockAll == nil || !*req.Spec.Network.BlockAll {
+		t.Fatal("expected block_all implied by essential_services alone")
+	}
+	if req.Spec.Network.Mode != "" {
+		t.Fatalf("mode should be empty (limits), got %q", req.Spec.Network.Mode)
 	}
 }
 

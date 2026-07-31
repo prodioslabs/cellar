@@ -126,18 +126,23 @@ func newSandboxCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (max 10)")
 	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (max 20)")
 	cmd.Flags().BoolVar(&networkBlockAll, "network-block-all", false, "block all outbound traffic (keeps egress topology)")
-	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains")
+	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains (alone implies --network-block-all)")
 	return cmd
 }
 
 // buildCreateNetworkPolicy builds a NetworkPolicy from flat network-limit flags.
 // With no limits set, the sandbox has no external network (mode none).
+// --essential-services alone implies --network-block-all.
 func buildCreateNetworkPolicy(cmd *cobra.Command, networkAllowList, domainAllowList string, networkBlockAll, essentialServices bool) (*cellarv1.NetworkPolicy, error) {
 	limitsSet := (cmd.Flags().Changed("network-allow-list") && strings.TrimSpace(networkAllowList) != "") ||
 		(cmd.Flags().Changed("domain-allow-list") && strings.TrimSpace(domainAllowList) != "") ||
 		cmd.Flags().Changed("network-block-all")
 	if !limitsSet {
-		return &cellarv1.NetworkPolicy{Mode: "none", EssentialServices: essentialServices}, nil
+		if essentialServices {
+			v := true
+			return &cellarv1.NetworkPolicy{BlockAll: &v, EssentialServices: true}, nil
+		}
+		return &cellarv1.NetworkPolicy{Mode: "none"}, nil
 	}
 	limitCount := 0
 	if strings.TrimSpace(networkAllowList) != "" {
@@ -233,8 +238,10 @@ func newSandboxNetworkCmd() *cobra.Command {
 		Short: "Replace the network policy of a running sandbox",
 		Long: "Replace the network policy of a running sandbox. Takes effect immediately, " +
 			"closing established connections the new policy no longer allows.\n\n" +
-			"Set one of --network-allow-list, --domain-allow-list, or --network-block-all " +
-			"(mutually exclusive). Optional --essential-services allows curated package/git/AI domains.\n\n" +
+			"Set one of --network-allow-list, --domain-allow-list, --network-block-all, or " +
+			"--essential-services (mutually exclusive among the first three). " +
+			"--essential-services alone implies --network-block-all and allows curated " +
+			"package/git/AI domains; with an allowlist it adds those domains on top.\n\n" +
 			"Sandboxes created with no network (mode none) cannot gain egress later; recreate them instead. " +
 			"block_all keeps egress topology and may be toggled live.",
 		Args: cobra.ExactArgs(1),
@@ -266,7 +273,7 @@ func newSandboxNetworkCmd() *cobra.Command {
 	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (max 10)")
 	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (max 20)")
 	cmd.Flags().BoolVar(&networkBlockAll, "network-block-all", false, "block all outbound (true) or open denylist (false)")
-	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains")
+	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains (alone implies --network-block-all)")
 	return cmd
 }
 
@@ -275,7 +282,11 @@ func buildUpdateNetworkPolicy(cmd *cobra.Command, networkAllowList, domainAllowL
 		(cmd.Flags().Changed("domain-allow-list") && strings.TrimSpace(domainAllowList) != "") ||
 		cmd.Flags().Changed("network-block-all")
 	if !limitsSet {
-		return nil, fmt.Errorf("set --network-allow-list, --domain-allow-list, or --network-block-all")
+		if essentialServices {
+			v := true
+			return &cellarv1.NetworkPolicy{BlockAll: &v, EssentialServices: true}, nil
+		}
+		return nil, fmt.Errorf("set --network-allow-list, --domain-allow-list, --network-block-all, or --essential-services")
 	}
 	limitCount := 0
 	if strings.TrimSpace(networkAllowList) != "" {

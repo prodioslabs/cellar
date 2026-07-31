@@ -89,9 +89,12 @@ func parseSandboxCreateFile(data []byte) (*cellarv1.SandboxCreateRequest, error)
 			v := *doc.Network.BlockAll
 			netPol.BlockAll = &v
 		}
+	} else if doc.Network.EssentialServices {
+		// essential_services alone implies block_all.
+		v := true
+		netPol = &cellarv1.NetworkPolicy{BlockAll: &v, EssentialServices: true}
 	} else {
 		netPol = &cellarv1.NetworkPolicy{Mode: "none"}
-		netPol.EssentialServices = doc.Network.EssentialServices
 	}
 
 	spec := &cellarv1.SandboxSpec{
