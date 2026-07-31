@@ -39,13 +39,15 @@ func SpecFromProto(p *cellarv1.SandboxSpec) Spec {
 	return NormalizeSpec(spec)
 }
 
-// NetworkPolicyFromProto converts a proto network policy.
+// NetworkPolicyFromProto converts a proto network policy (canonical fields only).
+// Sugar fields are ignored here; use ResolveNetworkPolicyFromProto at API boundaries.
 func NetworkPolicyFromProto(p *cellarv1.NetworkPolicy) NetworkPolicy {
 	var out NetworkPolicy
 	if p == nil {
 		return out
 	}
 	out.Mode = NetworkMode(p.Mode)
+	out.EssentialServices = p.EssentialServices
 	if p.Dns != nil {
 		out.DNS = DNSPolicy{
 			Mode:  DNSMode(p.Dns.Mode),
@@ -65,10 +67,29 @@ func NetworkPolicyFromProto(p *cellarv1.NetworkPolicy) NetworkPolicy {
 	return out
 }
 
+// ResolveNetworkPolicyFromProto translates Daytona-style sugar, normalizes, and
+// validates. Used by Create and UpdateNetwork.
+func ResolveNetworkPolicyFromProto(p *cellarv1.NetworkPolicy) (NetworkPolicy, error) {
+	if p == nil {
+		return NormalizeNetworkPolicy(NetworkPolicy{}), nil
+	}
+	base := NetworkPolicyFromProto(p)
+	// Clear structured fields from the sugar-check view when only sugar is set:
+	// NetworkPolicyFromProto already copied mode/rules; ResolveNetworkPolicy
+	// detects conflicts with hasStructuredNetwork.
+	var blockAll *bool
+	if p.BlockAll != nil {
+		v := p.GetBlockAll()
+		blockAll = &v
+	}
+	return ResolveNetworkPolicy(base, p.NetworkAllowList, p.DomainAllowList, blockAll, p.EssentialServices)
+}
+
 // NetworkPolicyToProto converts a network policy.
 func NetworkPolicyToProto(np NetworkPolicy) *cellarv1.NetworkPolicy {
 	out := &cellarv1.NetworkPolicy{
-		Mode: string(np.Mode),
+		Mode:              string(np.Mode),
+		EssentialServices: np.EssentialServices,
 		Dns: &cellarv1.DNSPolicy{
 			Mode:  string(np.DNS.Mode),
 			Names: append([]string(nil), np.DNS.Names...),

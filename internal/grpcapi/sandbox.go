@@ -61,6 +61,15 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 		return nil, err
 	}
 	spec := sandbox.SpecFromProto(req.Spec)
+	var netProto *cellarv1.NetworkPolicy
+	if req.Spec != nil {
+		netProto = req.Spec.Network
+	}
+	np, err := sandbox.ResolveNetworkPolicyFromProto(netProto)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	spec.Network = np
 	if err := sandbox.ValidateSpec(spec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -174,8 +183,8 @@ func (s *SandboxServer) UpdateNetwork(ctx context.Context, req *cellarv1.Sandbox
 	if req.SandboxId == "" {
 		return nil, status.Error(codes.InvalidArgument, "sandbox_id required")
 	}
-	np := sandbox.NormalizeNetworkPolicy(sandbox.NetworkPolicyFromProto(req.Network))
-	if err := sandbox.ValidateNetworkPolicy(np); err != nil {
+	np, err := sandbox.ResolveNetworkPolicyFromProto(req.Network)
+	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	sb, err := s.store.GetSandbox(ctx, req.SandboxId)
@@ -184,7 +193,7 @@ func (s *SandboxServer) UpdateNetwork(ctx context.Context, req *cellarv1.Sandbox
 	}
 	// Mode none is decided when the container is created: no bridge, no
 	// resolv.conf mount, no REDIRECT rules. Neither direction can be toggled
-	// on a live container.
+	// on a live container. blockall keeps topology, so it may change live.
 	if (sb.Spec.Network.Mode == sandbox.NetworkNone) != (np.Mode == sandbox.NetworkNone) {
 		return nil, status.Errorf(codes.FailedPrecondition,
 			"cannot change network mode %q -> %q on a running sandbox; recreate it instead",

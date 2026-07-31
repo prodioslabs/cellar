@@ -36,6 +36,10 @@ const (
 	NetworkNone      NetworkMode = "none"
 	NetworkAllowlist NetworkMode = "allowlist"
 	NetworkDenylist  NetworkMode = "denylist"
+	// NetworkBlockAll is deny-all with egress topology present, so it can be
+	// toggled live to/from allowlist or denylist. Unlike NetworkNone, which
+	// means no bridge / no gateway.
+	NetworkBlockAll NetworkMode = "blockall"
 )
 
 // DNSMode controls DNS resolution policy inside the egress path.
@@ -75,9 +79,10 @@ type DNSPolicy struct {
 
 // NetworkPolicy is enforced by the userspace egress proxy.
 type NetworkPolicy struct {
-	Mode  NetworkMode  `json:"mode"`
-	DNS   DNSPolicy    `json:"dns"`
-	Rules []NetworkRule `json:"rules,omitempty"`
+	Mode              NetworkMode   `json:"mode"`
+	DNS               DNSPolicy     `json:"dns"`
+	Rules             []NetworkRule `json:"rules,omitempty"`
+	EssentialServices bool          `json:"essential_services,omitempty"`
 }
 
 // Spec is the desired sandbox configuration.
@@ -155,7 +160,7 @@ func ValidateSpec(spec Spec) error {
 // accepted; NormalizeSpec fills in none.
 func ValidateNetworkPolicy(np NetworkPolicy) error {
 	switch np.Mode {
-	case "", NetworkNone, NetworkAllowlist, NetworkDenylist:
+	case "", NetworkNone, NetworkAllowlist, NetworkDenylist, NetworkBlockAll:
 	default:
 		return fmt.Errorf("invalid network mode %q", np.Mode)
 	}
@@ -238,6 +243,8 @@ func (m NetworkMode) asDNS() DNSMode {
 		return DNSAllowlist
 	case NetworkDenylist:
 		return DNSDenylist
+	case NetworkBlockAll:
+		return DNSNone
 	default:
 		return DNSNone
 	}

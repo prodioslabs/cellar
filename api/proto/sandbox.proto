@@ -78,9 +78,17 @@ message DNSPolicy {
 }
 
 message NetworkPolicy {
-  string mode = 1; // none | allowlist | denylist
+  string mode = 1; // none | allowlist | denylist | blockall
   DNSPolicy dns = 2;
   repeated NetworkRule rules = 3;
+  // Daytona-style sugar (translated to mode/rules server-side; not stored).
+  // At most one of network_allow_list, domain_allow_list, or block_all may be
+  // set, and none may combine with structured mode/rules/dns. Empty strings
+  // count as unset.
+  string network_allow_list = 4; // comma-separated IPv4 CIDRs, max 10
+  string domain_allow_list = 5;  // comma-separated domains / *.wildcards, max 20
+  optional bool block_all = 6;   // true = blockall; false alone = denylist (full open)
+  bool essential_services = 7;   // opt-in curated package/git/AI allowlist
 }
 
 message SandboxSpec {
