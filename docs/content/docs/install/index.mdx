@@ -54,7 +54,7 @@ Each Linux tarball co-locates the Cellar binaries (so `cellard` can find `cellar
 ### curl installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/prodioslabs/cellar/main/install.sh | sh
+curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
 ```
 
 The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux). When Docker is reachable it builds `cellar/egress-gateway:latest` from the shipped `cellar-egress-gateway` binary. Opt out with `CELLAR_SKIP_EGRESS_IMAGE=1`. From a source checkout you can also run `make egress-gateway-image`.

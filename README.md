@@ -89,7 +89,7 @@ Darwin archives omit the Linux-only binaries and contain the three host tools pl
 Install the current release on Linux or macOS with:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/prodioslabs/cellar/main/install.sh | sh
+curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
 ```
 
 The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **arm64**), verifies archives against `checksums.txt`, and installs binaries. On Linux it also installs systemd units and the sysusers definition (same as `sudo make install`). When Docker is available it builds `cellar/egress-gateway:latest` from the shipped `cellar-egress-gateway` binary (skip with `CELLAR_SKIP_EGRESS_IMAGE=1`). It uses `sudo` when needed, but does not enable or start the services.
@@ -97,7 +97,7 @@ The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **ar
 To install a specific version or prefix:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/prodioslabs/cellar/main/install.sh | CELLAR_VERSION=v0.1.0 CELLAR_PREFIX=/usr/local sh
+curl -fsSL https://cellar.prodioslabs.com/install.sh | CELLAR_VERSION=v0.1.0 CELLAR_PREFIX=/usr/local sh
 ```
 
 ## Quick start

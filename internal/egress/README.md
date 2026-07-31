@@ -110,6 +110,15 @@ Each `NetworkConnect` adds an interface in the gateway. Soft cap ≈ 100 legs
 (`--egress-gateway-max-legs`). The pool assigns least-loaded and spawns a new
 gateway when all are full.
 
+## Image
+
+Networked sandboxes need the `cellar/egress-gateway` Docker image. Build it with:
+
+```bash
+curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
+# or from a source checkout: make egress-gateway-image
+```
+
 ## Known tradeoffs
 
 - `connect()` may succeed before policy denies (accept-then-decide)
