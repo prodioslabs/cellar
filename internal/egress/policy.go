@@ -49,6 +49,15 @@ func (e *Evaluator) AllowConnect(hostname string, ip net.IP, port uint32) (Decis
 	if mode == "" || mode == sandbox.NetworkNone {
 		return Deny, MatchNone
 	}
+	if mode == sandbox.NetworkBlockAll {
+		if e.policy.EssentialServices && hostname != "" && sandbox.IsEssentialHost(hostname) {
+			return Allow, MatchDomain
+		}
+		return Deny, MatchNone
+	}
+	if e.policy.EssentialServices && hostname != "" && sandbox.IsEssentialHost(hostname) {
+		return Allow, MatchDomain
+	}
 	match := e.match(hostname, ip, port)
 	switch mode {
 	case sandbox.NetworkAllowlist:
@@ -94,8 +103,17 @@ func (e *Evaluator) AllowDNS(name string) Decision {
 	if mode == "" {
 		mode = sandbox.DNSMode(e.policy.Mode)
 	}
+	if e.policy.Mode == sandbox.NetworkBlockAll {
+		if e.policy.EssentialServices && sandbox.IsEssentialHost(name) {
+			return Allow
+		}
+		return Deny
+	}
 	if mode == "" || mode == sandbox.DNSNone {
 		return Deny
+	}
+	if e.policy.EssentialServices && sandbox.IsEssentialHost(name) {
+		return Allow
 	}
 	matched := nameMatchesAny(name, e.policy.DNS.Names)
 	// If DNS names empty, fall back to rule hosts for allow/deny symmetry.

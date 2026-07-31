@@ -177,3 +177,50 @@ func TestDNSFallsBackToRuleHosts(t *testing.T) {
 		t.Fatal("expected deny from rule hosts")
 	}
 }
+
+func TestBlockAllDeniesEverything(t *testing.T) {
+	ev := egress.NewEvaluator(sandbox.NetworkPolicy{Mode: sandbox.NetworkBlockAll})
+	if d, _ := ev.AllowConnect("example.com", net.ParseIP("93.184.216.34"), 443); d != egress.Deny {
+		t.Fatal("expected deny connect in blockall")
+	}
+	if ev.AllowDNS("example.com") != egress.Deny {
+		t.Fatal("expected deny dns in blockall")
+	}
+}
+
+func TestEssentialServicesOverride(t *testing.T) {
+	ev := egress.NewEvaluator(sandbox.NetworkPolicy{
+		Mode:              sandbox.NetworkBlockAll,
+		EssentialServices: true,
+	})
+	if d, match := ev.AllowConnect("registry.npmjs.org", net.ParseIP("1.2.3.4"), 443); d != egress.Allow || match != egress.MatchDomain {
+		t.Fatalf("expected allow essential, got %v/%s", d, match)
+	}
+	if ev.AllowDNS("proxy.golang.org") != egress.Allow {
+		t.Fatal("expected allow essential dns")
+	}
+	if d, _ := ev.AllowConnect("evil.example.com", net.ParseIP("1.2.3.4"), 443); d != egress.Deny {
+		t.Fatal("expected deny non-essential")
+	}
+
+	allow := egress.NewEvaluator(sandbox.NetworkPolicy{
+		Mode:              sandbox.NetworkAllowlist,
+		EssentialServices: true,
+		Rules:             []sandbox.NetworkRule{{Hosts: []string{"example.com"}}},
+		DNS:               sandbox.DNSPolicy{Mode: sandbox.DNSAllowlist, Names: []string{"example.com"}},
+	})
+	if d, _ := allow.AllowConnect("pypi.org", net.ParseIP("1.2.3.4"), 443); d != egress.Allow {
+		t.Fatal("essential should allow beyond rules")
+	}
+	if d, _ := allow.AllowConnect("evil.com", net.ParseIP("1.2.3.4"), 443); d != egress.Deny {
+		t.Fatal("non-essential non-rule should deny")
+	}
+
+	none := egress.NewEvaluator(sandbox.NetworkPolicy{
+		Mode:              sandbox.NetworkNone,
+		EssentialServices: true,
+	})
+	if d, _ := none.AllowConnect("registry.npmjs.org", net.ParseIP("1.2.3.4"), 443); d != egress.Deny {
+		t.Fatal("essential must not apply in none mode")
+	}
+}
