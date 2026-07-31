@@ -3,7 +3,7 @@
 set -eu
 
 REPOSITORY="prodioslabs/cellar"
-VERSION="${CELLAR_VERSION:-v0.1.0}"
+VERSION="${CELLAR_VERSION:-latest}"
 PREFIX="${CELLAR_PREFIX:-/usr/local}"
 SYSTEMD_UNIT_DIR="${CELLAR_SYSTEMD_UNIT_DIR:-/usr/lib/systemd/system}"
 SYSUSERS_DIR="${CELLAR_SYSUSERS_DIR:-/usr/lib/sysusers.d}"
@@ -41,6 +41,17 @@ case "$(uname -m)" in
 		fail "unsupported architecture: $(uname -m)"
 		;;
 esac
+
+if [ "$VERSION" = "latest" ]; then
+	printf 'Resolving latest cellar release...\n'
+	VERSION=$(
+		curl -fsSLI -o /dev/null -w '%{url_effective}' \
+			"https://github.com/${REPOSITORY}/releases/latest"
+	)
+	VERSION=${VERSION%/}
+	VERSION=${VERSION##*/}
+	[ -n "$VERSION" ] || fail "could not resolve latest release tag"
+fi
 
 case "$VERSION" in
 	v*)
