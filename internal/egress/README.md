@@ -1,7 +1,7 @@
 # Egress
 
 Topology-based egress for Cellar sandboxes. Each sandbox sits on a private
-**internal** Docker network with no route to the internet. A shared
+**internal** Docker network with no host route to the internet. A shared
 `cellar/egress-gateway` container is dual-homed onto that network and onto a
 normal `cellar-egress` bridge; it is the only possible path out.
 
@@ -25,11 +25,12 @@ flowchart LR
 
 1. **The firewall is the topology.** A sandbox on an `Internal: true` network
    with only the gateway as peer cannot send packets anywhere else.
-2. **Deny by default** falls out of that design: unresolved or unhandled
-   destinations have nowhere to go.
-3. **Accept-then-decide.** The gateway accepts TCP, peeks SNI/Host, then
-   applies policy. A blocked destination can show `connect()` success inside
-   the sandbox; the connection dies at policy time.
+2. **Deny by default** falls out of that design: unmatched destinations reach
+   the gateway catch-all and are denied (or never leave the internal net).
+3. **Accept-then-decide.** The gateway accepts TCP, peeks SNI/Host (domain
+   path) or recovers `SO_ORIGINAL_DST` (raw-IP path), then applies policy. A
+   blocked destination can show `connect()` success inside the sandbox; the
+   connection dies at policy time.
 4. **Shared gateway, isolated networks.** One gateway serves many sandboxes;
    each sandbox gets its own two-endpoint network.
 
@@ -46,6 +47,11 @@ flowchart LR
    2. `NetworkConnect` the chosen gateway at the conventional `.2` address
    3. gRPC `RegisterSandbox` on the gateway’s published control port
    4. `ContainerCreate` the sandbox on that net with `DNS: [.2]` and IP `.3`
+   5. One-shot route helper (`NetworkMode: container:<sandbox>`,
+      `CAP_NET_ADMIN`, same egress-gateway image) runs
+      `ip route replace default via .2` so all off-subnet traffic — including
+      raw-IP / CIDR allowlist flows — reaches the gateway. The sandbox itself
+      keeps `CapDrop: ALL`.
 3. Per-sandbox teardown reverses those steps idempotently. On daemon stop (or
    leave), sandboxes are torn down first, then the pool force-removes all
    gateway containers. A reconciler GCs labeled orphan networks and rebuilds
@@ -58,7 +64,7 @@ flowchart LR
 | Flag / field | Default | Role |
 |---|---|---|
 | `--egress-gateway-max-legs` (`MaxLegs`) | `100` | Soft cap on concurrent sandbox network legs per gateway container. Each `NetworkConnect` adds one interface. `Assign` picks the least-loaded gateway under the cap and spawns another container when all are full. |
-| `--egress-gateway-image` (`Image`) | `cellar/egress-gateway` | Docker image used when spawning gateway containers. |
+| `--egress-gateway-image` (`Image`) | `cellar/egress-gateway` | Docker image used when spawning gateway containers and the per-sandbox route helper. |
 | `--data-dir` (`DataDir`) | OS default | Per-gateway control tokens under `{dataDir}/egress/<gwID>/control.token` and IPAM state at `{dataDir}/egress/ipam.json`. Token dirs are removed with the gateway. |
 | `--egress-allow-private-cidrs` (`PrivateExceptions`) | empty | Comma-separated CIDRs exempted from the gateway’s default deny of RFC1918 / CGNAT / loopback / link-local upstream dials. Node-level policy, not a scaling knob. |
 | `--egress-supernet` | `172.30.0.0/16` | IPv4 space carved into per-sandbox `/29`s (IPAM; orthogonal to MaxLegs). |
@@ -73,8 +79,8 @@ Cellard owns allocation (Docker’s default pools are too coarse):
 
 | Offset | Role |
 |--------|------|
-| `.1` | Docker bridge gateway (auto) |
-| `.2` | cellar egress-gateway leg |
+| `.1` | Docker bridge gateway (auto; on-link only — Internal net has no host NAT) |
+| `.2` | cellar egress-gateway leg (sandbox default route next hop) |
 | `.3` | sandbox |
 
 State is persisted under `{dataDir}/egress/ipam.json`. Configure the supernet
@@ -92,16 +98,19 @@ Sandboxes bind-mount a generated `resolv.conf` (`nameserver <gateway .2>`)
 over `/etc/resolv.conf`. `HostConfig.DNS` alone is not enough: on user-defined
 networks Docker still writes `127.0.0.11`, and that stub's forwarding behavior
 varies by Engine version (and can escape topology on older engines). Attribution
-uses which gateway leg received the query. Hardcoded IP escape attempts fail
-structurally (no route off the internal net).
+uses which gateway leg received the query.
+
+CIDR-only allowlists intentionally NXDOMAIN all names: traffic must use raw IPs
+that match the CIDR rules (routed via the default-route-to-`.2` path below).
 
 ## Data plane
 
-| Port | Behavior |
+| Path | Behavior |
 |------|----------|
-| TCP 443 | Peek SNI; deny if missing; resolve+dial real upstream; splice |
-| TCP 80 | Peek Host; splice (header-transform hook is a no-op for now) |
-| Other TCP | In-gateway iptables REDIRECT → catch-all; `SO_ORIGINAL_DST` for port; allow only hosts with explicit port rules |
+| TCP 443 → `.2` (DNS bait) | Peek SNI; deny if missing; resolve+dial real upstream; splice |
+| TCP 80 → `.2` (DNS bait) | Peek Host; splice (header-transform hook is a no-op for now) |
+| Other TCP → `.2` (DNS bait) | iptables REDIRECT → catch-all; `SO_ORIGINAL_DST` for port; allow only hosts with explicit port rules via last DNS |
+| TCP to external IP (routed) | Sandbox default route via `.2` preserves dst; gateway REDIRECT → catch-all; `SO_ORIGINAL_DST` recovers ip:port; evaluate CIDR/IP policy; dial original ip:port |
 | UDP 53 | DNS as above |
 | Other UDP | Unhandled (QUIC/HTTP3 fail; TCP fallback expected) |
 
@@ -128,7 +137,8 @@ limit), it implies `block_all`.
 
 ## Image
 
-Networked sandboxes need the `cellar/egress-gateway` Docker image. Releases ship
+Networked sandboxes need the `cellar/egress-gateway` Docker image (gateway
+binary, `iptables`, and `iproute2` for the route helper). Releases ship
 per-arch `docker save` archives that the curl installer loads with `docker load`.
 Build locally from a source checkout with:
 
@@ -144,8 +154,10 @@ restarting `cellard` is enough to pick up the new binary.
 ## Known tradeoffs
 
 - `connect()` may succeed before policy denies (accept-then-decide)
-- No egress for UDP-only protocols or connections without readable SNI/Host
-- ECH-enabled clients are denied on `:443`
+- No egress for UDP-only protocols (including UDP to CIDR destinations); policy
+  protocols are v1 `tcp` only
+- Domain path on `:443` still requires readable SNI; ECH-enabled clients are denied
+- Route helper adds a small per-spawn latency (~100s of ms)
 - HTTPS credential injection requires opt-in MITM (out of scope)
 
 ## Key files
@@ -157,6 +169,6 @@ restarting `cellard` is enough to pick up the new binary.
 | `internal/egress/pool` | Gateway container pool |
 | `internal/egress/ipam` | `/29` allocator |
 | `internal/egress/policy.go` | Shared allow/deny evaluator |
-| `internal/runtime/docker.go` | Per-sandbox Internal nets |
+| `internal/runtime/docker.go` | Per-sandbox Internal nets + route helper |
 | `internal/runtime/agent.go` | Spawn/teardown/reconcile |
-| `images/egress-gateway/Dockerfile` | Gateway image |
+| `images/egress-gateway/Dockerfile` | Gateway + route-helper image |
