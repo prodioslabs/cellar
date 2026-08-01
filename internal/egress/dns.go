@@ -37,29 +37,6 @@ func parseDNSQName(pkt []byte) (string, error) {
 	return string(labels), nil
 }
 
-// parseDNSQType returns the QTYPE of the first question (1=A, 28=AAAA).
-func parseDNSQType(pkt []byte) (uint16, error) {
-	if len(pkt) < 12 {
-		return 0, fmt.Errorf("short dns")
-	}
-	i := 12
-	for i < len(pkt) {
-		l := int(pkt[i])
-		i++
-		if l == 0 {
-			break
-		}
-		if l > 63 || i+l > len(pkt) {
-			return 0, fmt.Errorf("bad label")
-		}
-		i += l
-	}
-	if i+4 > len(pkt) {
-		return 0, fmt.Errorf("truncated question")
-	}
-	return binary.BigEndian.Uint16(pkt[i : i+2]), nil
-}
-
 func questionEnd(query []byte) (int, error) {
 	if len(query) < 12 {
 		return 0, fmt.Errorf("short dns")
