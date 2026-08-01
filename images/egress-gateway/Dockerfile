@@ -12,7 +12,9 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 	go build -trimpath -ldflags="-s -w" -o /out/cellar-egress-gateway ./cmd/cellar-egress-gateway
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends iptables \
+# iptables: per-leg REDIRECT in the gateway data plane.
+# iproute2: one-shot route helper shares this image and runs `ip route replace`.
+RUN apt-get update && apt-get install -y --no-install-recommends iptables iproute2 \
 	&& rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/cellar-egress-gateway /usr/local/bin/cellar-egress-gateway
 EXPOSE 53/udp 53/tcp 80/tcp 443/tcp 17948/tcp
