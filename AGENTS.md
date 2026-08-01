@@ -37,7 +37,8 @@ builds five Go binaries (`cellard`, `cellar`, `cellar-gateway`, `cellar-agent`,
   `cellard` / `cellar` without sudo so the data dir stays under `/Users/...` (when
   sudo is used, defaults follow `SUDO_USER`’s home). Use plain `docker` (no sudo) with
   Docker Desktop. Networked sandboxes still need the `cellar/egress-gateway` image
-  (`make egress-gateway-image` or the curl installer).
+  (release tarball via the curl installer / `docker load`, or `make egress-gateway-image`
+  from a source checkout).
 
 ### Install
 - `curl … | sh` (`install.sh`) and `make install` support **Linux and Darwin**.

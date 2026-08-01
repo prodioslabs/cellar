@@ -37,7 +37,7 @@ cellar-egress-gateway -version
 
 ## GitHub Releases
 
-Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles. `cellar-agent` and `cellar-egress-gateway` are Linux-only (injected into containers); Darwin archives ship host tools — the curl installer also fetches the matching Linux archive so it can place `cellar-agent` beside `cellard` and build the egress image.
+Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles plus prebuilt `cellar/egress-gateway` image tarballs. `cellar-agent` and `cellar-egress-gateway` are Linux-only (injected into containers); Darwin archives ship host tools — the curl installer also fetches the matching Linux archive so it can place `cellar-agent` beside `cellard`, and loads the egress image with `docker load`.
 
 Download URLs follow a stable layout:
 
@@ -46,10 +46,12 @@ https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linu
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_arm64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_amd64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_arm64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar-egress-gateway-image_X.Y.Z_linux_amd64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar-egress-gateway-image_X.Y.Z_linux_arm64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/checksums.txt
 ```
 
-Each Linux tarball co-locates the Cellar binaries (so `cellard` can find `cellar-agent` beside itself), including `cellar-egress-gateway`, plus `LICENSE`, `README.md`, and `contrib/systemd/`. Darwin tarballs omit the Linux-only binaries.
+Each Linux tarball co-locates the Cellar binaries (so `cellard` can find `cellar-agent` beside itself), including `cellar-egress-gateway`, plus `LICENSE`, `README.md`, and `contrib/systemd/`. Darwin tarballs omit the Linux-only binaries. Image archives are gzipped `docker save` outputs of `cellar/egress-gateway:latest` and `cellar/egress-gateway:vX.Y.Z`.
 
 ### curl installer
 
@@ -57,4 +59,4 @@ Each Linux tarball co-locates the Cellar binaries (so `cellard` can find `cellar
 curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
 ```
 
-The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux). When Docker is reachable it builds `cellar/egress-gateway:latest` from the shipped `cellar-egress-gateway` binary. Opt out with `CELLAR_SKIP_EGRESS_IMAGE=1`. From a source checkout you can also run `make egress-gateway-image`.
+The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux). When Docker is reachable it downloads and loads the prebuilt `cellar/egress-gateway` image. Opt out with `CELLAR_SKIP_EGRESS_IMAGE=1`. From a source checkout you can also run `make egress-gateway-image`.

@@ -123,13 +123,12 @@ if [ "$os" = "darwin" ]; then
 	download_and_extract "$host_archive" "$host_dir" "${os}/${arch}" \
 		"cellar, cellard, cellar-gateway"
 
-	# Also fetch the linux archive for cellar-agent and the egress-gateway
-	# binary used to build the Docker image (both run inside Linux containers).
+	# Also fetch the linux archive for cellar-agent (runs inside Linux containers).
 	linux_archive="cellar_${release_version}_linux_${arch}.tar.gz"
 	download_and_extract "$linux_archive" "$linux_dir" "linux/${arch}" \
-		"cellar-agent, cellar-egress-gateway"
+		"cellar-agent"
 	agent_src="$linux_dir/cellar-agent"
-	egress_src="$linux_dir/cellar-egress-gateway"
+	egress_src=""
 else
 	download_and_extract "$host_archive" "$host_dir" "${os}/${arch}" \
 		"cellar, cellard, cellar-gateway, cellar-agent, cellar-egress-gateway"
@@ -141,7 +140,9 @@ for file in cellar cellard cellar-gateway; do
 	[ -f "$host_dir/$file" ] || fail "$file is missing from the $os release archive"
 done
 [ -f "$agent_src" ] || fail "cellar-agent is missing from the linux release archive"
-[ -f "$egress_src" ] || fail "cellar-egress-gateway is missing from the linux release archive"
+if [ "$os" = "linux" ]; then
+	[ -f "$egress_src" ] || fail "cellar-egress-gateway is missing from the linux release archive"
+fi
 
 if [ "$os" = "linux" ]; then
 	[ -f "$host_dir/contrib/systemd/cellard.service" ] ||
@@ -202,44 +203,35 @@ if [ "$os" = "linux" ]; then
 		"$SYSUSERS_DIR/cellar.conf"
 fi
 
-# Stage the linux egress binary where the Docker build context expects it.
-image_ctx="$tmp_dir/image"
-mkdir -p "$image_ctx"
-cp "$egress_src" "$image_ctx/cellar-egress-gateway"
-chmod 755 "$image_ctx/cellar-egress-gateway"
+# Load the prebuilt cellar/egress-gateway image from the release (docker save).
+image_archive="cellar-egress-gateway-image_${release_version}_linux_${arch}.tar.gz"
+image_dir="$tmp_dir/image"
+mkdir -p "$image_dir"
 
-egress_image_built=0
+egress_image_loaded=0
 if [ -n "$SKIP_EGRESS_IMAGE" ]; then
-	printf '\nSkipping egress-gateway image build (CELLAR_SKIP_EGRESS_IMAGE is set).\n'
+	printf '\nSkipping egress-gateway image load (CELLAR_SKIP_EGRESS_IMAGE is set).\n'
 elif ! command -v docker >/dev/null 2>&1; then
-	printf '\nDocker not found; skipping egress-gateway image build.\n'
+	printf '\nDocker not found; skipping egress-gateway image load.\n'
 elif ! $docker_cmd info >/dev/null 2>&1; then
-	printf '\nDocker daemon not reachable; skipping egress-gateway image build.\n'
+	printf '\nDocker daemon not reachable; skipping egress-gateway image load.\n'
 else
-	printf '\nBuilding %s Docker image...\n' "$EGRESS_IMAGE"
-	$docker_cmd build \
-		-t "${EGRESS_IMAGE}:latest" \
-		-t "${EGRESS_IMAGE}:${VERSION}" \
-		-f - "$image_ctx" <<'EOF'
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends iptables \
-	&& rm -rf /var/lib/apt/lists/*
-COPY cellar-egress-gateway /usr/local/bin/cellar-egress-gateway
-EXPOSE 53/udp 53/tcp 80/tcp 443/tcp 17948/tcp
-ENTRYPOINT ["/usr/local/bin/cellar-egress-gateway", "-control-addr", "0.0.0.0:17948"]
-EOF
-	egress_image_built=1
-	printf 'Tagged %s:latest and %s:%s\n' "$EGRESS_IMAGE" "$EGRESS_IMAGE" "$VERSION"
+	printf '\nDownloading %s image archive...\n' "$EGRESS_IMAGE"
+	curl -fsSL --retry 3 -o "$image_dir/$image_archive" "$release_url/$image_archive"
+	verify_archive "$image_archive" "$image_dir"
+	printf 'Loading %s Docker image...\n' "$EGRESS_IMAGE"
+	$docker_cmd load -i "$image_dir/$image_archive"
+	egress_image_loaded=1
+	printf 'Loaded %s:latest and %s:%s\n' "$EGRESS_IMAGE" "$EGRESS_IMAGE" "$VERSION"
 fi
 
 printf '\nCellar %s installed successfully.\n' "$VERSION"
 
-if [ "$egress_image_built" -eq 0 ]; then
-	printf '\nNetworked sandboxes need the %s image. Build it later with:\n' "$EGRESS_IMAGE"
-	printf '  curl -fsSL https://raw.githubusercontent.com/%s/main/install.sh | CELLAR_VERSION=%s sh\n' \
-		"$REPOSITORY" "$VERSION"
+if [ "$egress_image_loaded" -eq 0 ]; then
+	printf '\nNetworked sandboxes need the %s image. Load it later with:\n' "$EGRESS_IMAGE"
+	printf '  curl -fsSL -o %s %s/%s\n' "$image_archive" "$release_url" "$image_archive"
+	printf '  docker load -i %s\n' "$image_archive"
 	printf '  # or from a source checkout: make egress-gateway-image\n'
-	printf '  # or load a pre-built image: docker load < egress-gateway.tar\n'
 fi
 
 if [ "$os" = "linux" ]; then

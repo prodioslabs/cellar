@@ -118,6 +118,9 @@ archives:
 checksum:
   name_template: checksums.txt
   algorithm: sha256
+  # Include prebuilt egress-gateway image archives in checksums.txt.
+  extra_files:
+    - glob: ./release-extras/*.tar.gz
 
 changelog:
   sort: asc
@@ -130,3 +133,7 @@ changelog:
 release:
   prerelease: auto
   name_template: "v{{.Version}}"
+  # Prebuilt cellar/egress-gateway image archives (docker save | gzip), produced
+  # by the release workflow before `goreleaser release`.
+  extra_files:
+    - glob: ./release-extras/*.tar.gz

@@ -34,6 +34,26 @@ jobs:
       - name: Test
         run: go test ./...
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build egress-gateway image archives
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          mkdir -p release-extras
+          # Sequential: shared :latest / :$tag names must not overwrite the
+          # other arch before docker save finishes.
+          for arch in amd64 arm64; do
+            make egress-gateway-image-tarball \
+              VERSION="$tag" \
+              EGRESS_IMAGE_ARCH="$arch" \
+              EGRESS_TARBALL="release-extras/cellar-egress-gateway-image_${version}_linux_${arch}.tar.gz"
+          done
+
       - name: Check GoReleaser config
         uses: goreleaser/goreleaser-action@v6
         with:

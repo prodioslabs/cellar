@@ -128,11 +128,14 @@ limit), it implies `block_all`.
 
 ## Image
 
-Networked sandboxes need the `cellar/egress-gateway` Docker image. Build it with:
+Networked sandboxes need the `cellar/egress-gateway` Docker image. Releases ship
+per-arch `docker save` archives that the curl installer loads with `docker load`.
+Build locally from a source checkout with:
 
 ```bash
 curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
 # or from a source checkout: make egress-gateway-image
+# or: make egress-gateway-image-tarball   # gzipped docker save archive
 ```
 
 Because gateways are recreated on every runtime start, rebuilding the image and

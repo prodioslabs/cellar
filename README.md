@@ -69,7 +69,7 @@ cellar-agent -version
 
 ## Releases
 
-Push a SemVer tag (`vX.Y.Z` or `vX.Y.Z-rc.1`) to publish a [GitHub Release](https://github.com/prodioslabs/cellar/releases) with Linux and macOS **amd64** / **arm64** archives. `cellar-agent` and `cellar-egress-gateway` are Linux-only (they run inside containers); Darwin archives ship the host tools (`cellar`, `cellard`, `cellar-gateway`). The installer fetches the matching Linux archive on macOS so it can place `cellar-agent` beside `cellard` and build the egress-gateway image.
+Push a SemVer tag (`vX.Y.Z` or `vX.Y.Z-rc.1`) to publish a [GitHub Release](https://github.com/prodioslabs/cellar/releases) with Linux and macOS **amd64** / **arm64** archives, plus prebuilt `cellar/egress-gateway` image tarballs. `cellar-agent` and `cellar-egress-gateway` are Linux-only (they run inside containers); Darwin archives ship the host tools (`cellar`, `cellard`, `cellar-gateway`). The installer fetches the matching Linux archive on macOS so it can place `cellar-agent` beside `cellard`, and loads the egress-gateway image with `docker load`.
 
 Each Linux archive is named `cellar_<version>_linux_<arch>.tar.gz` and contains:
 
@@ -86,13 +86,15 @@ contrib/systemd/…
 
 Darwin archives omit the Linux-only binaries and contain the three host tools plus `LICENSE`, `README.md`, and `contrib/systemd/`.
 
+Image archives (`cellar-egress-gateway-image_<version>_linux_<arch>.tar.gz`) are gzipped `docker save` outputs of `cellar/egress-gateway:latest` and `cellar/egress-gateway:vX.Y.Z`.
+
 Install the current release on Linux or macOS with:
 
 ```bash
 curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
 ```
 
-The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **arm64**), verifies archives against `checksums.txt`, and installs binaries. On Linux it also installs systemd units and the sysusers definition (same as `sudo make install`). When Docker is available it builds `cellar/egress-gateway:latest` from the shipped `cellar-egress-gateway` binary (skip with `CELLAR_SKIP_EGRESS_IMAGE=1`). It uses `sudo` when needed, but does not enable or start the services.
+The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **arm64**), verifies archives against `checksums.txt`, and installs binaries. On Linux it also installs systemd units and the sysusers definition (same as `sudo make install`). When Docker is available it downloads and loads the prebuilt `cellar/egress-gateway` image (skip with `CELLAR_SKIP_EGRESS_IMAGE=1`). It uses `sudo` when needed, but does not enable or start the services.
 
 To install a specific version or prefix:
 

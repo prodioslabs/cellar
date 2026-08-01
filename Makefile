@@ -47,7 +47,15 @@ LDFLAGS    := -X $(VERSION_PKG).Version=$(VERSION) \
 	-X $(VERSION_PKG).Date=$(BUILD_DATE)
 GO_BUILD_FLAGS := -trimpath -ldflags "$(LDFLAGS)"
 
-.PHONY: all build build-sdk cellard cellar cellar-agent cellar-gateway cellar-egress-gateway egress-gateway-image install uninstall proto tools test clean help sdk-node
+# Egress image tarball (release CI / local repro). Override EGRESS_IMAGE_ARCH,
+# EGRESS_IMAGE_TAG, or EGRESS_TARBALL as needed.
+EGRESS_IMAGE_ARCH ?= $(shell $(GO) env GOARCH 2>/dev/null || echo amd64)
+EGRESS_PLATFORM ?= linux/$(EGRESS_IMAGE_ARCH)
+EGRESS_IMAGE_TAG ?= $(VERSION)
+EGRESS_FILE_VERSION ?= $(patsubst v%,%,$(VERSION))
+EGRESS_TARBALL ?= cellar-egress-gateway-image_$(EGRESS_FILE_VERSION)_linux_$(EGRESS_IMAGE_ARCH).tar.gz
+
+.PHONY: all build build-sdk cellard cellar cellar-agent cellar-gateway cellar-egress-gateway egress-gateway-image egress-gateway-image-tarball install uninstall proto tools test clean help sdk-node
 
 all: build
 
@@ -61,6 +69,7 @@ help:
 	@echo "  make cellar-gateway Build cellar-gateway only"
 	@echo "  make cellar-egress-gateway Build cellar-egress-gateway binary"
 	@echo "  make egress-gateway-image  Build $(EGRESS_IMAGE) Docker image"
+	@echo "  make egress-gateway-image-tarball  Build + docker save $(EGRESS_IMAGE) as .tar.gz"
 	@echo "  make sdk-node       Build the Node SDK"
 	@echo "  make install        Install binaries (Linux: +systemd/sysusers; macOS: stage agent under ~/.cellar)"
 	@echo "  make uninstall      Remove installed binaries (and Linux systemd/sysusers drop-ins)"
@@ -97,6 +106,18 @@ cellar-egress-gateway:
 
 egress-gateway-image:
 	$(DOCKER) build -f images/egress-gateway/Dockerfile -t $(EGRESS_IMAGE):$(VERSION) -t $(EGRESS_IMAGE):latest .
+
+# Build a single-platform image and write a gzipped `docker save` archive
+# (used by the release workflow; install.sh loads these with `docker load`).
+egress-gateway-image-tarball:
+	@mkdir -p $(dir $(EGRESS_TARBALL))
+	$(DOCKER) buildx build --platform $(EGRESS_PLATFORM) \
+		-f images/egress-gateway/Dockerfile \
+		-t $(EGRESS_IMAGE):$(EGRESS_IMAGE_TAG) \
+		-t $(EGRESS_IMAGE):latest \
+		--load .
+	$(DOCKER) save $(EGRESS_IMAGE):latest $(EGRESS_IMAGE):$(EGRESS_IMAGE_TAG) | gzip > $(EGRESS_TARBALL)
+	@echo "Wrote $(EGRESS_TARBALL)"
 
 sdk-node:
 	cd $(SDK_NODE_DIR) && $(BUN) run build
