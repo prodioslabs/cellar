@@ -510,3 +510,6 @@ func (p *Pool) UpdatePolicy(ctx context.Context, gw *Instance, sandboxID string,
 
 // DockerClient returns the underlying client (for Driver sharing).
 func (p *Pool) DockerClient() *client.Client { return p.cli }
+
+// Image returns the egress-gateway Docker image used by this pool.
+func (p *Pool) Image() string { return p.cfg.Image }

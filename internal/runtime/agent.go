@@ -329,6 +329,7 @@ func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) e
 		opts.NetworkName = egressOpts.NetworkName
 		opts.DNSServer = egressOpts.DNSServer
 		opts.SandboxIP = egressOpts.SandboxIP
+		opts.EgressImage = egressOpts.EgressImage
 	}
 
 	newID, err := a.Driver.CreateAndStart(ctx, sb, opts)
@@ -353,6 +354,7 @@ type topologyOpts struct {
 	NetworkName string
 	DNSServer   string
 	SandboxIP   string
+	EgressImage string
 }
 
 func (a *Agent) setupTopology(ctx context.Context, sb *sandbox.Sandbox) (topologyOpts, error) {
@@ -415,6 +417,7 @@ func (a *Agent) setupTopology(ctx context.Context, sb *sandbox.Sandbox) (topolog
 		NetworkName: SandboxNetworkName(sb.ID),
 		DNSServer:   gwIP.String(),
 		SandboxIP:   sbIP.String(),
+		EgressImage: a.Pool.Image(),
 	}, nil
 }
 

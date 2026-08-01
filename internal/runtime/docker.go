@@ -212,6 +212,7 @@ type CreateOpts struct {
 	NetworkName string // cellar-sb-<id>
 	DNSServer   string // gateway .2
 	SandboxIP   string // conventional .3
+	EgressImage string // egress-gateway image (route helper + gateway)
 }
 
 const defaultPidsLimit = int64(4096)
@@ -325,6 +326,23 @@ func (d *Driver) CreateAndStart(ctx context.Context, sb *sandbox.Sandbox, opts C
 		return "", err
 	}
 
+	// Networked sandboxes: point the default route at the gateway leg (.2) so
+	// raw-IP (CIDR allowlist) traffic reaches policy instead of dying at the
+	// internal bridge (.1). Failure is fatal: without the route CIDR rules
+	// would silently not work.
+	if netCfg != nil {
+		if opts.EgressImage == "" {
+			_ = d.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
+			return "", fmt.Errorf("egress image required for networked sandbox")
+		}
+		if err := d.installDefaultRouteVia(ctx, resp.ID, opts.DNSServer, opts.EgressImage); err != nil {
+			_ = d.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+			_ = CleanupSandboxDir(opts.DataDir, sb.ID)
+			return "", fmt.Errorf("install egress route: %w", err)
+		}
+	}
+
 	if err := d.waitContainerRunning(ctx, resp.ID, 30*time.Second); err != nil {
 		diagnostics := d.agentStartupDiagnostics(ctx, resp.ID)
 		_ = d.cli.ContainerStop(ctx, resp.ID, container.StopOptions{})
@@ -405,6 +423,82 @@ func (d *Driver) pullIfMissing(ctx context.Context, ref string) error {
 	defer rc.Close()
 	_, _ = io.Copy(io.Discard, rc)
 	return nil
+}
+
+const labelRouteHelper = "route-helper"
+
+// installDefaultRouteVia runs a one-shot helper container that joins the
+// sandbox container's network namespace and points its default route at the
+// egress gateway leg (.2). The helper's filesystem comes from helperImage
+// (the egress-gateway image, which ships iproute2), so the sandbox's own OCI
+// image needs nothing. CAP_NET_ADMIN is granted to the helper process only;
+// the sandbox container keeps CapDrop ALL and cannot alter the route later.
+func (d *Driver) installDefaultRouteVia(ctx context.Context, sandboxContainerID, gatewayIP, helperImage string) error {
+	if err := d.pullIfMissing(ctx, helperImage); err != nil {
+		return fmt.Errorf("route helper image: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	cfg := &container.Config{
+		Image:      helperImage,
+		Entrypoint: []string{"ip", "route", "replace", "default", "via", gatewayIP},
+		Labels: map[string]string{
+			labelManaged: "true",
+			labelRole:    labelRouteHelper,
+		},
+	}
+	host := &container.HostConfig{
+		// Join ONLY the sandbox's netns; mount/pid/etc. stay separate.
+		NetworkMode: container.NetworkMode("container:" + sandboxContainerID),
+		// Drop everything, then grant exactly the one capability `ip route`
+		// needs. The grant applies to this helper process, not the sandbox.
+		CapDrop:        []string{"ALL"},
+		CapAdd:         []string{"NET_ADMIN"},
+		SecurityOpt:    []string{"no-new-privileges:true"},
+		ReadonlyRootfs: true,
+	}
+
+	// No explicit name: Docker generates one, so concurrent spawns and
+	// leftovers from a crashed run can never collide.
+	resp, err := d.cli.ContainerCreate(ctx, cfg, host, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("create route helper: %w", err)
+	}
+	defer func() {
+		_ = d.cli.ContainerRemove(context.WithoutCancel(ctx), resp.ID, container.RemoveOptions{Force: true})
+	}()
+
+	if err := d.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("start route helper: %w", err)
+	}
+
+	waitCh, errCh := d.cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("route helper timed out: %w", ctx.Err())
+	case err := <-errCh:
+		return fmt.Errorf("wait route helper: %w", err)
+	case res := <-waitCh:
+		if res.StatusCode != 0 {
+			return fmt.Errorf("route helper exited with code %d (%s)",
+				res.StatusCode, d.helperLogs(ctx, resp.ID))
+		}
+	}
+	return nil
+}
+
+// helperLogs returns trimmed combined output for error diagnostics.
+func (d *Driver) helperLogs(ctx context.Context, containerID string) string {
+	rc, err := d.Logs(ctx, containerID, false, "10")
+	if err != nil {
+		return "no logs: " + err.Error()
+	}
+	defer rc.Close()
+	var buf bytes.Buffer
+	_ = DemuxLogs(rc, &buf, &buf)
+	return strings.Join(strings.Fields(buf.String()), " ")
 }
 
 // Stop stops a container.
