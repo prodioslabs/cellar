@@ -109,6 +109,9 @@ egress-gateway-image:
 
 # Build a single-platform image and write a gzipped `docker save` archive
 # (used by the release workflow; install.sh loads these with `docker load`).
+# Cross-arch builds (e.g. arm64 on amd64) need QEMU/binfmt registered first:
+#   docker run --privileged --rm tonistiigi/binfmt --install all
+# (release.sh and CI do this automatically.)
 egress-gateway-image-tarball:
 	@mkdir -p $(dir $(EGRESS_TARBALL))
 	$(DOCKER) buildx build --platform $(EGRESS_PLATFORM) \

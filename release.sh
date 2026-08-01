@@ -47,6 +47,11 @@ if [ -z "${SKIP_PUSH:-}" ]; then
 	git push origin "$tag"
 fi
 
+printf 'Registering QEMU binfmt handlers for cross-arch image builds...\n'
+# Same role as docker/setup-qemu-action in CI. Required to RUN foreign-arch
+# stages (e.g. apt-get in the arm64 debian stage on an amd64 host).
+docker run --privileged --rm tonistiigi/binfmt --install all >/dev/null
+
 printf 'Building egress-gateway image archives...\n'
 mkdir -p release-extras
 # Sequential: shared :latest / :$tag names must not overwrite the other arch before save.

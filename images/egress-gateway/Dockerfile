@@ -1,10 +1,15 @@
 # Build cellar-egress-gateway as a static binary, then package with iptables.
-FROM golang:1.26-bookworm AS build
+# Cross-compile on the builder's native arch ($BUILDPLATFORM); the final stage
+# still needs QEMU/binfmt when targeting a foreign arch (apt-get RUN).
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/cellar-egress-gateway ./cmd/cellar-egress-gateway
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+	go build -trimpath -ldflags="-s -w" -o /out/cellar-egress-gateway ./cmd/cellar-egress-gateway
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends iptables \
