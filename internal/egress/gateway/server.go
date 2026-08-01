@@ -151,7 +151,7 @@ func (s *Server) RegisterSandbox(_ context.Context, req *cellarv1.RegisterSandbo
 		return nil, status.Errorf(codes.Internal, "listen dns tcp %s: %v", req.GetGatewayIp(), err)
 	}
 
-	if err := addCatchAllRedirect(req.GetGatewayIp()); err != nil {
+	if err := addCatchAllRedirect(req.GetGatewayIp(), sbIP.String()); err != nil {
 		_ = udpConn.Close()
 		_ = tcpLis.Close()
 		return nil, status.Errorf(codes.Internal, "iptables: %v", err)
@@ -240,7 +240,7 @@ func (s *Server) dropSessionLocked(sess *session) {
 	if sess.dnsTCP != nil {
 		_ = sess.dnsTCP.Close()
 	}
-	_ = deleteCatchAllRedirect(sess.gatewayIP)
+	_ = deleteCatchAllRedirect(sess.gatewayIP, sess.sandboxIP)
 }
 
 func (s *Server) sessionByLocalIP(local string) (*session, string, bool) {
@@ -329,12 +329,6 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 		dstIP = net.ParseIP(sess.gatewayIP)
 	}
 
-	if s.destinationDenied(sess, dstIP) && kind == kindOther {
-		// For 80/443 dst is the gateway itself; skip. For other ports original
-		// dest after DNS bait is also gateway IP — policy uses hostname.
-		_ = dstIP
-	}
-
 	client := net.Conn(conn)
 	var hostname string
 	if kind != kindOther {
@@ -358,8 +352,9 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 			log.Printf("egress-gateway deny tcp sandbox=%s: empty hostname", sandboxID)
 			return
 		}
-	} else {
-		// Non-standard port: require explicit domain:port allow via last DNS or policy hosts+ports.
+	} else if dstIP != nil && dstIP.Equal(net.ParseIP(sess.gatewayIP)) {
+		// DNS-bait path for non-standard ports: original dst is the gateway
+		// leg itself. Require an explicit domain:port allow via last DNS.
 		s.mu.RLock()
 		last := sess.lastDNS
 		fresh := time.Since(sess.lastDNSAt) < lastDNSWindow
@@ -374,7 +369,7 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 			return
 		}
 		dialCtx, cancel := context.WithTimeout(context.Background(), dialTimeout)
-		dst, err := s.dialUpstream(dialCtx, sess, hostname, port, egress.MatchDomain)
+		dst, err := s.dialUpstream(dialCtx, sess, hostname, "", port, egress.MatchDomain)
 		cancel()
 		if err != nil {
 			log.Printf("egress-gateway dial sandbox=%s host=%q port=%d: %v", sandboxID, hostname, port, err)
@@ -386,6 +381,45 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 		s.trackConn(sandboxID, live)
 		defer s.untrackConn(sandboxID, live)
 		log.Printf("egress-gateway allow tcp sandbox=%s host=%q port=%d verdict=allow", sandboxID, hostname, port)
+		proxyCopy(client, dst)
+		return
+	} else {
+		// Routed raw-IP path: sandbox default route via .2 preserved the
+		// original destination. Evaluate CIDR/IP policy and dial by IP.
+		if dstIP == nil {
+			log.Printf("egress-gateway deny tcp sandbox=%s: no original destination", sandboxID)
+			return
+		}
+		if s.destinationDenied(sess, dstIP) {
+			log.Printf("egress-gateway deny tcp sandbox=%s dst=%s port=%d (denied range)", sandboxID, dstIP, port)
+			return
+		}
+		s.mu.RLock()
+		ev := sess.ev
+		s.mu.RUnlock()
+		decision, match := ev.AllowConnect("", dstIP, port)
+		if decision != egress.Allow {
+			log.Printf("egress-gateway deny tcp sandbox=%s dst=%s port=%d", sandboxID, dstIP, port)
+			return
+		}
+		if match == egress.MatchNone {
+			// denylist / allowall: nothing asserted; keep original IP.
+			match = egress.MatchCIDR
+		}
+		dialCtx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+		dst, err := s.dialUpstream(dialCtx, sess, "", dstIP.String(), port, match)
+		cancel()
+		if err != nil {
+			log.Printf("egress-gateway dial sandbox=%s dst=%s port=%d: %v", sandboxID, dstIP, port, err)
+			return
+		}
+		defer dst.Close()
+		_ = conn.SetDeadline(time.Time{})
+		_ = dst.SetDeadline(time.Time{})
+		live := &liveConn{conn: conn, hostname: "", ip: dstIP, port: port}
+		s.trackConn(sandboxID, live)
+		defer s.untrackConn(sandboxID, live)
+		log.Printf("egress-gateway allow tcp sandbox=%s dst=%s port=%d verdict=allow", sandboxID, dstIP, port)
 		proxyCopy(client, dst)
 		return
 	}
@@ -401,7 +435,7 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 	}
 
 	dialCtx, cancel := context.WithTimeout(context.Background(), dialTimeout)
-	dst, err := s.dialUpstream(dialCtx, sess, hostname, port, match)
+	dst, err := s.dialUpstream(dialCtx, sess, hostname, "", port, match)
 	cancel()
 	if err != nil {
 		log.Printf("egress-gateway dial sandbox=%s host=%q port=%d: %v", sandboxID, hostname, port, err)
@@ -418,14 +452,33 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 	proxyCopy(client, dst)
 }
 
-func (s *Server) dialUpstream(ctx context.Context, sess *session, hostname string, port uint32, match egress.MatchType) (net.Conn, error) {
-	if match != egress.MatchDomain || hostname == "" {
-		return nil, fmt.Errorf("refusing non-domain dial in topology gateway")
+func (s *Server) dialUpstream(ctx context.Context, sess *session, hostname, ip string, port uint32, match egress.MatchType) (net.Conn, error) {
+	target, err := upstreamDialAddr(hostname, ip, port, match)
+	if err != nil {
+		return nil, err
 	}
 	d := &net.Dialer{ControlContext: func(ctx context.Context, network, address string, c syscall.RawConn) error {
 		return s.rejectDeniedAddr(sess, address)
 	}}
-	return d.DialContext(ctx, "tcp", net.JoinHostPort(hostname, strconv.FormatUint(uint64(port), 10)))
+	return d.DialContext(ctx, "tcp", target)
+}
+
+// upstreamDialAddr picks the dial target for a policy match.
+func upstreamDialAddr(hostname, ip string, port uint32, match egress.MatchType) (string, error) {
+	switch match {
+	case egress.MatchDomain:
+		if hostname == "" {
+			return "", fmt.Errorf("refusing empty hostname for domain dial")
+		}
+		return net.JoinHostPort(hostname, strconv.FormatUint(uint64(port), 10)), nil
+	case egress.MatchCIDR:
+		if ip == "" || net.ParseIP(ip) == nil {
+			return "", fmt.Errorf("refusing invalid ip for cidr dial: %q", ip)
+		}
+		return net.JoinHostPort(ip, strconv.FormatUint(uint64(port), 10)), nil
+	default:
+		return "", fmt.Errorf("refusing dial with match %q", match)
+	}
 }
 
 func (s *Server) rejectDeniedAddr(sess *session, address string) error {
@@ -613,8 +666,8 @@ func cidrsContain(nets []*net.IPNet, ip net.IP) bool {
 	return false
 }
 
-func addCatchAllRedirect(gatewayIP string) error {
-	specs := catchAllSpecs(gatewayIP)
+func addCatchAllRedirect(gatewayIP, sandboxIP string) error {
+	specs := catchAllSpecs(gatewayIP, sandboxIP)
 	var applied [][]string
 	for _, spec := range specs {
 		if err := runIPTables("-C", spec); err == nil {
@@ -631,9 +684,9 @@ func addCatchAllRedirect(gatewayIP string) error {
 	return nil
 }
 
-func deleteCatchAllRedirect(gatewayIP string) error {
+func deleteCatchAllRedirect(gatewayIP, sandboxIP string) error {
 	var first error
-	for _, spec := range catchAllSpecs(gatewayIP) {
+	for _, spec := range catchAllSpecs(gatewayIP, sandboxIP) {
 		if err := runIPTables("-D", spec); err != nil && first == nil {
 			first = err
 		}
@@ -641,15 +694,23 @@ func deleteCatchAllRedirect(gatewayIP string) error {
 	return first
 }
 
-func catchAllSpecs(gatewayIP string) [][]string {
+func catchAllSpecs(gatewayIP, sandboxIP string) [][]string {
 	port := strconv.Itoa(catchAllPort)
-	// Skip DNS/HTTP/TLS; redirect everything else destined to this gateway leg.
-	match := []string{
+	// DNS-bait path: traffic destined to this gateway leg on non-80/443/53
+	// ports (domain allowlist with explicit ports).
+	toLeg := []string{
 		"PREROUTING", "-d", gatewayIP, "-p", "tcp",
 		"-m", "multiport", "!", "--dports", "53,80,443",
 		"-j", "REDIRECT", "--to-ports", port,
 	}
-	return [][]string{match}
+	// Routed raw-IP path: sandbox default route via .2 preserves the original
+	// destination; REDIRECT makes those packets locally delivered so
+	// SO_ORIGINAL_DST recovers the real ip:port for CIDR policy.
+	routed := []string{
+		"PREROUTING", "-s", sandboxIP, "!", "-d", gatewayIP, "-p", "tcp",
+		"-j", "REDIRECT", "--to-ports", port,
+	}
+	return [][]string{toLeg, routed}
 }
 
 func runIPTables(action string, spec []string) error {

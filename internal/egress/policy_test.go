@@ -134,6 +134,67 @@ func TestAddressPatterns(t *testing.T) {
 	}
 }
 
+// TestCIDRAllowlistRoutedPath covers the decisions the gateway makes for
+// raw-IP traffic after the sandbox default route via .2 preserves the
+// original destination (network_allow_list / MatchCIDR dials).
+func TestCIDRAllowlistRoutedPath(t *testing.T) {
+	ev := egress.NewEvaluator(sandbox.NetworkPolicy{
+		Mode: sandbox.NetworkAllowlist,
+		Rules: []sandbox.NetworkRule{
+			{Hosts: []string{"1.1.1.1/32", "8.8.8.0/24"}, Protocols: []string{"tcp"}},
+		},
+		DNS: sandbox.DNSPolicy{Mode: sandbox.DNSAllowlist, Names: nil},
+	})
+	tests := []struct {
+		name  string
+		ip    string
+		port  uint32
+		want  egress.Decision
+		match egress.MatchType
+	}{
+		{"exact cidr", "1.1.1.1", 443, egress.Allow, egress.MatchCIDR},
+		{"exact cidr http", "1.1.1.1", 80, egress.Allow, egress.MatchCIDR},
+		{"subnet member", "8.8.8.8", 443, egress.Allow, egress.MatchCIDR},
+		{"outside", "8.8.4.4", 443, egress.Deny, egress.MatchNone},
+		{"dns name ignored for raw path", "", 443, egress.Deny, egress.MatchNone},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ip net.IP
+			if tt.ip != "" {
+				ip = net.ParseIP(tt.ip)
+			}
+			got, match := ev.AllowConnect("", ip, tt.port)
+			if got != tt.want || match != tt.match {
+				t.Fatalf("AllowConnect(\"\", %s, %d) = %v/%s, want %v/%s",
+					tt.ip, tt.port, got, match, tt.want, tt.match)
+			}
+		})
+	}
+	// CIDR-only allowlists NXDOMAIN all DNS names (no domain rules).
+	if ev.AllowDNS("one.one.one.one") != egress.Deny {
+		t.Fatal("expected CIDR-only policy to deny DNS names")
+	}
+}
+
+func TestAllowAllAndDenylistRawIP(t *testing.T) {
+	allowAll := egress.NewEvaluator(sandbox.NetworkPolicy{Mode: sandbox.NetworkAllowAll})
+	if d, match := allowAll.AllowConnect("", net.ParseIP("1.1.1.1"), 443); d != egress.Allow || match != egress.MatchNone {
+		t.Fatalf("allowall raw IP: got %v/%s", d, match)
+	}
+
+	deny := egress.NewEvaluator(sandbox.NetworkPolicy{
+		Mode:  sandbox.NetworkDenylist,
+		Rules: []sandbox.NetworkRule{{Hosts: []string{"198.51.100.0/24"}}},
+	})
+	if d, match := deny.AllowConnect("", net.ParseIP("1.1.1.1"), 443); d != egress.Allow || match != egress.MatchNone {
+		t.Fatalf("denylist unlisted: got %v/%s", d, match)
+	}
+	if d, _ := deny.AllowConnect("", net.ParseIP("198.51.100.7"), 443); d != egress.Deny {
+		t.Fatal("expected denylist CIDR deny")
+	}
+}
+
 func TestProtocolScopedRule(t *testing.T) {
 	ev := egress.NewEvaluator(sandbox.NetworkPolicy{
 		Mode: sandbox.NetworkAllowlist,
