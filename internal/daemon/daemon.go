@@ -21,8 +21,7 @@ import (
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/ca"
-	"github.com/prodioslabs/cellar/internal/egress/ipam"
-	"github.com/prodioslabs/cellar/internal/egress/pool"
+	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/identity"
 	"github.com/prodioslabs/cellar/internal/node"
@@ -117,8 +116,8 @@ type Daemon struct {
 	sandboxAPI    *grpcapi.SandboxAPIServer
 	runtimeSrv    *grpcapi.RuntimeServer
 	driver   *runtime.Driver
-	gwPool   *pool.Pool
-	ipam     *ipam.Allocator
+	gwPool   *egress.Pool
+	ipam     *egress.Allocator
 	agent    *runtime.Agent
 	// runtimeErr is set when this node cannot start a Docker runtime agent.
 	// SandboxCreate surfaces it when no other node has a live runtime.

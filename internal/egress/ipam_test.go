@@ -1,16 +1,16 @@
-package ipam_test
+package egress_test
 
 import (
 	"net"
 	"path/filepath"
 	"testing"
 
-	"github.com/prodioslabs/cellar/internal/egress/ipam"
+	"github.com/prodioslabs/cellar/internal/egress"
 )
 
 func TestAllocateFreePersist(t *testing.T) {
 	dir := t.TempDir()
-	a, err := ipam.New(dir, "172.30.0.0/24")
+	a, err := egress.NewAllocator(dir, "172.30.0.0/24")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,8 +36,8 @@ func TestAllocateFreePersist(t *testing.T) {
 		t.Fatal("duplicate subnet")
 	}
 
-	gw := ipam.GatewayIP(n1)
-	sb := ipam.SandboxIP(n1)
+	gw := egress.GatewayIP(n1)
+	sb := egress.SandboxIP(n1)
 	if gw.String() != offsetExpect(n1, 2) {
 		t.Fatalf("gateway ip %s", gw)
 	}
@@ -49,7 +49,7 @@ func TestAllocateFreePersist(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Reload
-	a2, err := ipam.New(dir, "172.30.0.0/24")
+	a2, err := egress.NewAllocator(dir, "172.30.0.0/24")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestAllocateFreePersist(t *testing.T) {
 
 func TestSyncFromDocker(t *testing.T) {
 	dir := t.TempDir()
-	a, err := ipam.New(dir, "172.30.0.0/28")
+	a, err := egress.NewAllocator(dir, "172.30.0.0/28")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package pool
+package egress
 
 import (
 	"context"
@@ -29,20 +29,20 @@ import (
 )
 
 const (
-	DefaultImage       = "cellar/egress-gateway"
-	DefaultMaxLegs     = 100
-	labelManaged       = "cellar.managed"
-	labelRole          = "cellar.role"
-	roleGateway        = "egress-gateway"
-	EgressNetName      = "cellar-egress"
-	controlPort        = "17948"
-	controlPortProto   = "17948/tcp"
-	tokenFileName      = "control.token"
-	envControlToken    = "CELLAR_EGRESS_CONTROL_TOKEN"
+	DefaultImage     = "cellar/egress-gateway"
+	DefaultMaxLegs   = 100
+	labelManaged     = "cellar.managed"
+	labelRole        = "cellar.role"
+	roleGateway      = "egress-gateway"
+	EgressNetName    = "cellar-egress"
+	controlPort      = "17948"
+	controlPortProto = "17948/tcp"
+	tokenFileName    = "control.token"
+	envControlToken  = "CELLAR_EGRESS_CONTROL_TOKEN"
 )
 
-// Config configures the gateway container pool.
-type Config struct {
+// PoolConfig configures the gateway container pool.
+type PoolConfig struct {
 	DataDir           string
 	Image             string
 	MaxLegs           int
@@ -62,14 +62,14 @@ type Instance struct {
 type Pool struct {
 	mu       sync.Mutex
 	cli      *client.Client
-	cfg      Config
+	cfg      PoolConfig
 	gateways []*Instance
 	// sandbox -> gateway id
 	assign map[string]string
 }
 
-// New creates a pool (does not start gateways yet).
-func New(cli *client.Client, cfg Config) *Pool {
+// NewPool creates a pool (does not start gateways yet).
+func NewPool(cli *client.Client, cfg PoolConfig) *Pool {
 	if cfg.Image == "" {
 		cfg.Image = DefaultImage
 	}

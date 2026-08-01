@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/prodioslabs/cellar/internal/egress/gateway"
+	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/version"
 )
 
@@ -34,8 +34,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	srv := gateway.New()
-	if err := srv.Start(ctx, gateway.ControlConfig{Addr: *addr, Token: token}); err != nil {
+	srv := egress.NewServer()
+	if err := srv.Start(ctx, egress.ControlConfig{Addr: *addr, Token: token}); err != nil {
 		log.Fatalf("egress-gateway: %v", err)
 	}
 	defer srv.Close()

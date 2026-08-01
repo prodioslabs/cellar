@@ -1,4 +1,4 @@
-package gateway_test
+package egress_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
-	"github.com/prodioslabs/cellar/internal/egress/gateway"
+	"github.com/prodioslabs/cellar/internal/egress"
 )
 
 func TestControlRegisterUpdateDeregister(t *testing.T) {
@@ -36,8 +36,8 @@ func TestControlRegisterUpdateDeregister(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	srv := gateway.New()
-	if err := srv.Start(ctx, gateway.ControlConfig{Addr: ctrlAddr, Token: token}); err != nil {
+	srv := egress.NewServer()
+	if err := srv.Start(ctx, egress.ControlConfig{Addr: ctrlAddr, Token: token}); err != nil {
 		t.Skipf("gateway start: %v", err)
 	}
 	defer srv.Close()

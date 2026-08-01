@@ -1,6 +1,4 @@
-// Package ipam allocates /29 subnets from a configurable supernet for
-// per-sandbox internal Docker networks.
-package ipam
+package egress
 
 import (
 	"encoding/json"
@@ -15,7 +13,7 @@ const (
 	// DefaultSupernet is the default address pool for sandbox networks.
 	DefaultSupernet = "172.30.0.0/16"
 	// PrefixLen is the size of each allocated subnet (/29).
-	PrefixLen = 29
+	PrefixLen     = 29
 	gatewayOffset = 2
 	sandboxOffset = 3
 )
@@ -37,8 +35,8 @@ type persistState struct {
 	Free     []string          `json:"free"`
 }
 
-// New loads state from path if present, otherwise initializes from supernetCIDR.
-func New(dataDir, supernetCIDR string) (*Allocator, error) {
+// NewAllocator loads state from path if present, otherwise initializes from supernetCIDR.
+func NewAllocator(dataDir, supernetCIDR string) (*Allocator, error) {
 	if supernetCIDR == "" {
 		supernetCIDR = DefaultSupernet
 	}

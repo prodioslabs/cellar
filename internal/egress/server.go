@@ -1,6 +1,4 @@
-// Package gateway implements the topology-based egress gateway data plane
-// and gRPC control server (TCP + bearer token).
-package gateway
+package egress
 
 import (
 	"context"
@@ -14,40 +12,19 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
-	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
 const (
-	connSetupTimeout = 60 * time.Second
-	peekTimeout      = 5 * time.Second
-	dialTimeout      = 15 * time.Second
-	dnsTTL           = 10
-	catchAllPort     = 15000
-	lastDNSWindow    = 2 * time.Minute
+	catchAllPort  = 15000
+	lastDNSWindow = 2 * time.Minute
 )
-
-type listenerKind int
-
-const (
-	kindOther listenerKind = iota
-	kindHTTP
-	kindTLS
-)
-
-type liveConn struct {
-	conn     net.Conn
-	hostname string
-	ip       net.IP
-	port     uint32
-}
 
 type session struct {
 	sandboxID  string
@@ -55,7 +32,7 @@ type session struct {
 	subnet     string
 	gatewayIP  string
 	sandboxIP  string // conventional .3
-	ev         *egress.Evaluator
+	ev         *Evaluator
 	exceptions []*net.IPNet
 	lastDNS    string // last allowed DNS name
 	lastDNSAt  time.Time
@@ -82,8 +59,8 @@ type Server struct {
 	grpcSrv      *grpc.Server
 }
 
-// New creates an unstarted gateway server.
-func New() *Server {
+// NewServer creates an unstarted gateway server.
+func NewServer() *Server {
 	return &Server{
 		sessions: make(map[string]*session),
 		byGWIP:   make(map[string]string),
@@ -123,7 +100,7 @@ func (s *Server) RegisterSandbox(_ context.Context, req *cellarv1.RegisterSandbo
 		return nil, status.Error(codes.InvalidArgument, "sandbox_id, gateway_ip, subnet_cidr required")
 	}
 	policy := sandbox.NetworkPolicyFromProto(req.GetPolicy())
-	exceptions, err := egress.ParseCIDRs(req.GetPrivateExceptions())
+	exceptions, err := ParseCIDRs(req.GetPrivateExceptions())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "private_exceptions: %v", err)
 	}
@@ -135,7 +112,7 @@ func (s *Server) RegisterSandbox(_ context.Context, req *cellarv1.RegisterSandbo
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "subnet: %v", err)
 	}
-	sbIP := offsetInSubnet(subnet, 3)
+	sbIP := SandboxIP(subnet)
 
 	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(req.GetGatewayIp(), "53"))
 	if err != nil {
@@ -163,7 +140,7 @@ func (s *Server) RegisterSandbox(_ context.Context, req *cellarv1.RegisterSandbo
 		subnet:     req.GetSubnetCidr(),
 		gatewayIP:  req.GetGatewayIp(),
 		sandboxIP:  sbIP.String(),
-		ev:         egress.NewEvaluator(policy),
+		ev:         NewEvaluator(policy),
 		exceptions: exceptions,
 		dnsUDP:     udpConn,
 		dnsTCP:     tcpLis,
@@ -206,7 +183,7 @@ func (s *Server) DeregisterSandbox(_ context.Context, req *cellarv1.DeregisterSa
 func (s *Server) UpdatePolicy(_ context.Context, req *cellarv1.UpdatePolicyRequest) (*cellarv1.UpdatePolicyResponse, error) {
 	id := req.GetSandboxId()
 	policy := sandbox.NetworkPolicyFromProto(req.GetPolicy())
-	ev := egress.NewEvaluator(policy)
+	ev := NewEvaluator(policy)
 
 	s.mu.Lock()
 	sess, ok := s.sessions[id]
@@ -217,7 +194,7 @@ func (s *Server) UpdatePolicy(_ context.Context, req *cellarv1.UpdatePolicyReque
 	sess.ev = ev
 	var revoked []*liveConn
 	for c := range s.conns[id] {
-		if decision, _ := ev.AllowConnect(c.hostname, c.ip, c.port); decision != egress.Allow {
+		if decision, _ := ev.AllowConnect(c.hostname, c.ip, c.port); decision != Allow {
 			revoked = append(revoked, c)
 		}
 	}
@@ -314,7 +291,7 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 			log.Printf("egress-gateway: original dst: %v", err)
 			return
 		}
-		h, p, err := egress.ParseHostPort(orig)
+		h, p, err := ParseHostPort(orig)
 		if err != nil {
 			return
 		}
@@ -332,22 +309,22 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 	client := net.Conn(conn)
 	var hostname string
 	if kind != kindOther {
-		pc := egress.NewPeekConn(conn)
+		pc := NewPeekConn(conn)
 		client = pc
 		_ = conn.SetReadDeadline(time.Now().Add(peekTimeout))
 		var name string
 		var err error
 		if kind == kindTLS {
-			name, err = egress.PeekTLSSNI(pc.R)
+			name, err = PeekTLSSNI(pc.R)
 		} else {
-			name, err = egress.PeekHTTPHost(pc.R)
+			name, err = PeekHTTPHost(pc.R)
 		}
 		_ = conn.SetReadDeadline(time.Now().Add(connSetupTimeout))
 		if err != nil || name == "" {
 			log.Printf("egress-gateway deny tcp sandbox=%s: no SNI/Host (%v)", sandboxID, err)
 			return
 		}
-		hostname = egress.SanitizeHostname(name)
+		hostname = SanitizeHostname(name)
 		if hostname == "" {
 			log.Printf("egress-gateway deny tcp sandbox=%s: empty hostname", sandboxID)
 			return
@@ -364,12 +341,12 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 			hostname = last
 		}
 		decision, match := ev.AllowConnect(hostname, nil, port)
-		if decision != egress.Allow || match != egress.MatchDomain {
+		if decision != Allow || match != MatchDomain {
 			log.Printf("egress-gateway deny tcp sandbox=%s port=%d host=%q (need allow_domain_ports)", sandboxID, port, hostname)
 			return
 		}
 		dialCtx, cancel := context.WithTimeout(context.Background(), dialTimeout)
-		dst, err := s.dialUpstream(dialCtx, sess, hostname, "", port, egress.MatchDomain)
+		dst, err := s.dialUpstream(dialCtx, sess, hostname, "", port, MatchDomain)
 		cancel()
 		if err != nil {
 			log.Printf("egress-gateway dial sandbox=%s host=%q port=%d: %v", sandboxID, hostname, port, err)
@@ -398,13 +375,13 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 		ev := sess.ev
 		s.mu.RUnlock()
 		decision, match := ev.AllowConnect("", dstIP, port)
-		if decision != egress.Allow {
+		if decision != Allow {
 			log.Printf("egress-gateway deny tcp sandbox=%s dst=%s port=%d", sandboxID, dstIP, port)
 			return
 		}
-		if match == egress.MatchNone {
+		if match == MatchNone {
 			// denylist / allowall: nothing asserted; keep original IP.
-			match = egress.MatchCIDR
+			match = MatchCIDR
 		}
 		dialCtx, cancel := context.WithTimeout(context.Background(), dialTimeout)
 		dst, err := s.dialUpstream(dialCtx, sess, "", dstIP.String(), port, match)
@@ -425,13 +402,13 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 	}
 
 	decision, match := sess.ev.AllowConnect(hostname, nil, port)
-	if decision != egress.Allow {
+	if decision != Allow {
 		log.Printf("egress-gateway deny tcp sandbox=%s host=%q port=%d", sandboxID, hostname, port)
 		return
 	}
 	// Topology model: always dial by hostname for 80/443 domain matches.
-	if match != egress.MatchDomain {
-		match = egress.MatchDomain
+	if match != MatchDomain {
+		match = MatchDomain
 	}
 
 	dialCtx, cancel := context.WithTimeout(context.Background(), dialTimeout)
@@ -452,7 +429,7 @@ func (s *Server) handleTCP(conn net.Conn, kind listenerKind) {
 	proxyCopy(client, dst)
 }
 
-func (s *Server) dialUpstream(ctx context.Context, sess *session, hostname, ip string, port uint32, match egress.MatchType) (net.Conn, error) {
+func (s *Server) dialUpstream(ctx context.Context, sess *session, hostname, ip string, port uint32, match MatchType) (net.Conn, error) {
 	target, err := upstreamDialAddr(hostname, ip, port, match)
 	if err != nil {
 		return nil, err
@@ -464,14 +441,14 @@ func (s *Server) dialUpstream(ctx context.Context, sess *session, hostname, ip s
 }
 
 // upstreamDialAddr picks the dial target for a policy match.
-func upstreamDialAddr(hostname, ip string, port uint32, match egress.MatchType) (string, error) {
+func upstreamDialAddr(hostname, ip string, port uint32, match MatchType) (string, error) {
 	switch match {
-	case egress.MatchDomain:
+	case MatchDomain:
 		if hostname == "" {
 			return "", fmt.Errorf("refusing empty hostname for domain dial")
 		}
 		return net.JoinHostPort(hostname, strconv.FormatUint(uint64(port), 10)), nil
-	case egress.MatchCIDR:
+	case MatchCIDR:
 		if ip == "" || net.ParseIP(ip) == nil {
 			return "", fmt.Errorf("refusing invalid ip for cidr dial: %q", ip)
 		}
@@ -497,7 +474,7 @@ func (s *Server) rejectDeniedAddr(sess *session, address string) error {
 }
 
 func (s *Server) destinationDenied(sess *session, ip net.IP) bool {
-	if ip == nil || !egress.IsDenied(ip) {
+	if ip == nil || !IsDenied(ip) {
 		return false
 	}
 	return !cidrsContain(sess.exceptions, ip)
@@ -570,7 +547,7 @@ func (s *Server) serveDNSTCP(sess *session) {
 }
 
 func (s *Server) handleDNS(sess *session, pkt []byte, reply func([]byte)) {
-	name, err := egress.ParseDNSQName(pkt)
+	name, err := ParseDNSQName(pkt)
 	if err != nil || name == "" {
 		return
 	}
@@ -579,9 +556,9 @@ func (s *Server) handleDNS(sess *session, pkt []byte, reply func([]byte)) {
 	gwIP := sess.gatewayIP
 	s.mu.RUnlock()
 
-	if ev.AllowDNS(name) != egress.Allow {
+	if ev.AllowDNS(name) != Allow {
 		log.Printf("egress-gateway deny dns sandbox=%s name=%s", sess.sandboxID, name)
-		out, err := egress.BuildDNSNXDomain(pkt)
+		out, err := BuildDNSNXDomain(pkt)
 		if err == nil {
 			reply(out)
 		}
@@ -592,78 +569,16 @@ func (s *Server) handleDNS(sess *session, pkt []byte, reply func([]byte)) {
 	if ip == nil {
 		return
 	}
-	out, err := egress.BuildDNSAResponse(pkt, ip)
+	out, err := BuildDNSAResponse(pkt, ip)
 	if err != nil {
 		return
 	}
 	s.mu.Lock()
-	sess.lastDNS = egress.SanitizeHostname(name)
+	sess.lastDNS = SanitizeHostname(name)
 	sess.lastDNSAt = time.Now()
 	s.mu.Unlock()
 	log.Printf("egress-gateway allow dns sandbox=%s name=%s -> %s", sess.sandboxID, name, gwIP)
 	reply(out)
-}
-
-func proxyCopy(a, b net.Conn) {
-	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(a, b); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(b, a); done <- struct{}{} }()
-	<-done
-}
-
-func originalDST(conn net.Conn) (string, error) {
-	tcp, ok := conn.(*net.TCPConn)
-	if !ok {
-		return "", fmt.Errorf("not tcp")
-	}
-	file, err := tcp.File()
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	fd := int(file.Fd())
-
-	const soOriginalDst = 80
-	var addr [16]byte
-	vallen := uint32(len(addr))
-	_, _, errno := syscall.RawSyscall6(
-		syscall.SYS_GETSOCKOPT,
-		uintptr(fd),
-		uintptr(syscall.IPPROTO_IP),
-		uintptr(soOriginalDst),
-		uintptr(unsafe.Pointer(&addr[0])),
-		uintptr(unsafe.Pointer(&vallen)),
-		0,
-	)
-	if errno != 0 {
-		return "", errno
-	}
-	port := binary.BigEndian.Uint16(addr[2:4])
-	ip := net.IPv4(addr[4], addr[5], addr[6], addr[7])
-	return net.JoinHostPort(ip.String(), fmt.Sprintf("%d", port)), nil
-}
-
-func offsetInSubnet(subnet *net.IPNet, offset int) net.IP {
-	ip := subnet.IP.To4()
-	if ip == nil {
-		return nil
-	}
-	out := make(net.IP, 4)
-	copy(out, ip)
-	out[3] += byte(offset)
-	return out
-}
-
-func cidrsContain(nets []*net.IPNet, ip net.IP) bool {
-	if ip == nil {
-		return false
-	}
-	for _, n := range nets {
-		if n.Contains(ip) {
-			return true
-		}
-	}
-	return false
 }
 
 func addCatchAllRedirect(gatewayIP, sandboxIP string) error {

@@ -38,10 +38,9 @@ flowchart LR
 
 1. On runtime start, cellard ensures the `cellar-egress` bridge, **removes any
    leftover** managed gateway containers, and spawns a fresh gateway from the
-   configured image (`internal/egress/pool`). It also opens an IPAM allocator
-   over the configured supernet (`internal/egress/ipam`, default
-   `172.30.0.0/16`). Gateways are not adopted across restarts so a rebuilt
-   image is always used.
+   configured image (`internal/egress` pool). It also opens an IPAM allocator
+   over the configured supernet (default `172.30.0.0/16`). Gateways are not
+   adopted across restarts so a rebuilt image is always used.
 2. Sandbox spawn (ordered):
    1. Allocate a `/29`; `NetworkCreate` an internal net
    2. `NetworkConnect` the chosen gateway at the conventional `.2` address
@@ -59,7 +58,7 @@ flowchart LR
 
 ## Configuration
 
-`cellard` flags (see `cmd/cellard`) feed `daemon.Config` → `pool.Config` / IPAM:
+`cellard` flags (see `cmd/cellard`) feed `daemon.Config` → `egress.PoolConfig` / IPAM:
 
 | Flag / field | Default | Role |
 |---|---|---|
@@ -165,9 +164,9 @@ restarting `cellard` is enough to pick up the new binary.
 | Path | Role |
 |------|------|
 | `cmd/cellar-egress-gateway` | Gateway process entrypoint |
-| `internal/egress/gateway` | Data plane + gRPC control server |
-| `internal/egress/pool` | Gateway container pool |
-| `internal/egress/ipam` | `/29` allocator |
+| `internal/egress/server.go` | Data plane + gRPC control server |
+| `internal/egress/pool.go` | Gateway container pool |
+| `internal/egress/ipam.go` | `/29` allocator |
 | `internal/egress/policy.go` | Shared allow/deny evaluator |
 | `internal/runtime/docker.go` | Per-sandbox Internal nets + route helper |
 | `internal/runtime/agent.go` | Spawn/teardown/reconcile |

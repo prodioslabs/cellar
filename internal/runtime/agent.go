@@ -10,8 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prodioslabs/cellar/internal/egress/ipam"
-	"github.com/prodioslabs/cellar/internal/egress/pool"
+	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
@@ -34,8 +33,8 @@ type restartBackoff struct {
 type Agent struct {
 	NodeID      string
 	Driver      *Driver
-	Pool        *pool.Pool
-	IPAM        *ipam.Allocator
+	Pool        *egress.Pool
+	IPAM        *egress.Allocator
 	Source      AssignmentSource
 	Report      StatusReporter
 	DataDir     string
@@ -57,7 +56,7 @@ type stopRemover interface {
 }
 
 // NewAgent constructs a runtime agent.
-func NewAgent(nodeID string, drv *Driver, gwPool *pool.Pool, allocator *ipam.Allocator, src AssignmentSource, rep StatusReporter, dataDir, agentBinary string) *Agent {
+func NewAgent(nodeID string, drv *Driver, gwPool *egress.Pool, allocator *egress.Allocator, src AssignmentSource, rep StatusReporter, dataDir, agentBinary string) *Agent {
 	return &Agent{
 		NodeID:      nodeID,
 		Driver:      drv,
@@ -365,8 +364,8 @@ func (a *Agent) setupTopology(ctx context.Context, sb *sandbox.Sandbox) (topolog
 	if err != nil {
 		return topologyOpts{}, err
 	}
-	gwIP := ipam.GatewayIP(subnet)
-	sbIP := ipam.SandboxIP(subnet)
+	gwIP := egress.GatewayIP(subnet)
+	sbIP := egress.SandboxIP(subnet)
 	netID, err := a.Driver.CreateSandboxNetwork(ctx, sb.ID, subnet.String(), gwIP.String())
 	if err != nil {
 		_ = a.IPAM.Free(sb.ID)
@@ -384,8 +383,8 @@ func (a *Agent) setupTopology(ctx context.Context, sb *sandbox.Sandbox) (topolog
 		if err != nil {
 			return topologyOpts{}, err
 		}
-		gwIP = ipam.GatewayIP(subnet)
-		sbIP = ipam.SandboxIP(subnet)
+		gwIP = egress.GatewayIP(subnet)
+		sbIP = egress.SandboxIP(subnet)
 	}
 	gw, err := a.Pool.Assign(ctx, sb.ID)
 	if err != nil {
@@ -423,7 +422,7 @@ func (a *Agent) setupTopology(ctx context.Context, sb *sandbox.Sandbox) (topolog
 
 func (a *Agent) teardownEgress(ctx context.Context, sandboxID string) {
 	st, ok, _ := ReadEgressState(a.DataDir, sandboxID)
-	var gw *pool.Instance
+	var gw *egress.Instance
 	if a.Pool != nil {
 		if g, found := a.Pool.GatewayFor(sandboxID); found {
 			gw = g

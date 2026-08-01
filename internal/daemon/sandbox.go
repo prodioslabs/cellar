@@ -12,8 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
-	"github.com/prodioslabs/cellar/internal/egress/ipam"
-	"github.com/prodioslabs/cellar/internal/egress/pool"
+	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/raftstore"
@@ -54,12 +53,12 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 		log.Printf("docker ping failed: %v (sandbox create will fail on this node)", err)
 		return nil
 	}
-	allocator, err := ipam.New(d.cfg.DataDir, d.cfg.EgressSupernet)
+	allocator, err := egress.NewAllocator(d.cfg.DataDir, d.cfg.EgressSupernet)
 	if err != nil {
 		_ = drv.Close()
 		return fmt.Errorf("egress ipam: %w", err)
 	}
-	gwPool := pool.New(drv.Client(), pool.Config{
+	gwPool := egress.NewPool(drv.Client(), egress.PoolConfig{
 		DataDir:           d.cfg.DataDir,
 		Image:             d.cfg.EgressGatewayImage,
 		MaxLegs:           d.cfg.EgressGatewayMaxLegs,
