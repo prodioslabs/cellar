@@ -42,8 +42,9 @@ builds five Go binaries (`cellard`, `cellar`, `cellar-gateway`, `cellar-agent`,
 
 ### Install
 - `curl … | sh` (`install.sh`) and `make install` support **Linux and Darwin**.
-- Linux: binaries → `$PREFIX/bin`, plus systemd units + sysusers from `contrib/`.
-- Darwin: host tools → `$PREFIX/bin`; Linux `cellar-agent` is also staged under
+- Linux: binaries → `$PREFIX/bin` (default `/usr/local`), plus systemd units + sysusers from `contrib/`.
+- Darwin: host tools → `$PREFIX/bin` (default `~/.local/bin`, no sudo); LaunchAgents under
+  `~/Library/LaunchAgents`; Linux `cellar-agent` is also staged under
   `$CELLAR_DATA_DIR/cellar-agent` (default `~/.cellar`). Override with `CELLAR_PREFIX`
   / `CELLAR_DATA_DIR`.
 

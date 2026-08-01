@@ -46,17 +46,25 @@ make build                  # → bin/cellard, bin/cellar, bin/cellar-agent, bin
 make egress-gateway-image   # → cellar/egress-gateway:latest (required for networked sandboxes)
 
 sudo make install           # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
+make install                # macOS: binaries → ~/.local/bin (no sudo), LaunchAgents, stage agent under ~/.cellar
 ```
 
-Requires Go 1.26+. `cellar-agent` and `cellar-egress-gateway` are built with `CGO_ENABLED=0` and `GOOS=linux` (they run inside Linux containers, including on Docker Desktop for macOS). `make install` places them next to `cellard` under `/usr/local/bin` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
+Requires Go 1.26+. `cellar-agent` and `cellar-egress-gateway` are built with `CGO_ENABLED=0` and `GOOS=linux` (they run inside Linux containers, including on Docker Desktop for macOS). `make install` places them next to `cellard` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
 
-| Source                                    | Destination                                       |
-| ----------------------------------------- | ------------------------------------------------- |
-| `contrib/systemd/cellard.service`         | `/usr/lib/systemd/system/cellard.service`         |
-| `contrib/systemd/cellar-gateway.service`  | `/usr/lib/systemd/system/cellar-gateway.service`  |
-| `contrib/systemd/cellar.sysusers`         | `/usr/lib/sysusers.d/cellar.conf`                 |
+| Source                                              | Destination (Linux)                                   |
+| --------------------------------------------------- | ----------------------------------------------------- |
+| `contrib/systemd/cellard.service`                   | `/usr/lib/systemd/system/cellard.service`             |
+| `contrib/systemd/cellar-gateway.service`            | `/usr/lib/systemd/system/cellar-gateway.service`      |
+| `contrib/systemd/cellar.sysusers`                   | `/usr/lib/sysusers.d/cellar.conf`                     |
 
-`make install` does not enable or start the services. Use `make uninstall` to remove the installed files.
+| Source                                              | Destination (macOS)                                   |
+| --------------------------------------------------- | ----------------------------------------------------- |
+| host binaries                                       | `~/.local/bin/`                                       |
+| `contrib/launchd/com.prodioslabs.cellard.plist`     | `~/Library/LaunchAgents/com.prodioslabs.cellard.plist` |
+| `contrib/launchd/com.prodioslabs.cellar-gateway.plist` | `~/Library/LaunchAgents/com.prodioslabs.cellar-gateway.plist` |
+| `cellar-agent` (staged for Docker Desktop)          | `~/.cellar/cellar-agent`                              |
+
+`make install` does not enable or start the services. On macOS, load agents with `launchctl bootstrap gui/$(id -u) …`. Use `make uninstall` to remove the installed files.
 
 All four binaries share one SemVer. Local builds stamp version/commit/date via ldflags (`VERSION`, `COMMIT`, `BUILD_DATE` overrides). Check with:
 
@@ -84,7 +92,7 @@ README.md
 contrib/systemd/…
 ```
 
-Darwin archives omit the Linux-only binaries and contain the three host tools plus `LICENSE`, `README.md`, and `contrib/systemd/`.
+Darwin archives omit the Linux-only binaries and contain the three host tools plus `LICENSE`, `README.md`, `contrib/systemd/`, and `contrib/launchd/`.
 
 Image archives (`cellar-egress-gateway-image_<version>_linux_<arch>.tar.gz`) are gzipped `docker save` outputs of `cellar/egress-gateway:latest` and `cellar/egress-gateway:vX.Y.Z`.
 
@@ -94,7 +102,7 @@ Install the current release on Linux or macOS with:
 curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
 ```
 
-The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **arm64**), verifies archives against `checksums.txt`, and installs binaries. On Linux it also installs systemd units and the sysusers definition (same as `sudo make install`). When Docker is available it downloads and loads the prebuilt `cellar/egress-gateway` image (skip with `CELLAR_SKIP_EGRESS_IMAGE=1`). It uses `sudo` when needed, but does not enable or start the services.
+The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **arm64**), verifies archives against `checksums.txt`, and installs binaries. On Linux it also installs systemd units and the sysusers definition (same as `sudo make install`). On macOS it defaults to `~/.local` (no sudo), stages LaunchAgents under `~/Library/LaunchAgents`, and stages `cellar-agent` under `~/.cellar`. When Docker is available it downloads and loads the prebuilt `cellar/egress-gateway` image (skip with `CELLAR_SKIP_EGRESS_IMAGE=1`). It uses `sudo` when needed, but does not enable or start the services.
 
 To install a specific version or prefix:
 
