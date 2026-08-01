@@ -114,6 +114,7 @@ archives:
       - LICENSE
       - README.md
       - contrib/systemd/*
+      - contrib/launchd/*
 
 checksum:
   name_template: checksums.txt

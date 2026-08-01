@@ -4,7 +4,6 @@ set -eu
 
 REPOSITORY="prodioslabs/cellar"
 VERSION="${CELLAR_VERSION:-latest}"
-PREFIX="${CELLAR_PREFIX:-/usr/local}"
 SYSTEMD_UNIT_DIR="${CELLAR_SYSTEMD_UNIT_DIR:-/usr/lib/systemd/system}"
 SYSUSERS_DIR="${CELLAR_SYSUSERS_DIR:-/usr/lib/sysusers.d}"
 SKIP_EGRESS_IMAGE="${CELLAR_SKIP_EGRESS_IMAGE:-}"
@@ -51,6 +50,16 @@ if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]
 fi
 [ -n "$install_home" ] || fail "HOME is unset"
 CELLAR_DATA_DIR="${CELLAR_DATA_DIR:-$install_home/.cellar}"
+
+# Linux keeps /usr/local (typically needs sudo). macOS defaults to a
+# user-writable prefix so the installer runs without sudo.
+if [ -n "${CELLAR_PREFIX:-}" ]; then
+	PREFIX=$CELLAR_PREFIX
+elif [ "$os" = "darwin" ]; then
+	PREFIX="$install_home/.local"
+else
+	PREFIX=/usr/local
+fi
 
 if [ "$VERSION" = "latest" ]; then
 	printf 'Resolving latest cellar release...\n'
@@ -151,6 +160,11 @@ if [ "$os" = "linux" ]; then
 		fail "cellar-gateway.service is missing from the release archive"
 	[ -f "$host_dir/contrib/systemd/cellar.sysusers" ] ||
 		fail "cellar.sysusers is missing from the release archive"
+elif [ "$os" = "darwin" ]; then
+	[ -f "$host_dir/contrib/launchd/com.prodioslabs.cellard.plist" ] ||
+		fail "com.prodioslabs.cellard.plist is missing from the release archive"
+	[ -f "$host_dir/contrib/launchd/com.prodioslabs.cellar-gateway.plist" ] ||
+		fail "com.prodioslabs.cellar-gateway.plist is missing from the release archive"
 fi
 
 # sudo for PREFIX when needed; Docker Desktop on macOS is user-scoped (no sudo).
@@ -178,10 +192,31 @@ $sudo_cmd install -m 755 "$agent_src" "$PREFIX/bin/cellar-agent"
 
 # On macOS, also stage cellar-agent under the default data dir so Docker Desktop
 # can bind-mount it (paths under /usr/local and Homebrew prefixes are not shared).
+# Render LaunchAgent plists into ~/Library/LaunchAgents (does not load them).
 if [ "$os" = "darwin" ]; then
 	install -d "$CELLAR_DATA_DIR"
 	install -m 755 "$agent_src" "$CELLAR_DATA_DIR/cellar-agent"
 	printf 'Staged cellar-agent for Docker Desktop at %s/cellar-agent\n' "$CELLAR_DATA_DIR"
+
+	launchd_agent_dir="${CELLAR_LAUNCHD_AGENT_DIR:-$install_home/Library/LaunchAgents}"
+	cellar_log_dir="${CELLAR_LOG_DIR:-$install_home/Library/Logs/cellar}"
+	install -d "$launchd_agent_dir" "$cellar_log_dir"
+	runtime_bindir="$PREFIX/bin"
+	sed -e "s|@BINDIR@|$runtime_bindir|g" \
+		-e "s|@DATA_DIR@|$CELLAR_DATA_DIR|g" \
+		-e "s|@LOG_DIR@|$cellar_log_dir|g" \
+		-e "s|@HOME@|$install_home|g" \
+		"$host_dir/contrib/launchd/com.prodioslabs.cellard.plist" \
+		> "$launchd_agent_dir/com.prodioslabs.cellard.plist"
+	chmod 644 "$launchd_agent_dir/com.prodioslabs.cellard.plist"
+	sed -e "s|@BINDIR@|$runtime_bindir|g" \
+		-e "s|@DATA_DIR@|$CELLAR_DATA_DIR|g" \
+		-e "s|@LOG_DIR@|$cellar_log_dir|g" \
+		-e "s|@HOME@|$install_home|g" \
+		"$host_dir/contrib/launchd/com.prodioslabs.cellar-gateway.plist" \
+		> "$launchd_agent_dir/com.prodioslabs.cellar-gateway.plist"
+	chmod 644 "$launchd_agent_dir/com.prodioslabs.cellar-gateway.plist"
+	printf 'Installed LaunchAgents (not loaded) under %s\n' "$launchd_agent_dir"
 fi
 
 # On Linux, also install the egress-gateway binary next to cellard (parity with
@@ -243,8 +278,17 @@ if [ "$os" = "linux" ]; then
 else
 	printf '\nNext steps on macOS:\n'
 	printf '  1. Ensure Docker Desktop is running\n'
-	printf '  2. Start the daemon:  cellard\n'
+	printf '  2. Load the daemon:   launchctl bootstrap gui/$(id -u) %s/com.prodioslabs.cellard.plist\n' \
+		"${CELLAR_LAUNCHD_AGENT_DIR:-$install_home/Library/LaunchAgents}"
 	printf '  3. Initialize:        cellar init --advertise-addr 127.0.0.1:17946\n'
-	printf '  (Optional gateway):   cellar-gateway --listen 127.0.0.1:8080\n'
+	printf '  (Optional gateway):   launchctl bootstrap gui/$(id -u) %s/com.prodioslabs.cellar-gateway.plist\n' \
+		"${CELLAR_LAUNCHD_AGENT_DIR:-$install_home/Library/LaunchAgents}"
 	printf '  Data, socket, and staged cellar-agent live under %s.\n' "$CELLAR_DATA_DIR"
+	printf '  Logs: %s\n' "${CELLAR_LOG_DIR:-$install_home/Library/Logs/cellar}"
+	case ":$PATH:" in
+		*"$PREFIX/bin"*) ;;
+		*)
+			printf '  Warning: %s/bin is not on PATH; add it so cellar/cellard are found.\n' "$PREFIX"
+			;;
+	esac
 fi

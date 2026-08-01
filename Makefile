@@ -7,9 +7,7 @@ CELLAR_AGENT := $(BIN_DIR)/cellar-agent
 CELLAR_GATEWAY := $(BIN_DIR)/cellar-gateway
 CELLAR_EGRESS_GATEWAY := $(BIN_DIR)/cellar-egress-gateway
 
-PREFIX      ?= /usr/local
 DESTDIR     ?=
-BINDIR      := $(DESTDIR)$(PREFIX)/bin
 SYSTEMDUNITDIR ?= $(DESTDIR)/usr/lib/systemd/system
 SYSUSERSDIR    ?= $(DESTDIR)/usr/lib/sysusers.d
 
@@ -23,16 +21,26 @@ BUN         ?= bun
 UNAME_S     := $(shell uname -s)
 DOCKER      ?= docker
 
-# On macOS, stage cellar-agent under the user data dir so Docker Desktop can
-# bind-mount it. Prefer SUDO_USER's home when `sudo make install` is used.
+# Linux defaults to /usr/local (typically needs sudo). macOS defaults to a
+# user-writable prefix (~/.local) so `make install` works without sudo.
+# Prefer SUDO_USER's home when `sudo make install` is used on Darwin.
 ifeq ($(UNAME_S),Darwin)
   ifneq ($(SUDO_USER),)
     DARWIN_HOME := $(shell eval echo ~$(SUDO_USER))
   else
     DARWIN_HOME := $(HOME)
   endif
+  PREFIX ?= $(DARWIN_HOME)/.local
   CELLAR_DATA_DIR ?= $(DARWIN_HOME)/.cellar
+  LAUNCHD_AGENT_DIR ?= $(DARWIN_HOME)/Library/LaunchAgents
+  CELLAR_LOG_DIR ?= $(DARWIN_HOME)/Library/Logs/cellar
+else
+  PREFIX ?= /usr/local
 endif
+
+BINDIR := $(DESTDIR)$(PREFIX)/bin
+# Runtime paths for launchd plist substitution (no DESTDIR).
+RUNTIME_BINDIR := $(PREFIX)/bin
 
 SDK_NODE_DIR := sdk/node
 EGRESS_IMAGE ?= cellar/egress-gateway
@@ -71,8 +79,8 @@ help:
 	@echo "  make egress-gateway-image  Build $(EGRESS_IMAGE) Docker image"
 	@echo "  make egress-gateway-image-tarball  Build + docker save $(EGRESS_IMAGE) as .tar.gz"
 	@echo "  make sdk-node       Build the Node SDK"
-	@echo "  make install        Install binaries (Linux: +systemd/sysusers; macOS: stage agent under ~/.cellar)"
-	@echo "  make uninstall      Remove installed binaries (and Linux systemd/sysusers drop-ins)"
+	@echo "  make install        Install binaries (Linux: +systemd/sysusers; macOS: ~/.local/bin + LaunchAgents under ~/Library/LaunchAgents)"
+	@echo "  make uninstall      Remove installed binaries (and Linux systemd/sysusers / macOS LaunchAgents)"
 	@echo "  make proto          Regenerate gRPC stubs from $(PROTO_DIR)/"
 	@echo "  make tools          Install protoc-gen-go and protoc-gen-go-grpc"
 	@echo "  make test           Run go test ./..."
@@ -127,8 +135,9 @@ sdk-node:
 
 # Installs cellar + cellard + cellar-gateway + cellar-agent next to cellard.
 # Linux also installs cellar-egress-gateway, systemd units, and sysusers (does
-# not enable/start units). macOS additionally stages cellar-agent under
-# $(CELLAR_DATA_DIR) so Docker Desktop can bind-mount it.
+# not enable/start units). macOS defaults PREFIX to ~/.local (no sudo), stages
+# cellar-agent under $(CELLAR_DATA_DIR) for Docker Desktop, and installs
+# LaunchAgent plists under ~/Library/LaunchAgents (does not load them).
 install: build
 ifeq ($(UNAME_S),Linux)
 	install -d $(BINDIR)
@@ -151,6 +160,28 @@ else ifeq ($(UNAME_S),Darwin)
 	install -d $(CELLAR_DATA_DIR)
 	install -m 755 $(CELLAR_AGENT) $(CELLAR_DATA_DIR)/cellar-agent
 	@echo "Staged cellar-agent for Docker Desktop at $(CELLAR_DATA_DIR)/cellar-agent"
+	install -d $(LAUNCHD_AGENT_DIR) $(CELLAR_LOG_DIR)
+	sed -e 's|@BINDIR@|$(RUNTIME_BINDIR)|g' \
+		-e 's|@DATA_DIR@|$(CELLAR_DATA_DIR)|g' \
+		-e 's|@LOG_DIR@|$(CELLAR_LOG_DIR)|g' \
+		-e 's|@HOME@|$(DARWIN_HOME)|g' \
+		contrib/launchd/com.prodioslabs.cellard.plist \
+		> $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellard.plist
+	chmod 644 $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellard.plist
+	sed -e 's|@BINDIR@|$(RUNTIME_BINDIR)|g' \
+		-e 's|@DATA_DIR@|$(CELLAR_DATA_DIR)|g' \
+		-e 's|@LOG_DIR@|$(CELLAR_LOG_DIR)|g' \
+		-e 's|@HOME@|$(DARWIN_HOME)|g' \
+		contrib/launchd/com.prodioslabs.cellar-gateway.plist \
+		> $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellar-gateway.plist
+	chmod 644 $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellar-gateway.plist
+	@echo "Installed LaunchAgents (not loaded) under $(LAUNCHD_AGENT_DIR)"
+	@echo "Load with:"
+	@echo "  launchctl bootstrap gui/\$$(id -u) $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellard.plist"
+	@echo "  launchctl bootstrap gui/\$$(id -u) $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellar-gateway.plist   # optional"
+	@case ":$$PATH:" in *"$(RUNTIME_BINDIR)"*) ;; *) \
+		echo "Warning: $(RUNTIME_BINDIR) is not on PATH; add it so cellar/cellard are found." ;; \
+	esac
 else
 	$(error make install is only supported on Linux and macOS (got $(UNAME_S)))
 endif
@@ -161,8 +192,11 @@ ifeq ($(UNAME_S),Linux)
 	rm -f $(SYSTEMDUNITDIR)/cellard.service $(SYSTEMDUNITDIR)/cellar-gateway.service
 	rm -f $(SYSUSERSDIR)/cellar.conf
 else ifeq ($(UNAME_S),Darwin)
+	-launchctl bootout gui/$$(id -u)/com.prodioslabs.cellard 2>/dev/null || true
+	-launchctl bootout gui/$$(id -u)/com.prodioslabs.cellar-gateway 2>/dev/null || true
 	rm -f $(BINDIR)/cellar $(BINDIR)/cellard $(BINDIR)/cellar-agent $(BINDIR)/cellar-gateway
 	rm -f $(CELLAR_DATA_DIR)/cellar-agent
+	rm -f $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellard.plist $(LAUNCHD_AGENT_DIR)/com.prodioslabs.cellar-gateway.plist
 else
 	$(error make uninstall is only supported on Linux and macOS (got $(UNAME_S)))
 endif
