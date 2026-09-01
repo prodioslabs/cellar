@@ -46,10 +46,11 @@ func newNodeListCmd() *cobra.Command {
 				return fmt.Errorf("node ls: %w", err)
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tSTATUS\tAVAILABILITY\tMANAGER STATUS\tSANDBOXES")
+			fmt.Fprintln(w, "ID\tTYPE\tSTATUS\tAVAILABILITY\tMANAGER STATUS\tSANDBOXES")
 			for _, n := range resp.Nodes {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n",
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\n",
 					shortNodeID(n.NodeId),
+					n.NodeType,
 					n.Status,
 					n.Availability,
 					n.ManagerStatus,
@@ -84,6 +85,7 @@ func newNodeInspectCmd() *cobra.Command {
 			}
 			fmt.Printf("ID: %s\n", n.NodeId)
 			fmt.Printf("Role: %s\n", n.Role)
+			fmt.Printf("NodeType: %s\n", n.NodeType)
 			fmt.Printf("Membership: %s\n", n.Membership)
 			fmt.Printf("Availability: %s\n", n.Availability)
 			fmt.Printf("Status: %s\n", n.Status)
