@@ -324,6 +324,16 @@ func peerIDSet(raft *raftstore.Store) map[string]struct{} {
 	return out
 }
 
+func nodeType(n *node.Node, leaderID string) string {
+	if n == nil || n.Role != node.RoleManager {
+		return string(node.RoleWorker)
+	}
+	if n.ID == leaderID {
+		return "leader"
+	}
+	return string(node.RoleManager)
+}
+
 func nodeToInfo(n *node.Node, leaderID string, peers map[string]struct{}, now time.Time) *cellarv1.NodeInfo {
 	if n == nil {
 		return nil
@@ -331,6 +341,7 @@ func nodeToInfo(n *node.Node, leaderID string, peers map[string]struct{}, now ti
 	info := &cellarv1.NodeInfo{
 		NodeId:              n.ID,
 		Role:                string(n.Role),
+		NodeType:            nodeType(n, leaderID),
 		Membership:          string(n.Membership),
 		Availability:        string(n.Availability.Effective()),
 		Labels:              node.CloneLabels(n.Labels),
