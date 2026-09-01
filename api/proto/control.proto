@@ -149,6 +149,7 @@ message NodeInfo {
   string pub_key_fingerprint = 11;
   int64 issued_at_unix_nano = 12;
   int64 expires_at_unix_nano = 13;
+  string node_type = 14;          // leader | manager | worker
 }
 
 message NodeListRequest {}
