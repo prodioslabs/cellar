@@ -12,12 +12,12 @@ Clients: Go [`sdk/go`](sdk/go) and TypeScript [`@cellar/node`](sdk/node) talk to
 
 ## Binaries
 
-| Binary           | Role                                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker. |
-| `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                           |
+| Binary           | Role                                                                                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via host Docker.        |
+| `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                              |
 | `cellar-gateway` | HTTP/JSON front door (Gin). Runs beside `cellard` on manager or worker hosts; proxies to manager `SandboxAPI` with the caller’s API key. Default listen `:8080`. |
-| `cellar-agent`   | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                       |
+| `cellar-agent`   | In-sandbox PID 1. Bound into each container; serves authenticated gRPC (`Health`, `RunCommand`) on a per-sandbox Unix socket.                                    |
 
 ## Roles
 
@@ -31,12 +31,12 @@ Local disk stores only this node’s leaf cert/key and the public CA cert.
 
 ## Ports / sockets
 
-| Listener         | Default                       | Auth                                                                           | Purpose                                                               |
-| ---------------- | ----------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| Unix socket      | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox ops |
-| Remote gRPC      | `:17946`                      | Bootstrap insecure TLS + token digest; else mTLS **or** API key (`SandboxAPI`) | CA issue/renew, raft membership, public sandbox client API            |
-| Gateway HTTP     | `:8080`                       | API key (`Authorization: Bearer` / `X-Api-Key`); terminate TLS at ALB/proxy    | Public JSON API for apps (`cellar-gateway`)                           |
-| Raft TCP         | `127.0.0.1:17947`             | Manager network                                                                | Consensus / CA key replication                                        |
+| Listener     | Default                       | Auth                                                                           | Purpose                                                                         |
+| ------------ | ----------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Unix socket  | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox ops |
+| Remote gRPC  | `:17946`                      | Bootstrap insecure TLS + token digest; else mTLS **or** API key (`SandboxAPI`) | CA issue/renew, raft membership, public sandbox client API                      |
+| Gateway HTTP | `:8080`                       | API key (`Authorization: Bearer` / `X-Api-Key`); terminate TLS at ALB/proxy    | Public JSON API for apps (`cellar-gateway`)                                     |
+| Raft TCP     | `127.0.0.1:17947`             | Manager network                                                                | Consensus / CA key replication                                                  |
 
 ## Build & install
 
@@ -51,18 +51,18 @@ make install                # macOS: binaries → ~/.local/bin (no sudo), Launch
 
 Requires Go 1.26+. `cellar-agent` and `cellar-egress-gateway` are built with `CGO_ENABLED=0` and `GOOS=linux` (they run inside Linux containers, including on Docker Desktop for macOS). `make install` places them next to `cellard` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
 
-| Source                                              | Destination (Linux)                                   |
-| --------------------------------------------------- | ----------------------------------------------------- |
-| `contrib/systemd/cellard.service`                   | `/usr/lib/systemd/system/cellard.service`             |
-| `contrib/systemd/cellar-gateway.service`            | `/usr/lib/systemd/system/cellar-gateway.service`      |
-| `contrib/systemd/cellar.sysusers`                   | `/usr/lib/sysusers.d/cellar.conf`                     |
+| Source                                   | Destination (Linux)                              |
+| ---------------------------------------- | ------------------------------------------------ |
+| `contrib/systemd/cellard.service`        | `/usr/lib/systemd/system/cellard.service`        |
+| `contrib/systemd/cellar-gateway.service` | `/usr/lib/systemd/system/cellar-gateway.service` |
+| `contrib/systemd/cellar.sysusers`        | `/usr/lib/sysusers.d/cellar.conf`                |
 
-| Source                                              | Destination (macOS)                                   |
-| --------------------------------------------------- | ----------------------------------------------------- |
-| host binaries                                       | `~/.local/bin/`                                       |
-| `contrib/launchd/com.prodioslabs.cellard.plist`     | `~/Library/LaunchAgents/com.prodioslabs.cellard.plist` |
+| Source                                                 | Destination (macOS)                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------- |
+| host binaries                                          | `~/.local/bin/`                                               |
+| `contrib/launchd/com.prodioslabs.cellard.plist`        | `~/Library/LaunchAgents/com.prodioslabs.cellard.plist`        |
 | `contrib/launchd/com.prodioslabs.cellar-gateway.plist` | `~/Library/LaunchAgents/com.prodioslabs.cellar-gateway.plist` |
-| `cellar-agent` (staged for Docker Desktop)          | `~/.cellar/cellar-agent`                              |
+| `cellar-agent` (staged for Docker Desktop)             | `~/.cellar/cellar-agent`                                      |
 
 `make install` does not enable or start the services. On macOS, load agents with `launchctl bootstrap gui/$(id -u) …`. Use `make uninstall` to remove the installed files.
 
@@ -99,7 +99,7 @@ Image archives (`cellar-egress-gateway-image_<version>_linux_<arch>.tar.gz`) are
 Install the current release on Linux or macOS with:
 
 ```bash
-curl -fsSL https://cellar.prodioslabs.com/install.sh | sh
+curl -fsSL https://cellar.prodioslabs.in/install.sh | sh
 ```
 
 The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **arm64**), verifies archives against `checksums.txt`, and installs binaries. On Linux it also installs systemd units and the sysusers definition (same as `sudo make install`). On macOS it defaults to `~/.local` (no sudo), stages LaunchAgents under `~/Library/LaunchAgents`, and stages `cellar-agent` under `~/.cellar`. When Docker is available it downloads and loads the prebuilt `cellar/egress-gateway` image (skip with `CELLAR_SKIP_EGRESS_IMAGE=1`). It uses `sudo` when needed, but does not enable or start the services.
@@ -107,7 +107,7 @@ The installer detects the OS (**linux** / **darwin**) and arch (**amd64** / **ar
 To install a specific version or prefix:
 
 ```bash
-curl -fsSL https://cellar.prodioslabs.com/install.sh | CELLAR_VERSION=v0.1.0 CELLAR_PREFIX=/usr/local sh
+curl -fsSL https://cellar.prodioslabs.in/install.sh | CELLAR_VERSION=v0.1.0 CELLAR_PREFIX=/usr/local sh
 ```
 
 ## Quick start
@@ -303,27 +303,27 @@ The gateway loads the cluster CA from `--data-dir`. Managers dial their advertis
 
 Health endpoints (no auth):
 
-| Path       | Meaning                                      |
-| ---------- | -------------------------------------------- |
-| `/healthz` | Process is up                                |
-| `/readyz`  | Can reach a manager `SandboxAPI`             |
+| Path       | Meaning                          |
+| ---------- | -------------------------------- |
+| `/healthz` | Process is up                    |
+| `/readyz`  | Can reach a manager `SandboxAPI` |
 
 HTTP API (all require `Authorization: Bearer cellar_…` or `X-Api-Key`):
 
-| Method | Path                         | Notes                                      |
-| ------ | ---------------------------- | ------------------------------------------ |
-| POST   | `/v1/sandboxes`              | create                                     |
-| GET    | `/v1/sandboxes`              | list                                       |
-| GET    | `/v1/sandboxes/:id`          | get                                        |
-| DELETE | `/v1/sandboxes/:id`          | remove                                     |
-| POST   | `/v1/sandboxes/:id/stop`     | stop                                       |
-| PUT    | `/v1/sandboxes/:id/network`  | update network policy                      |
-| GET    | `/v1/sandboxes/:id/logs`     | NDJSON stream (`follow`, `tail`, `timestamps` query params) |
-| POST   | `/v1/sandboxes/:id/exec`     | `{"command":[…]}` → stdout/stderr/exitCode; `{"detach":true}` → `jobId` |
-| GET    | `/v1/sandboxes/:id/jobs`     | list background jobs                   |
-| GET    | `/v1/sandboxes/:id/jobs/:jobId` | get job status                      |
-| DELETE | `/v1/sandboxes/:id/jobs/:jobId` | stop job                            |
-| GET    | `/v1/sandboxes/:id/jobs/:jobId/logs` | job logs (`follow` query)      |
+| Method | Path                                 | Notes                                                                   |
+| ------ | ------------------------------------ | ----------------------------------------------------------------------- |
+| POST   | `/v1/sandboxes`                      | create                                                                  |
+| GET    | `/v1/sandboxes`                      | list                                                                    |
+| GET    | `/v1/sandboxes/:id`                  | get                                                                     |
+| DELETE | `/v1/sandboxes/:id`                  | remove                                                                  |
+| POST   | `/v1/sandboxes/:id/stop`             | stop                                                                    |
+| PUT    | `/v1/sandboxes/:id/network`          | update network policy                                                   |
+| GET    | `/v1/sandboxes/:id/logs`             | NDJSON stream (`follow`, `tail`, `timestamps` query params)             |
+| POST   | `/v1/sandboxes/:id/exec`             | `{"command":[…]}` → stdout/stderr/exitCode; `{"detach":true}` → `jobId` |
+| GET    | `/v1/sandboxes/:id/jobs`             | list background jobs                                                    |
+| GET    | `/v1/sandboxes/:id/jobs/:jobId`      | get job status                                                          |
+| DELETE | `/v1/sandboxes/:id/jobs/:jobId`      | stop job                                                                |
+| GET    | `/v1/sandboxes/:id/jobs/:jobId/logs` | job logs (`follow` query)                                               |
 
 ### AWS load balancer
 
@@ -340,9 +340,9 @@ Keep Raft / gRPC advertise addresses as real node-reachable IPs — do not point
 
 ### Configure the client
 
-| Variable          | Required | Meaning                                      |
-| ----------------- | -------- | -------------------------------------------- |
-| `CELLAR_API_KEY`  | yes      | Raw key from `api-key create` (`cellar_…`)   |
+| Variable          | Required | Meaning                                         |
+| ----------------- | -------- | ----------------------------------------------- |
+| `CELLAR_API_KEY`  | yes      | Raw key from `api-key create` (`cellar_…`)      |
 | `CELLAR_ENDPOINT` | yes      | Gateway base URL (`https://cellar.example.com`) |
 
 ```bash
