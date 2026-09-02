@@ -550,9 +550,14 @@ func (d *Daemon) watchLeadership(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	wasLeader := false
+	var evictCancel context.CancelFunc
 	for {
 		select {
 		case <-ctx.Done():
+			if evictCancel != nil {
+				evictCancel()
+				evictCancel = nil
+			}
 			return
 		case <-ticker.C:
 			if d.raft == nil || d.caServer == nil {
@@ -565,10 +570,21 @@ func (d *Daemon) watchLeadership(ctx context.Context) {
 				} else {
 					log.Printf("became raft leader; CA signer ready")
 				}
+				evictCtx, cancel := context.WithCancel(ctx)
+				evictCancel = cancel
+				d.clusterWG.Add(1)
+				go func() {
+					defer d.clusterWG.Done()
+					d.evictionLoop(evictCtx)
+				}()
 			}
 			if !leader && wasLeader {
 				d.caServer.Stop()
 				log.Printf("lost raft leadership; CA signer stopped")
+				if evictCancel != nil {
+					evictCancel()
+					evictCancel = nil
+				}
 			}
 			wasLeader = leader
 		}
