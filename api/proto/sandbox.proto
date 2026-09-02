@@ -124,6 +124,10 @@ message Sandbox {
   SandboxStatus status = 5;
   int64 created_at_unix_nano = 6;
   int64 updated_at_unix_nano = 7;
+  // Monotonic assignment epoch; incremented when node_id changes. Workers must
+  // echo this on UpdateSandboxStatus so a returning owner cannot overwrite a
+  // rescheduled sandbox (fencing token).
+  int64 assignment_generation = 8;
 }
 
 message SandboxCreateRequest {
@@ -197,6 +201,8 @@ message UpdateSandboxStatusRequest {
   string sandbox_id = 1;
   SandboxStatus status = 2;
   string container_id = 3;
+  // Must match Sandbox.assignment_generation; rejected when stale after reschedule.
+  int64 assignment_generation = 4;
 }
 
 message UpdateSandboxStatusResponse {}

@@ -183,11 +183,12 @@ func ToProto(s *Sandbox) *cellarv1.Sandbox {
 		return nil
 	}
 	out := &cellarv1.Sandbox{
-		Id:           s.ID,
-		Spec:         SpecToProto(s.Spec),
-		NodeId:       s.NodeID,
-		DesiredState: string(s.DesiredState),
-		Status:       StatusToProto(s.Status),
+		Id:                   s.ID,
+		Spec:                 SpecToProto(s.Spec),
+		NodeId:               s.NodeID,
+		DesiredState:         string(s.DesiredState),
+		Status:               StatusToProto(s.Status),
+		AssignmentGeneration: s.AssignmentGeneration,
 	}
 	if !s.CreatedAt.IsZero() {
 		out.CreatedAtUnixNano = s.CreatedAt.UnixNano()
@@ -204,11 +205,12 @@ func FromProto(p *cellarv1.Sandbox) *Sandbox {
 		return nil
 	}
 	s := &Sandbox{
-		ID:           p.Id,
-		Spec:         SpecFromProto(p.Spec),
-		NodeID:       p.NodeId,
-		DesiredState: DesiredState(p.DesiredState),
-		Status:       StatusFromProto(p.Status),
+		ID:                   p.Id,
+		Spec:                 SpecFromProto(p.Spec),
+		NodeID:               p.NodeId,
+		DesiredState:         DesiredState(p.DesiredState),
+		Status:               StatusFromProto(p.Status),
+		AssignmentGeneration: p.AssignmentGeneration,
 	}
 	if p.CreatedAtUnixNano > 0 {
 		s.CreatedAt = time.Unix(0, p.CreatedAtUnixNano).UTC()

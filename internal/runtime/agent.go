@@ -16,7 +16,7 @@ import (
 
 // StatusReporter pushes observed status to the control plane.
 type StatusReporter interface {
-	UpdateStatus(ctx context.Context, sandboxID string, st sandbox.Status) error
+	UpdateStatus(ctx context.Context, sandboxID string, generation int64, st sandbox.Status) error
 }
 
 // AssignmentSource yields sandboxes assigned to this node.
@@ -195,7 +195,7 @@ func (a *Agent) reconcile(ctx context.Context) error {
 	for id, sb := range want {
 		if err := a.reconcileOne(ctx, sb); err != nil {
 			log.Printf("sandbox %s: %v", id, err)
-			_ = a.report(ctx, id, sandbox.Status{
+			_ = a.report(ctx, id, sb.AssignmentGeneration, sandbox.Status{
 				Phase:     sandbox.PhaseFailed,
 				Message:   err.Error(),
 				UpdatedAt: time.Now().UTC(),
@@ -247,7 +247,7 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 				_ = CleanupSandboxDir(a.DataDir, sb.ID)
 				delete(a.local, sb.ID)
 			}
-			return a.report(ctx, sb.ID, sandbox.Status{
+			return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 				Phase:       sandbox.PhaseStopped,
 				ContainerID: cid,
 				UpdatedAt:   time.Now().UTC(),
@@ -257,7 +257,7 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 		if sb.DesiredState == sandbox.DesiredRemoved {
 			a.teardownEgress(ctx, sb.ID)
 		}
-		return a.report(ctx, sb.ID, sandbox.Status{
+		return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 			Phase:     sandbox.PhaseStopped,
 			UpdatedAt: time.Now().UTC(),
 		})
@@ -274,7 +274,7 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 		}
 		if phase == sandbox.PhaseRunning {
 			_ = a.ensurePolicy(ctx, sb)
-			return a.report(ctx, sb.ID, sandbox.Status{
+			return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 				Phase:       sandbox.PhaseRunning,
 				ContainerID: cid,
 				UpdatedAt:   time.Now().UTC(),
@@ -285,7 +285,7 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 		if phase == sandbox.PhaseStopped && exit == 0 {
 			msg = "container stopped"
 		}
-		_ = a.report(ctx, sb.ID, sandbox.Status{
+		_ = a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 			Phase:       phase,
 			ContainerID: cid,
 			ExitCode:    exit,
@@ -302,14 +302,14 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) error {
 	now := time.Now()
 	if rb, ok := a.restarts[sb.ID]; ok && now.Before(rb.notBefore) {
-		return a.report(ctx, sb.ID, sandbox.Status{
+		return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 			Phase:     sandbox.PhaseFailed,
 			Message:   fmt.Sprintf("waiting %s before recreate", rb.notBefore.Sub(now).Round(time.Second)),
 			UpdatedAt: now.UTC(),
 		})
 	}
 
-	_ = a.report(ctx, sb.ID, sandbox.Status{
+	_ = a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 		Phase:     sandbox.PhaseStarting,
 		UpdatedAt: now.UTC(),
 	})
@@ -341,7 +341,7 @@ func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) e
 	}
 	delete(a.restarts, sb.ID)
 	a.local[sb.ID] = newID
-	return a.report(ctx, sb.ID, sandbox.Status{
+	return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 		Phase:       sandbox.PhaseRunning,
 		ContainerID: newID,
 		StartedAt:   time.Now().UTC(),
@@ -503,11 +503,11 @@ func (a *Agent) ApplyNetworkPolicy(ctx context.Context, sandboxID string, policy
 	return a.Pool.UpdatePolicy(ctx, gw, sandboxID, policy)
 }
 
-func (a *Agent) report(ctx context.Context, id string, st sandbox.Status) error {
+func (a *Agent) report(ctx context.Context, id string, generation int64, st sandbox.Status) error {
 	if a.Report == nil {
 		return nil
 	}
-	return a.Report.UpdateStatus(ctx, id, st)
+	return a.Report.UpdateStatus(ctx, id, generation, st)
 }
 
 // LocalContainerID returns the cached container id for a sandbox.

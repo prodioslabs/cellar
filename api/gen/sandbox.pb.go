@@ -560,8 +560,12 @@ type Sandbox struct {
 	Status            *SandboxStatus         `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
 	CreatedAtUnixNano int64                  `protobuf:"varint,6,opt,name=created_at_unix_nano,json=createdAtUnixNano,proto3" json:"created_at_unix_nano,omitempty"`
 	UpdatedAtUnixNano int64                  `protobuf:"varint,7,opt,name=updated_at_unix_nano,json=updatedAtUnixNano,proto3" json:"updated_at_unix_nano,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Monotonic assignment epoch; incremented when node_id changes. Workers must
+	// echo this on UpdateSandboxStatus so a returning owner cannot overwrite a
+	// rescheduled sandbox (fencing token).
+	AssignmentGeneration int64 `protobuf:"varint,8,opt,name=assignment_generation,json=assignmentGeneration,proto3" json:"assignment_generation,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Sandbox) Reset() {
@@ -639,6 +643,13 @@ func (x *Sandbox) GetCreatedAtUnixNano() int64 {
 func (x *Sandbox) GetUpdatedAtUnixNano() int64 {
 	if x != nil {
 		return x.UpdatedAtUnixNano
+	}
+	return 0
+}
+
+func (x *Sandbox) GetAssignmentGeneration() int64 {
+	if x != nil {
+		return x.AssignmentGeneration
 	}
 	return 0
 }
@@ -1396,12 +1407,14 @@ func (x *RuntimeHeartbeatResponse) GetManagerAddrs() []string {
 }
 
 type UpdateSandboxStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
-	Status        *SandboxStatus         `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
-	ContainerId   string                 `protobuf:"bytes,3,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId   string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Status      *SandboxStatus         `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	ContainerId string                 `protobuf:"bytes,3,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
+	// Must match Sandbox.assignment_generation; rejected when stale after reschedule.
+	AssignmentGeneration int64 `protobuf:"varint,4,opt,name=assignment_generation,json=assignmentGeneration,proto3" json:"assignment_generation,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *UpdateSandboxStatusRequest) Reset() {
@@ -1453,6 +1466,13 @@ func (x *UpdateSandboxStatusRequest) GetContainerId() string {
 		return x.ContainerId
 	}
 	return ""
+}
+
+func (x *UpdateSandboxStatusRequest) GetAssignmentGeneration() int64 {
+	if x != nil {
+		return x.AssignmentGeneration
+	}
+	return 0
 }
 
 type UpdateSandboxStatusResponse struct {
@@ -2521,7 +2541,7 @@ const file_sandbox_proto_rawDesc = "" +
 	"\amessage\x18\x04 \x01(\tR\amessage\x12/\n" +
 	"\x14started_at_unix_nano\x18\x05 \x01(\x03R\x11startedAtUnixNano\x121\n" +
 	"\x15finished_at_unix_nano\x18\x06 \x01(\x03R\x12finishedAtUnixNano\x12/\n" +
-	"\x14updated_at_unix_nano\x18\a \x01(\x03R\x11updatedAtUnixNano\"\x97\x02\n" +
+	"\x14updated_at_unix_nano\x18\a \x01(\x03R\x11updatedAtUnixNano\"\xcc\x02\n" +
 	"\aSandbox\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12*\n" +
 	"\x04spec\x18\x02 \x01(\v2\x16.cellar.v1.SandboxSpecR\x04spec\x12\x17\n" +
@@ -2529,7 +2549,8 @@ const file_sandbox_proto_rawDesc = "" +
 	"\rdesired_state\x18\x04 \x01(\tR\fdesiredState\x120\n" +
 	"\x06status\x18\x05 \x01(\v2\x18.cellar.v1.SandboxStatusR\x06status\x12/\n" +
 	"\x14created_at_unix_nano\x18\x06 \x01(\x03R\x11createdAtUnixNano\x12/\n" +
-	"\x14updated_at_unix_nano\x18\a \x01(\x03R\x11updatedAtUnixNano\"a\n" +
+	"\x14updated_at_unix_nano\x18\a \x01(\x03R\x11updatedAtUnixNano\x123\n" +
+	"\x15assignment_generation\x18\b \x01(\x03R\x14assignmentGeneration\"a\n" +
 	"\x14SandboxCreateRequest\x12*\n" +
 	"\x04spec\x18\x01 \x01(\v2\x16.cellar.v1.SandboxSpecR\x04spec\x12\x1d\n" +
 	"\n" +
@@ -2574,12 +2595,13 @@ const file_sandbox_proto_rawDesc = "" +
 	"\aremoved\x18\x03 \x01(\bR\aremoved\x12\x1f\n" +
 	"\vleader_grpc\x18\x04 \x01(\tR\n" +
 	"leaderGrpc\x12#\n" +
-	"\rmanager_addrs\x18\x05 \x03(\tR\fmanagerAddrs\"\x90\x01\n" +
+	"\rmanager_addrs\x18\x05 \x03(\tR\fmanagerAddrs\"\xc5\x01\n" +
 	"\x1aUpdateSandboxStatusRequest\x12\x1d\n" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x120\n" +
 	"\x06status\x18\x02 \x01(\v2\x18.cellar.v1.SandboxStatusR\x06status\x12!\n" +
-	"\fcontainer_id\x18\x03 \x01(\tR\vcontainerId\"\x1d\n" +
+	"\fcontainer_id\x18\x03 \x01(\tR\vcontainerId\x123\n" +
+	"\x15assignment_generation\x18\x04 \x01(\x03R\x14assignmentGeneration\"\x1d\n" +
 	"\x1bUpdateSandboxStatusResponse\"3\n" +
 	"\x18ListNodeSandboxesRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\"M\n" +

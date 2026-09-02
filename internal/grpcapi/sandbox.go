@@ -21,13 +21,22 @@ type SandboxServer struct {
 	cellarv1.UnimplementedSandboxControlServer
 	cellarv1.UnimplementedRuntimeAgentServer
 
-	store store.Store
-	raft  RaftAdmin
-	host  IdentityProvider
+	store      store.Store
+	raft       RaftAdmin
+	host       IdentityProvider
+	quarantine *scheduler.Quarantine
 }
 
 func NewSandboxServer(s store.Store, raft RaftAdmin, host IdentityProvider) *SandboxServer {
-	return &SandboxServer{store: s, raft: raft, host: host}
+	return &SandboxServer{store: s, raft: raft, host: host, quarantine: scheduler.NewQuarantine()}
+}
+
+// Quarantine returns the post-eviction placement quarantine tracker.
+func (s *SandboxServer) Quarantine() *scheduler.Quarantine {
+	if s == nil {
+		return nil
+	}
+	return s.quarantine
 }
 
 func (s *SandboxServer) requireLeader() error {
@@ -91,12 +100,15 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 	if err != nil {
 		return nil, mapStoreErr(err)
 	}
-	nodeID := scheduler.SelectNode(nodes, all, now)
+	nodeID := scheduler.SelectNodeOpts(nodes, all, now, scheduler.SelectOpts{
+		ExcludeNodeIDs: s.quarantine.Excluded(),
+	})
 	sb := &sandbox.Sandbox{
-		ID:           id,
-		Spec:         spec,
-		NodeID:       nodeID,
-		DesiredState: sandbox.DesiredRunning,
+		ID:                   id,
+		Spec:                 spec,
+		NodeID:               nodeID,
+		DesiredState:         sandbox.DesiredRunning,
+		AssignmentGeneration: 1,
 		Status: sandbox.Status{
 			Phase:     sandbox.PhasePending,
 			UpdatedAt: now,
@@ -232,6 +244,7 @@ func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHear
 	if err := s.store.SaveNode(ctx, n); err != nil {
 		return nil, mapStoreErr(err)
 	}
+	s.quarantine.NoteHeartbeat(req.NodeId)
 	assigned, err := s.store.ListSandboxesByNode(ctx, req.NodeId)
 	if err != nil {
 		return nil, mapStoreErr(err)
@@ -299,6 +312,12 @@ func (s *SandboxServer) UpdateSandboxStatus(ctx context.Context, req *cellarv1.U
 		if err := requireNodeOrManagerPeer(cert, sb.NodeID); err != nil {
 			return nil, err
 		}
+	}
+	// Fencing: reject status from a stale assignment after reschedule. Generation 0
+	// on the store means legacy records; any non-zero store generation must match.
+	// Exec/logs are fenced by resolving the current Raft node_id (see daemon proxy).
+	if err := sandbox.CheckAssignmentGeneration(sb.AssignmentGeneration, req.AssignmentGeneration); err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	st := sandbox.StatusFromProto(req.Status)
 	if req.ContainerId != "" {

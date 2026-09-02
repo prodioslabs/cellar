@@ -120,6 +120,21 @@ type Sandbox struct {
 	Status       Status       `json:"status"`
 	CreatedAt    time.Time    `json:"created_at"`
 	UpdatedAt    time.Time    `json:"updated_at"`
+	// AssignmentGeneration is a fencing token incremented whenever NodeID changes.
+	// Status reports with a stale generation are rejected after reschedule.
+	AssignmentGeneration int64 `json:"assignment_generation,omitempty"`
+}
+
+// ErrStaleAssignment is returned when a status update carries an outdated fencing token.
+var ErrStaleAssignment = fmt.Errorf("stale assignment generation")
+
+// CheckAssignmentGeneration rejects status from a former owner after reschedule.
+// storedGen 0 means a legacy record with no fence (accept any reported gen).
+func CheckAssignmentGeneration(storedGen, reportedGen int64) error {
+	if storedGen > 0 && reportedGen != storedGen {
+		return fmt.Errorf("%w: reported %d current %d", ErrStaleAssignment, reportedGen, storedGen)
+	}
+	return nil
 }
 
 // NewID generates a 16-byte hex sandbox ID.

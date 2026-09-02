@@ -33,8 +33,8 @@ type statusReporter struct {
 	d *Daemon
 }
 
-func (r *statusReporter) UpdateStatus(ctx context.Context, sandboxID string, st sandbox.Status) error {
-	return r.d.reportSandboxStatus(ctx, sandboxID, st)
+func (r *statusReporter) UpdateStatus(ctx context.Context, sandboxID string, generation int64, st sandbox.Status) error {
+	return r.d.reportSandboxStatus(ctx, sandboxID, generation, st)
 }
 
 func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
@@ -193,6 +193,12 @@ func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 		if err := raft.SaveNode(ctx, n); err != nil {
 			return err
 		}
+		d.mu.Lock()
+		sbSrv := d.sandboxServer
+		d.mu.Unlock()
+		if sbSrv != nil {
+			sbSrv.Quarantine().NoteHeartbeat(mat.NodeID)
+		}
 		assigned, err := raft.ListSandboxesByNode(ctx, mat.NodeID)
 		if err != nil {
 			return err
@@ -235,7 +241,7 @@ func (d *Daemon) cacheAssigned(list []*cellarv1.Sandbox) {
 	d.mu.Unlock()
 }
 
-func (d *Daemon) reportSandboxStatus(ctx context.Context, sandboxID string, st sandbox.Status) error {
+func (d *Daemon) reportSandboxStatus(ctx context.Context, sandboxID string, generation int64, st sandbox.Status) error {
 	mat := d.idStore.Material()
 	if mat == nil {
 		return fmt.Errorf("no identity")
@@ -253,6 +259,9 @@ func (d *Daemon) reportSandboxStatus(ctx context.Context, sandboxID string, st s
 		if sb.NodeID != "" && sb.NodeID != mat.NodeID {
 			return fmt.Errorf("sandbox not assigned to this node")
 		}
+		if err := sandbox.CheckAssignmentGeneration(sb.AssignmentGeneration, generation); err != nil {
+			return err
+		}
 		st.UpdatedAt = time.Now().UTC()
 		sb.Status = st
 		sb.UpdatedAt = st.UpdatedAt
@@ -260,9 +269,10 @@ func (d *Daemon) reportSandboxStatus(ctx context.Context, sandboxID string, st s
 	}
 	return d.forEachManager(func(addr string) error {
 		return grpcapi.UpdateSandboxStatusRemote(ctx, addr, mat.Certificate, mat.PrivateKey, mat.CACert, &cellarv1.UpdateSandboxStatusRequest{
-			SandboxId:   sandboxID,
-			Status:      sandbox.StatusToProto(st),
-			ContainerId: st.ContainerID,
+			SandboxId:            sandboxID,
+			Status:               sandbox.StatusToProto(st),
+			ContainerId:          st.ContainerID,
+			AssignmentGeneration: generation,
 		})
 	})
 }
@@ -461,6 +471,9 @@ func (d *Daemon) SandboxLogs(req *cellarv1.SandboxLogsRequest, stream cellarv1.C
 	}
 
 	// Resolve owning node runtime addr from store/heartbeat.
+	// After failover, Raft node_id is the fence for exec/logs: traffic goes only
+	// to the current assignee. UpdateSandboxStatus additionally checks
+	// assignment_generation so a returning former owner cannot overwrite status.
 	addr, err := d.lookupNodeRuntimeAddr(stream.Context(), sb.NodeId)
 	if err != nil {
 		return err

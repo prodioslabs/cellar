@@ -86,7 +86,7 @@ type memReporter struct {
 	statuses []sandbox.Status
 }
 
-func (m *memReporter) UpdateStatus(_ context.Context, _ string, st sandbox.Status) error {
+func (m *memReporter) UpdateStatus(_ context.Context, _ string, _ int64, st sandbox.Status) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.statuses = append(m.statuses, st)
