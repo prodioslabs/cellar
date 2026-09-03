@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 
+	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
@@ -210,6 +211,91 @@ func TestReconcileReapsDeadContainer(t *testing.T) {
 		t.Fatalf("phase: got %s want running", phase)
 	}
 	phases = rep.phases()
+	if phases[len(phases)-1] != sandbox.PhaseRunning {
+		t.Fatalf("last reported phase: got %v", phases)
+	}
+}
+
+func TestReconcileEssentialServicesCreate(t *testing.T) {
+	if os.Getenv("CELLAR_INTEGRATION") != "1" {
+		t.Skip("set CELLAR_INTEGRATION=1 to run Docker integration tests")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	driver, err := NewDriver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer driver.Close()
+
+	if _, _, err := driver.cli.ImageInspectWithRaw(ctx, "cellar/egress-gateway"); err != nil {
+		t.Skip("cellar/egress-gateway image not loaded (make egress-gateway-image)")
+	}
+
+	agentBinary, err := filepath.Abs("../../bin/cellar-agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.pullIfMissing(ctx, "alpine"); err != nil {
+		t.Fatal(err)
+	}
+
+	const sandboxID = "integration-essentials"
+	_ = driver.Remove(ctx, "cellar-sb-"+sandboxID)
+	_ = driver.RemoveSandboxNetwork(ctx, sandboxID)
+
+	dataDir := t.TempDir()
+	ipam, err := egress.NewAllocator(dataDir, "172.31.0.0/16")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := egress.NewPool(driver.Client(), egress.PoolConfig{
+		DataDir: dataDir,
+		Image:   "cellar/egress-gateway",
+	})
+	if err := pool.EnsureReady(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { pool.Close(context.Background()) })
+
+	sb := &sandbox.Sandbox{
+		ID:                   sandboxID,
+		DesiredState:         sandbox.DesiredRunning,
+		AssignmentGeneration: 1,
+		Spec: sandbox.Spec{
+			Image: "alpine",
+			Network: sandbox.NetworkPolicy{
+				Mode:              sandbox.NetworkBlockAll,
+				EssentialServices: true,
+				DNS:               sandbox.DNSPolicy{Mode: sandbox.DNSNone},
+			},
+		},
+	}
+	src := &memAssignments{sb: []*sandbox.Sandbox{sb}}
+	rep := &memReporter{}
+	agent := NewAgent("node-test", driver, pool, ipam, src, rep, dataDir, agentBinary)
+
+	if err := agent.reconcile(ctx); err != nil {
+		t.Fatal(err)
+	}
+	cid := agent.LocalContainerID(sandboxID)
+	if cid == "" {
+		t.Fatalf("expected container, phases=%v", rep.phases())
+	}
+	t.Cleanup(func() {
+		_ = driver.Remove(context.Background(), cid)
+		_ = driver.RemoveSandboxNetwork(context.Background(), sandboxID)
+	})
+	phase, _, err := driver.InspectPhase(ctx, cid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if phase != sandbox.PhaseRunning {
+		t.Fatalf("phase: got %s want running (status=%v)", phase, rep.phases())
+	}
+	phases := rep.phases()
 	if phases[len(phases)-1] != sandbox.PhaseRunning {
 		t.Fatalf("last reported phase: got %v", phases)
 	}
