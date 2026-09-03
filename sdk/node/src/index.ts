@@ -13,6 +13,15 @@ export {
 
 export { Sandbox, type WaitUntilReadyOptions } from './sandbox.js'
 
+export {
+  SandboxFs,
+  FsReadStream,
+  FsWriteSink,
+  type FsEntry,
+  type FsEntryKind,
+  type FsMetadata,
+} from './fs.js'
+
 export type {
   DNSPolicy,
   Mount,

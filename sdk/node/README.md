@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../assets/cellar-logo.png" alt="Cellar — isometric C of slate-blue cubes with a single orange cube in the center" width="160" />
+  <img src="https://raw.githubusercontent.com/prodioslabs/cellar/main/assets/cellar-logo.png" alt="Cellar — isometric C of slate-blue cubes with a single orange cube in the center" width="160" />
 </p>
 
 # `@cellar/node`
@@ -55,9 +55,9 @@ await sb.remove()
 
 `Client` ops: `create`, `get`, `list`.
 
-`Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `startJob`, `listJobs`, `getJob`, `stopJob`, `logs`, `stop`, `remove`, `updateNetwork`.
+`Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `startJob`, `listJobs`, `getJob`, `stopJob`, `logs`, `stop`, `remove`, `updateNetwork`, and `fs` (read/write/stat/list/mkdir/remove/removeDir/exists/copy/rename, plus streams).
 
-Creation is asynchronous with respect to runtime readiness. Prefer `await sb.waitUntilReady()` before `exec`. Status is refreshed from cellar-gateway via `GET /v1/sandboxes/:id`.
+Creation is asynchronous with respect to runtime readiness. Prefer `await sb.waitUntilReady()` before `exec` or `fs`. Status is refreshed from cellar-gateway via `GET /v1/sandboxes/:id`.
 
 Auth is sent as `Authorization: Bearer …` and `X-Api-Key`.
 

@@ -1,5 +1,6 @@
 import type { Client, DeepPartial, ExecResult, JobInfo, LogsChunk, LogsOptions } from './client.js'
 import type { NetworkPolicy, SandboxSnapshot, SandboxSpec, SandboxStatus } from './types.js'
+import { SandboxFs } from './fs.js'
 
 export interface WaitUntilReadyOptions {
   /** Max time to wait before rejecting. Defaults to 60_000. */
@@ -39,11 +40,14 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 export class Sandbox {
   private readonly client: Client
   private data: SandboxSnapshot
+  /** In-sandbox filesystem operations. */
+  readonly fs: SandboxFs
 
   /** @internal */
   constructor(client: Client, data: SandboxSnapshot) {
     this.client = client
     this.data = data
+    this.fs = new SandboxFs(client, () => this.id)
   }
 
   get id(): string {

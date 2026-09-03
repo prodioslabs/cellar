@@ -4,6 +4,7 @@
  * Config.endpoint at the gateway base URL.
  */
 import { Sandbox } from './sandbox.js'
+import { FsWriteSink } from './fs.js'
 import type { NetworkPolicy, SandboxCreateRequest, SandboxSnapshot } from './types.js'
 
 /** Nested partial request shape. */
@@ -314,5 +315,59 @@ export class Client {
       'DELETE',
       `/v1/sandboxes/${encodeURIComponent(sandboxId)}/jobs/${encodeURIComponent(jobId)}`,
     )
+  }
+
+  /** @internal Used by {@link SandboxFs}. */
+  async fsJSON(method: string, path: string, body?: unknown): Promise<unknown> {
+    return this.requestJSON(method, path, body)
+  }
+
+  /** @internal Used by {@link SandboxFs}. */
+  async fsGetContentStream(sandboxId: string, path: string): Promise<ReadableStream<Uint8Array>> {
+    const q = new URLSearchParams({ path })
+    const url = `${this.endpoint}/v1/sandboxes/${encodeURIComponent(sandboxId)}/fs/content?${q}`
+    const res = await this.fetchImpl(url, {
+      method: 'GET',
+      headers: this.authHeaders({ Accept: 'application/octet-stream' }),
+    })
+    if (!res.ok) {
+      await this.parseError(res)
+    }
+    if (!res.body) {
+      throw new APIError(res.status, 'empty response body')
+    }
+    return res.body
+  }
+
+  /** @internal Used by {@link SandboxFs}. */
+  async fsPutContent(sandboxId: string, path: string, data: Uint8Array): Promise<void> {
+    const q = new URLSearchParams({ path })
+    const url = `${this.endpoint}/v1/sandboxes/${encodeURIComponent(sandboxId)}/fs/content?${q}`
+    const res = await this.fetchImpl(url, {
+      method: 'PUT',
+      headers: this.authHeaders({ 'Content-Type': 'application/octet-stream' }),
+      body: data,
+    })
+    if (!res.ok) {
+      await this.parseError(res)
+    }
+  }
+
+  /** @internal Used by {@link SandboxFs}. */
+  async fsPutContentStream(sandboxId: string, path: string): Promise<FsWriteSink> {
+    const q = new URLSearchParams({ path })
+    const url = `${this.endpoint}/v1/sandboxes/${encodeURIComponent(sandboxId)}/fs/content?${q}`
+    const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
+    const done = this.fetchImpl(url, {
+      method: 'PUT',
+      headers: this.authHeaders({ 'Content-Type': 'application/octet-stream' }),
+      body: readable,
+      duplex: 'half',
+    } as RequestInit).then(async (res) => {
+      if (!res.ok) {
+        await this.parseError(res)
+      }
+    })
+    return new FsWriteSink(writable.getWriter(), done)
   }
 }

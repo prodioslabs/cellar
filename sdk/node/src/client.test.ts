@@ -392,3 +392,67 @@ describe('Sandbox readiness', () => {
     ).rejects.toThrow(/cancelled/)
   })
 })
+
+describe('Sandbox.fs', () => {
+  it('reads, writes, stats, lists, and mutates paths', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.includes('/fs/content') && method === 'GET') {
+        return new Response(new Uint8Array([104, 105]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/octet-stream' },
+        })
+      }
+      if (url.includes('/fs/content') && method === 'PUT') {
+        return new Response(null, { status: 204 })
+      }
+      if (url.includes('/fs/stat')) {
+        return jsonResponse(200, {
+          kind: 'file',
+          size: 2,
+          mode: 0o644,
+          readonly: false,
+          modified: '2024-01-02T03:04:05.000Z',
+          created: null,
+        })
+      }
+      if (url.includes('/fs/list')) {
+        return jsonResponse(200, {
+          entries: [{ path: '/tmp/a', kind: 'file', size: 2, mode: 0o644, modified: null }],
+        })
+      }
+      if (url.includes('/fs/exists')) {
+        return jsonResponse(200, { exists: true })
+      }
+      if (url.includes('/fs/mkdir') || url.includes('/fs/remove') || url.includes('/fs/copy')) {
+        return new Response(null, { status: 204 })
+      }
+      if (url.endsWith('/v1/sandboxes/sb1') && method === 'GET') {
+        return jsonResponse(200, { id: 'sb1', desiredState: 'running', status: { phase: 'running' } })
+      }
+      return new Response('missing', { status: 404 })
+    })
+
+    const c = Client.create({
+      endpoint: 'https://gw.example',
+      apiKey: 'k',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const sb = await c.get('sb1')
+
+    expect(new TextDecoder().decode(await sb.fs.read('/tmp/a'))).toBe('hi')
+    expect(await sb.fs.readToString('/tmp/a')).toBe('hi')
+    await sb.fs.write('/tmp/a', 'hi')
+    const meta = await sb.fs.stat('/tmp/a')
+    expect(meta.kind).toBe('file')
+    expect(meta.modified?.toISOString()).toBe('2024-01-02T03:04:05.000Z')
+    expect(await sb.fs.list('/tmp')).toEqual([
+      { path: '/tmp/a', kind: 'file', size: 2, mode: 0o644, modified: null },
+    ])
+    expect(await sb.fs.exists('/tmp/a')).toBe(true)
+    await sb.fs.mkdir('/tmp/d')
+    await sb.fs.copy('/tmp/a', '/tmp/b')
+    await sb.fs.remove('/tmp/b')
+  })
+})
