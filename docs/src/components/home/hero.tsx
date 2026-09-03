@@ -1,18 +1,11 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { InstallCommand } from './install-command'
+import { MetallicCube } from './metallic-cube'
 
 export function Hero() {
   return (
-    <section className="flex flex-col items-center px-6 py-16 text-center sm:py-24">
-      <Image
-        src="/cellar-logo.png"
-        alt="Cellar — isometric C of slate-blue cubes with a single orange cube in the center"
-        width={128}
-        height={128}
-        priority
-        className="mb-8"
-      />
+    <section className="flex flex-col items-center px-6 pb-16 pt-6 text-center sm:pb-24 sm:pt-8">
+      <MetallicCube />
       <h1 className="mb-4 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
         Isolated sandboxes in one command
       </h1>
