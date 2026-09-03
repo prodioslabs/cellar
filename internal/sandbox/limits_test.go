@@ -116,7 +116,7 @@ func TestResolveMutualExclusion(t *testing.T) {
 		t.Fatalf("expected mutually exclusive, got %v", err)
 	}
 	_, err = sandbox.ResolveNetworkPolicy(sandbox.NetworkPolicy{
-		Mode: sandbox.NetworkAllowlist,
+		Mode:  sandbox.NetworkAllowlist,
 		Rules: []sandbox.NetworkRule{{Hosts: []string{"x.com"}}},
 	}, "10.0.0.0/8", "", nil, nil, false)
 	if err == nil || !strings.Contains(err.Error(), "cannot combine") {
@@ -218,6 +218,22 @@ func TestResolveEssentialServicesAloneImpliesBlockAll(t *testing.T) {
 	}
 	if np.Mode != sandbox.NetworkBlockAll {
 		t.Fatalf("mode=%q want blockall", np.Mode)
+	}
+
+	// Round-tripped specs send dns.mode=none with mode none; still upgrade.
+	np, err = sandbox.ResolveNetworkPolicyFromProto(&cellarv1.NetworkPolicy{
+		Mode:              "none",
+		EssentialServices: true,
+		Dns:               &cellarv1.DNSPolicy{Mode: "none"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if np.Mode != sandbox.NetworkBlockAll {
+		t.Fatalf("mode=%q want blockall (dns none)", np.Mode)
+	}
+	if !np.EssentialServices {
+		t.Fatal("expected essential_services after dns none round-trip")
 	}
 
 	// Structured allowlist + essentials must not be rewritten to blockall.

@@ -128,6 +128,22 @@ func TestLoadSandboxCreateFileExamples(t *testing.T) {
 	}
 }
 
+func TestLoadExampleEssentialServicesImpliesBlockAll(t *testing.T) {
+	req, err := loadSandboxCreateFile("../../examples/sandbox-essential-services.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Spec.Image != "alpine" {
+		t.Fatalf("image=%q want alpine", req.Spec.Image)
+	}
+	if !req.Spec.Network.EssentialServices {
+		t.Fatal("expected essential_services")
+	}
+	if req.Spec.Network.BlockAll == nil || !*req.Spec.Network.BlockAll {
+		t.Fatal("expected block_all implied by essential_services alone")
+	}
+}
+
 func TestParseSandboxCreateFileDomainAllowList(t *testing.T) {
 	const yamlDoc = `
 id: demo-domains
