@@ -27,6 +27,7 @@ func newSandboxCmd() *cobra.Command {
 	cmd.AddCommand(newSandboxLogsCmd())
 	cmd.AddCommand(newSandboxExecCmd())
 	cmd.AddCommand(newSandboxJobCmd())
+	cmd.AddCommand(newSandboxFsCmd())
 	return cmd
 }
 

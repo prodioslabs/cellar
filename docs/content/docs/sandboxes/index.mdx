@@ -33,10 +33,16 @@ sudo cellar sandbox exec <id> -- uname -a
 sudo cellar sandbox exec --detach <id> -- sleep 3600
 sudo cellar sandbox job ls <id>
 sudo cellar sandbox job stop <id> <job-id>
+# Filesystem (absolute guest paths; mkdir/write do not create parents; remove-dir is non-recursive):
+echo hello | sudo cellar sandbox fs write <id> /tmp/hello.txt
+sudo cellar sandbox fs read <id> /tmp/hello.txt
+sudo cellar sandbox fs stat <id> /tmp/hello.txt
+sudo cellar sandbox fs list <id> /tmp
 sudo cellar sandbox stop <id>
 sudo cellar sandbox rm <id>
 ```
 
+**Filesystem.** Guest file I/O is implemented by `cellar-agent fs …` inside the container (same docker-exec path as background jobs). SDKs expose `sandbox.fs` / `Sandbox.FS()` against the gateway HTTP routes under `/v1/sandboxes/:id/fs/…`.
 **Security model.** Isolation is runc + dropped capabilities + no-new-privileges + pids limit + Docker seccomp/AppArmor + topology-based egress. Sandboxes share the host (or Docker Desktop VM) kernel. For production Linux hosts, enable dockerd `userns-remap`.
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node (nodes with availability `pause` or `drain` are skipped).

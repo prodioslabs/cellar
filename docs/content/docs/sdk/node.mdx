@@ -43,6 +43,10 @@ await sb.waitUntilReady()
 const res = await sb.exec(['uname', '-a'])
 console.log(`exit=${res.exitCode} stdout=${res.stdout.toString()}`)
 
+await sb.fs.write('/tmp/hello.txt', 'hi')
+console.log(await sb.fs.readToString('/tmp/hello.txt'))
+console.log(await sb.fs.stat('/tmp/hello.txt'))
+
 for await (const chunk of sb.logs({ tail: 100 })) {
   process.stdout.write(chunk.data)
 }
@@ -52,13 +56,15 @@ await sb.remove()
 
 `Client` ops: `create`, `get`, `list`.
 
-`Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `logs`, `stop`, `remove`, `updateNetwork`.
+`Sandbox` ops: `waitUntilReady`, `getStatus`, `exec`, `startJob`, `listJobs`, `getJob`, `stopJob`, `logs`, `stop`, `remove`, `updateNetwork`, and `fs` (read/write/stat/list/mkdir/remove/removeDir/exists/copy/rename, plus `readStream`/`writeStream`).
+
+Paths for `fs` must be absolute. `mkdir` / `write` do not create parent directories. `removeDir` is non-recursive (empty dirs only).
 
 Network limits on `NetworkPolicy`: `networkAllowList`, `domainAllowList`, `blockAll`,
 and opt-in `essentialServices`. At most one of the first three may be set; they
 translate to canonical `mode`/`rules`/`dns` server-side.
 
-Creation is asynchronous with respect to runtime readiness. Prefer `await sb.waitUntilReady()` before `exec`. Status is refreshed from cellar-gateway via `GET /v1/sandboxes/:id`.
+Creation is asynchronous with respect to runtime readiness. Prefer `await sb.waitUntilReady()` before `exec` or `fs`. Status is refreshed from cellar-gateway via `GET /v1/sandboxes/:id`.
 
 Auth is sent as `Authorization: Bearer …` and `X-Api-Key`.
 

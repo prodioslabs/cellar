@@ -35,5 +35,19 @@ All require `Authorization: Bearer cellar_…` or `X-Api-Key`:
 | DELETE | `/v1/sandboxes/:id`         | remove                                                      |
 | POST   | `/v1/sandboxes/:id/stop`    | stop                                                        |
 | PUT    | `/v1/sandboxes/:id/network` | update network policy                                       |
-| GET    | `/v1/sandboxes/:id/logs`    | NDJSON stream (`follow`, `tail`, `timestamps` query params) |
-| POST   | `/v1/sandboxes/:id/exec`    | `{"command":[…]}` → collected stdout/stderr/exitCode        |
+| GET    | `/v1/sandboxes/:id/logs`              | NDJSON stream (`follow`, `tail`, `timestamps` query params) |
+| POST   | `/v1/sandboxes/:id/exec`              | `{"command":[…]}` → collected stdout/stderr/exitCode; `detach:true` → `{jobId}` |
+| GET    | `/v1/sandboxes/:id/jobs`              | list background jobs                                        |
+| GET    | `/v1/sandboxes/:id/jobs/:jobId`       | get job                                                     |
+| DELETE | `/v1/sandboxes/:id/jobs/:jobId`       | stop job                                                    |
+| GET    | `/v1/sandboxes/:id/jobs/:jobId/logs`  | NDJSON job logs                                             |
+| GET    | `/v1/sandboxes/:id/fs/content?path=`  | raw file bytes (`application/octet-stream`)                 |
+| PUT    | `/v1/sandboxes/:id/fs/content?path=`  | write/overwrite file from raw body (streaming)               |
+| GET    | `/v1/sandboxes/:id/fs/stat?path=`     | JSON metadata                                               |
+| GET    | `/v1/sandboxes/:id/fs/list?path=`     | `{ "entries": […] }`                                        |
+| GET    | `/v1/sandboxes/:id/fs/exists?path=`   | `{ "exists": true }`                                        |
+| POST   | `/v1/sandboxes/:id/fs/mkdir`          | `{ "path" }` — parents must already exist                   |
+| POST   | `/v1/sandboxes/:id/fs/remove`         | `{ "path" }` — file only                                    |
+| POST   | `/v1/sandboxes/:id/fs/remove-dir`     | `{ "path" }` — empty directory only                         |
+| POST   | `/v1/sandboxes/:id/fs/copy`           | `{ "from", "to" }` — in-sandbox file copy                   |
+| POST   | `/v1/sandboxes/:id/fs/rename`         | `{ "from", "to" }`                                          |

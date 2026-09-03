@@ -42,13 +42,24 @@ func main() {
 	}
 	fmt.Printf("exit=%d stdout=%s\n", res.ExitCode, res.Stdout)
 
+	if err := sb.FS().Write(ctx, "/tmp/hello.txt", []byte("hi")); err != nil {
+		log.Fatal(err)
+	}
+	text, err := sb.FS().ReadToString(ctx, "/tmp/hello.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(text)
+
 	if err := sb.Remove(ctx); err != nil {
 		log.Fatal(err)
 	}
 }
 ```
 
-`Client` ops: `Create`, `Get`, `List`. `Sandbox` ops: `WaitUntilReady`, `GetStatus`, `Exec`, `Logs`, `Stop`, `Remove`, `UpdateNetwork`.
+`Client` ops: `Create`, `Get`, `List`. `Sandbox` ops: `WaitUntilReady`, `GetStatus`, `Exec`, `StartJob`, `ListJobs`, `GetJob`, `StopJob`, `Logs`, `Stop`, `Remove`, `UpdateNetwork`, and `FS()` (Read/Write/Stat/List/Mkdir/Remove/RemoveDir/Exists/Copy/Rename, plus ReadStream/WriteStream).
+
+Paths for `FS` must be absolute. `Mkdir` / `Write` do not create parent directories. `RemoveDir` is non-recursive (empty dirs only).
 
 Network limits on `NetworkPolicy`: `networkAllowList` (IPv4 CIDRs), `domainAllowList`
 (domains / `*.` wildcards), `blockAll`, and opt-in `essentialServices`. At most one of
