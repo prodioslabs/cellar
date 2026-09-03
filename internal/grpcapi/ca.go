@@ -47,10 +47,20 @@ type CAServer struct {
 	host   IdentityProvider
 	root   *ca.RootCA
 	ready  bool
+
+	// afterNodeDelete runs after a successful DeleteNode (e.g. vacate kick).
+	afterNodeDelete func(ctx context.Context)
 }
 
 func NewCAServer(s store.Store, raft RaftAdmin, host IdentityProvider) *CAServer {
 	return &CAServer{store: s, raft: raft, host: host}
+}
+
+// SetAfterNodeDelete registers a hook invoked after RaftLeave deletes a node record.
+func (s *CAServer) SetAfterNodeDelete(fn func(ctx context.Context)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.afterNodeDelete = fn
 }
 
 // UpdateRootCA loads signing material from the raft Cluster object.
@@ -321,6 +331,12 @@ func (s *CAServer) Leave(ctx context.Context, req *cellarv1.RaftLeaveRequest) (*
 	}
 	if err := s.store.DeleteNode(ctx, req.NodeId); err != nil && !errors.Is(err, store.ErrNodeNotFound) {
 		return nil, mapStoreErr(err)
+	}
+	s.mu.RLock()
+	fn := s.afterNodeDelete
+	s.mu.RUnlock()
+	if fn != nil {
+		fn(ctx)
 	}
 	return &cellarv1.RaftLeaveResponse{}, nil
 }

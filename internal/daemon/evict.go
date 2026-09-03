@@ -10,8 +10,8 @@ import (
 
 const evictionTick = 5 * time.Second
 
-// evictionLoop runs only while this node holds Raft leadership. It reassigns
-// desired_state=running sandboxes from nodes whose heartbeats exceed T_evict.
+// evictionLoop runs only while this node holds Raft leadership. It vacates
+// desired_state=running sandboxes from heartbeat-stale, draining, or deleted nodes.
 func (d *Daemon) evictionLoop(ctx context.Context) {
 	ticker := time.NewTicker(evictionTick)
 	defer ticker.Stop()
@@ -47,7 +47,7 @@ func (d *Daemon) runEviction(ctx context.Context) {
 	}
 
 	now := time.Now().UTC()
-	decisions := scheduler.PlanEviction(nodes, sandboxes, now, q.Excluded())
+	decisions := scheduler.PlanVacate(nodes, sandboxes, now, q.Excluded())
 	if len(decisions) == 0 {
 		return
 	}
@@ -57,21 +57,35 @@ func (d *Daemon) runEviction(ctx context.Context) {
 		if dec.Sandbox == nil {
 			continue
 		}
+		prefix := vacateLogPrefix(dec.Reason)
 		if err := raft.SaveSandbox(ctx, dec.Sandbox); err != nil {
-			log.Printf("eviction: save sandbox %s: %v", dec.Sandbox.ID, err)
+			log.Printf("%s: save sandbox %s: %v", prefix, shortID(dec.Sandbox.ID), err)
 			continue
 		}
-		if _, ok := marked[dec.SourceNodeID]; !ok {
-			q.MarkEvicted(dec.SourceNodeID)
-			marked[dec.SourceNodeID] = struct{}{}
+		if dec.Reason == scheduler.ReasonHeartbeat {
+			if _, ok := marked[dec.SourceNodeID]; !ok {
+				q.MarkEvicted(dec.SourceNodeID)
+				marked[dec.SourceNodeID] = struct{}{}
+			}
 		}
 		if dec.FailedMount {
-			log.Printf("eviction: sandbox %s failed (host mounts) on node %s",
-				shortID(dec.Sandbox.ID), shortID(dec.SourceNodeID))
+			log.Printf("%s: sandbox %s failed (host mounts) on node %s",
+				prefix, shortID(dec.Sandbox.ID), shortID(dec.SourceNodeID))
 			continue
 		}
-		log.Printf("eviction: sandbox %s %s -> %s gen=%d",
-			shortID(dec.Sandbox.ID), shortID(dec.SourceNodeID), shortID(dec.Sandbox.NodeID),
+		log.Printf("%s: sandbox %s %s -> %s gen=%d",
+			prefix, shortID(dec.Sandbox.ID), shortID(dec.SourceNodeID), shortID(dec.Sandbox.NodeID),
 			dec.Sandbox.AssignmentGeneration)
+	}
+}
+
+func vacateLogPrefix(reason scheduler.VacateReason) string {
+	switch reason {
+	case scheduler.ReasonDrain:
+		return "drain"
+	case scheduler.ReasonGone:
+		return "gone"
+	default:
+		return "eviction"
 	}
 }

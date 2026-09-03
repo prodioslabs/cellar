@@ -121,7 +121,11 @@ type Daemon struct {
 	agent    *runtime.Agent
 	// runtimeErr is set when this node cannot start a Docker runtime agent.
 	// SandboxCreate surfaces it when no other node has a live runtime.
-	runtimeErr   error
+	runtimeErr error
+	// lastAssigned is the sandbox list from the latest runtime heartbeat.
+	// The agent's 3s reconcile loop reads it via fetchAssignments when this
+	// node is not the Raft leader. Heartbeat refreshes it every 5s from the
+	// leader's ListSandboxesByNode reply (the pull path after SaveSandbox).
 	lastAssigned []*sandbox.Sandbox
 
 	localLis   net.Listener
@@ -135,6 +139,15 @@ type Daemon struct {
 	clusterCtx    context.Context
 	wg            sync.WaitGroup // local control serve
 	clusterWG     sync.WaitGroup // renew, leadership, heartbeat, agent, remote gRPC
+}
+
+// newCAServer builds a CA server that kicks vacate after RaftLeave deletes a node.
+func (d *Daemon) newCAServer(rs *raftstore.Store) *grpcapi.CAServer {
+	ca := grpcapi.NewCAServer(rs, rs, d)
+	ca.SetAfterNodeDelete(func(ctx context.Context) {
+		d.runEviction(ctx)
+	})
+	return ca
 }
 
 func New(cfg Config) *Daemon {
@@ -508,7 +521,7 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.raft = rs
-	d.caServer = grpcapi.NewCAServer(rs, rs, d)
+	d.caServer = d.newCAServer(rs)
 	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
 	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 	_ = d.caServer.UpdateRootCA(ctx)
@@ -669,7 +682,7 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 		return nil, err
 	}
 	d.raft = rs
-	d.caServer = grpcapi.NewCAServer(rs, rs, d)
+	d.caServer = d.newCAServer(rs)
 	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
 	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 
@@ -880,7 +893,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 			return nil, err
 		}
 		d.raft = rs
-		d.caServer = grpcapi.NewCAServer(rs, rs, d)
+		d.caServer = d.newCAServer(rs)
 		d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
 		d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 		_ = d.caServer.UpdateRootCA(ctx)

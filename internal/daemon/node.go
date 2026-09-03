@@ -171,6 +171,8 @@ func (d *Daemon) NodeRemove(ctx context.Context, req *cellarv1.NodeRemoveRequest
 	if err := raft.DeleteNode(ctx, n.ID); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	// Vacate sandboxes still assigned to the deleted node without waiting for the tick.
+	d.runEviction(ctx)
 	return &cellarv1.NodeRemoveResponse{}, nil
 }
 
