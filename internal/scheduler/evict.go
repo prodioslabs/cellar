@@ -8,37 +8,49 @@ import (
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
-// EvictDecision is a sandbox mutation produced by PlanEviction.
+// VacateReason explains why a sandbox was evacuated.
+type VacateReason string
+
+const (
+	ReasonHeartbeat VacateReason = "heartbeat"
+	ReasonDrain     VacateReason = "drain"
+	ReasonGone      VacateReason = "gone"
+)
+
+// EvictDecision is a sandbox mutation produced by PlanVacate.
 type EvictDecision struct {
 	Sandbox *sandbox.Sandbox
-	// SourceNodeID is the dead node the sandbox was taken from.
+	// SourceNodeID is the node the sandbox was taken from (or left on for FailedMount).
 	SourceNodeID string
 	// FailedMount is true when the sandbox was marked failed due to host mounts
 	// (not reassigned).
 	FailedMount bool
+	// Reason is why this sandbox was vacated.
+	Reason VacateReason
 }
 
-// PlanEviction returns sandbox updates for nodes whose heartbeats exceed
-// HeartbeatEvictAfter. Running sandboxes without host mounts are reassigned
-// onto live schedulable nodes (spread). Sandboxes with host mounts are marked
-// failed and left on the dead node. Stopped/removed sandboxes are ignored.
+// PlanVacate returns sandbox updates for three source kinds:
+//   - gone: NodeID not present in nodes (leave / node rm without drain)
+//   - heartbeat: node exists but heartbeat older than HeartbeatEvictAfter
+//   - drain: node exists, live, availability=drain
+//
+// Running sandboxes without host mounts are reassigned onto live schedulable
+// nodes (spread). Host mounts: failed for gone/heartbeat; left in place for
+// drain. Stopped/removed sandboxes are ignored.
 //
 // exclude lists node IDs that must not receive placements (quarantine).
-// Callers should MarkEvicted for each distinct SourceNodeID that appears in
-// the result when at least one sandbox was acted on.
-func PlanEviction(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Time, exclude map[string]struct{}) []EvictDecision {
-	if len(nodes) == 0 || len(sandboxes) == 0 {
+// Callers should MarkEvicted only for ReasonHeartbeat SourceNodeIDs.
+func PlanVacate(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Time, exclude map[string]struct{}) []EvictDecision {
+	if len(sandboxes) == 0 {
 		return nil
 	}
 
-	evictable := map[string]struct{}{}
+	byNode := make(map[string]*node.Node, len(nodes))
 	for _, n := range nodes {
-		if IsNodeEvictable(n, now) {
-			evictable[n.ID] = struct{}{}
+		if n == nil || n.ID == "" {
+			continue
 		}
-	}
-	if len(evictable) == 0 {
-		return nil
+		byNode[n.ID] = n
 	}
 
 	// Working copy of assignments so successive decisions see updated counts/node_ids.
@@ -61,7 +73,9 @@ func PlanEviction(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Tim
 		if sb.NodeID == "" {
 			continue
 		}
-		if _, dead := evictable[sb.NodeID]; !dead {
+
+		reason, ok := classifyVacate(byNode, sb.NodeID, now)
+		if !ok {
 			continue
 		}
 
@@ -71,9 +85,13 @@ func PlanEviction(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Tim
 		}
 
 		if len(cur.Spec.Mounts) > 0 {
+			if reason == ReasonDrain {
+				// Node is still live; leave bind-mounted sandboxes in place.
+				continue
+			}
 			cur.Status = sandbox.Status{
 				Phase:     sandbox.PhaseFailed,
-				Message:   fmt.Sprintf("node %s heartbeat stale; host mounts cannot be rescheduled", shortNode(sb.NodeID)),
+				Message:   mountFailMessage(reason, sb.NodeID),
 				UpdatedAt: now,
 			}
 			cur.UpdatedAt = now
@@ -81,6 +99,7 @@ func PlanEviction(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Tim
 				Sandbox:      cur,
 				SourceNodeID: sb.NodeID,
 				FailedMount:  true,
+				Reason:       reason,
 			})
 			continue
 		}
@@ -103,16 +122,53 @@ func PlanEviction(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Tim
 		cur.AssignmentGeneration++
 		cur.Status = sandbox.Status{
 			Phase:     sandbox.PhasePending,
-			Message:   fmt.Sprintf("rescheduled: node %s heartbeat stale", shortNode(oldNode)),
+			Message:   rescheduleMessage(reason, oldNode),
 			UpdatedAt: now,
 		}
 		cur.UpdatedAt = now
 		out = append(out, EvictDecision{
 			Sandbox:      cur,
 			SourceNodeID: oldNode,
+			Reason:       reason,
 		})
 	}
 	return out
+}
+
+// classifyVacate returns the vacate reason for a sandbox's NodeID.
+// Heartbeat wins over drain when the node record still exists.
+func classifyVacate(byNode map[string]*node.Node, nodeID string, now time.Time) (VacateReason, bool) {
+	n, ok := byNode[nodeID]
+	if !ok {
+		return ReasonGone, true
+	}
+	if IsNodeEvictable(n, now) {
+		return ReasonHeartbeat, true
+	}
+	if n.Availability.Effective() == node.AvailabilityDrain {
+		return ReasonDrain, true
+	}
+	return "", false
+}
+
+func mountFailMessage(reason VacateReason, nodeID string) string {
+	switch reason {
+	case ReasonGone:
+		return fmt.Sprintf("node %s left cluster; host mounts cannot be rescheduled", shortNode(nodeID))
+	default:
+		return fmt.Sprintf("node %s heartbeat stale; host mounts cannot be rescheduled", shortNode(nodeID))
+	}
+}
+
+func rescheduleMessage(reason VacateReason, nodeID string) string {
+	switch reason {
+	case ReasonDrain:
+		return fmt.Sprintf("rescheduled: node %s draining", shortNode(nodeID))
+	case ReasonGone:
+		return fmt.Sprintf("rescheduled: node %s left cluster", shortNode(nodeID))
+	default:
+		return fmt.Sprintf("rescheduled: node %s heartbeat stale", shortNode(nodeID))
+	}
 }
 
 func copyExclude(in map[string]struct{}) map[string]struct{} {

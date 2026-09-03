@@ -4,6 +4,13 @@ import "sync"
 
 // Quarantine tracks nodes that were recently evacuated so they do not
 // immediately receive new placements while flapping.
+//
+// Flapping is a node oscillating between healthy and unhealthy rather than
+// staying in one state: it misses heartbeats long enough to be evacuated,
+// briefly recovers, then drops again. Without a hold-off, the scheduler would
+// keep placing sandboxes onto it and then evacuating them. After MarkEvicted,
+// the node is excluded from SelectNode until it sends QuarantineHeartbeats
+// consecutive successful heartbeats.
 type Quarantine struct {
 	mu    sync.Mutex
 	nodes map[string]int // nodeID → consecutive successful heartbeats since MarkEvicted
