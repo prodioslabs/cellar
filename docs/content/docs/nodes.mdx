@@ -22,4 +22,9 @@ sudo cellar node rm <id>
 sudo cellar node rm --force <id>
 ```
 
-`node rm` only deletes the Raft record (and Raft voter for managers). The remote daemon keeps its local identity until you run `cellar leave` there (or it observes `removed` on heartbeat and clears itself).
+Availability:
+
+- `pause` — cordon only: no new placements; existing sandboxes stay.
+- `drain` — cordon and reschedule running sandboxes onto other live nodes. Bind-mounted sandboxes stay until they stop or you remove them.
+
+`node rm` / `cellar leave` delete the Raft node record (and Raft voter for managers). Running sandboxes still assigned to that node are rescheduled (bind mounts fail, same as a dead node). The remote daemon keeps its local identity until you run `cellar leave` there (or it observes `removed` on heartbeat and clears itself).

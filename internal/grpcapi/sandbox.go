@@ -116,6 +116,8 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
+	// Desired state only: the assigned node's agent creates the container
+	// after it sees this record via heartbeat (workers) or a Raft read (leader).
 	if err := s.store.SaveSandbox(ctx, sb); err != nil {
 		return nil, mapStoreErr(err)
 	}
@@ -245,6 +247,8 @@ func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHear
 		return nil, mapStoreErr(err)
 	}
 	s.quarantine.NoteHeartbeat(req.NodeId)
+	// Assigned is the pull path for workers: SaveSandbox does not notify the
+	// owning node. The agent creates/stops local containers from this list.
 	assigned, err := s.store.ListSandboxesByNode(ctx, req.NodeId)
 	if err != nil {
 		return nil, mapStoreErr(err)

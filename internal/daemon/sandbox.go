@@ -21,6 +21,9 @@ import (
 	"github.com/prodioslabs/cellar/internal/scheduler"
 )
 
+// heartbeatSource is the agent's AssignmentSource. Create does not push a
+// container to the assigned node: SaveSandbox only commits desired state.
+// The agent pulls assignments here on each reconcile tick.
 type heartbeatSource struct {
 	d *Daemon
 }
@@ -123,6 +126,9 @@ func (d *Daemon) ensureSandboxCreateRuntime(ctx context.Context, raft *raftstore
 	return status.Error(codes.FailedPrecondition, "no node with a live sandbox runtime")
 }
 
+// fetchAssignments returns sandboxes currently assigned to this node.
+// The leader reads Raft directly. Everyone else uses lastAssigned, which
+// sendHeartbeat refreshes from the leader's RuntimeHeartbeat response.
 func (d *Daemon) fetchAssignments(ctx context.Context) ([]*sandbox.Sandbox, error) {
 	d.mu.Lock()
 	raft := d.raft
@@ -137,7 +143,6 @@ func (d *Daemon) fetchAssignments(ctx context.Context) ([]*sandbox.Sandbox, erro
 		return raft.ListSandboxesByNode(ctx, mat.NodeID)
 	}
 
-	// Use last heartbeat response cache; heartbeatLoop refreshes it.
 	out := make([]*sandbox.Sandbox, 0, len(cached))
 	for _, sb := range cached {
 		out = append(out, sandbox.Clone(sb))
@@ -145,6 +150,8 @@ func (d *Daemon) fetchAssignments(ctx context.Context) ([]*sandbox.Sandbox, erro
 	return out, nil
 }
 
+// heartbeatLoop refreshes lastAssigned (and liveness) every 5s so the agent's
+// 3s reconcile loop can create/stop containers toward Raft desired state.
 func (d *Daemon) heartbeatLoop(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -158,6 +165,15 @@ func (d *Daemon) heartbeatLoop(ctx context.Context) {
 	}
 }
 
+// sendHeartbeat records this node's runtime liveness and caches the sandboxes
+// Raft has assigned to it. That cache is how workers learn about a new
+// SaveSandbox (create/stop/reschedule) without a push RPC: the next agent
+// tick creates or tears down the local Docker container to match.
+//
+// The leader applies the node record locally and lists assignments from the
+// FSM. Followers/workers call RuntimeHeartbeat on a manager; the leader
+// replies with Assigned. Both paths call cacheAssigned so lastAssigned is
+// current if this node loses leadership before the next remote heartbeat.
 func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 	mat := d.idStore.Material()
 	if mat == nil {
@@ -231,6 +247,8 @@ func (d *Daemon) sendHeartbeat(ctx context.Context) error {
 	return nil
 }
 
+// cacheAssigned stores the heartbeat assignment list as lastAssigned.
+// fetchAssignments clones this for the agent when this node is not leader.
 func (d *Daemon) cacheAssigned(list []*cellarv1.Sandbox) {
 	out := make([]*sandbox.Sandbox, 0, len(list))
 	for _, p := range list {

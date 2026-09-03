@@ -225,6 +225,8 @@ Runtime presets and their images:
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node
 (nodes with availability `pause` or `drain` are skipped).
 
+**How create works.** `sandbox create` writes desired state to Raft (`DesiredState=running`, `Phase=pending`, assigned `NodeID`) and returns immediately. It does not wait for Docker. Each node's runtime agent pulls sandboxes assigned to it: the Raft leader reads the FSM; other nodes learn assignments from the leader's runtime heartbeat response (every 5s). The agent reconciles every 3s — for `DesiredRunning` with no local container it sets up the private Docker network and egress-gateway leg (unless the spec is `none`), starts the container, and reports `PhaseRunning` back to Raft. Stop and remove are the same pull path (`DesiredStopped` / delete from Raft). Network-policy updates additionally push to the owning node as a latency optimization; create does not.
+
 ## Manage nodes
 
 Node writes (`promote`, `demote`, `rm`, `update`) must run on the **Raft leader**. Reads (`ls`, `inspect`) work on any manager.
@@ -246,7 +248,12 @@ sudo cellar node rm <id>
 sudo cellar node rm --force <id>
 ```
 
-`node rm` only deletes the Raft record (and Raft voter for managers). The remote daemon keeps its local identity until you run `cellar leave` there (or it observes `removed` on heartbeat and clears itself).
+Availability:
+
+- `pause` — cordon only: no new placements; existing sandboxes stay.
+- `drain` — cordon and reschedule running sandboxes onto other live nodes. Bind-mounted sandboxes stay until they stop or you remove them.
+
+`node rm` / `cellar leave` delete the Raft node record (and Raft voter for managers). Running sandboxes still assigned to that node are rescheduled (bind mounts fail, same as a dead node). The remote daemon keeps its local identity until you run `cellar leave` there (or it observes `removed` on heartbeat and clears itself).
 
 ## Client API (remote apps)
 
