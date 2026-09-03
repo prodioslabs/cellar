@@ -10,9 +10,7 @@ type Step = {
 const SCRIPT: Step[] = [
   {
     command: 'cellar init --advertise-addr 127.0.0.1:17946',
-    output: [
-      'Cluster initialized: 7f3a2c91-4b18-4e2d-9a6c-1d8e0f2b3c4d (node 1a2b3c4d)',
-    ],
+    output: ['Cluster initialized: 7f3a2c91 (node 1a2b3c4d)'],
   },
   {
     command: 'cellar sandbox create --id demo --runtime node-26',
@@ -143,14 +141,14 @@ export function CliTerminal() {
         <span className="size-2.5 rounded-full bg-emerald-400/80" aria-hidden />
         <span className="ml-2 font-mono text-xs text-neutral-400">cellar</span>
       </div>
-      <pre className="min-h-[17rem] overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-neutral-100 sm:min-h-[18rem] sm:text-sm">
+      <pre className="min-h-[17rem] overflow-x-hidden p-4 font-mono text-[13px] leading-relaxed break-words whitespace-pre-wrap text-neutral-100 sm:min-h-[18rem] sm:text-sm">
         {lines.map((line) =>
           line.kind === 'output' ? (
             <div key={line.key} className="text-neutral-400">
               {line.text || '\u00a0'}
             </div>
           ) : (
-            <div key={line.key} className="whitespace-pre">
+            <div key={line.key}>
               <span className="text-emerald-400">$</span>{' '}
               <span>{line.text}</span>
               {line.kind === 'typing' && !reducedMotion ? (
