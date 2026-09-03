@@ -541,3 +541,69 @@ func TestCreateMarshalsNetworkSugar(t *testing.T) {
 		t.Fatalf("network=%v", net)
 	}
 }
+
+func TestSandboxFS(t *testing.T) {
+	var wrote []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/sandboxes/sb1":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"sb1","desiredState":"running","status":{"phase":"running"}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/sandboxes/sb1/fs/content":
+			_, _ = w.Write([]byte("hello"))
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/sandboxes/sb1/fs/content":
+			wrote, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/sandboxes/sb1/fs/stat":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"kind":"file","size":5,"mode":420,"readonly":false,"modified":"2024-01-02T03:04:05Z","created":null}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/sandboxes/sb1/fs/list":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"entries":[{"path":"/tmp/a","kind":"file","size":5,"mode":420,"modified":null}]}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/sandboxes/sb1/fs/exists":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"exists":true}`))
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/fs/"):
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(Config{Endpoint: srv.URL, APIKey: "k", HTTPClient: srv.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	sb, err := c.Get(ctx, "sb1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs := sb.FS()
+	b, err := fs.Read(ctx, "/tmp/a")
+	if err != nil || string(b) != "hello" {
+		t.Fatalf("read=%q err=%v", b, err)
+	}
+	if err := fs.Write(ctx, "/tmp/a", []byte("hi")); err != nil {
+		t.Fatal(err)
+	}
+	if string(wrote) != "hi" {
+		t.Fatalf("wrote=%q", wrote)
+	}
+	meta, err := fs.Stat(ctx, "/tmp/a")
+	if err != nil || meta.Kind != FsKindFile || meta.Size != 5 {
+		t.Fatalf("stat=%#v err=%v", meta, err)
+	}
+	entries, err := fs.List(ctx, "/tmp")
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("list=%v err=%v", entries, err)
+	}
+	ok, err := fs.Exists(ctx, "/tmp/a")
+	if err != nil || !ok {
+		t.Fatalf("exists=%v err=%v", ok, err)
+	}
+	if err := fs.Mkdir(ctx, "/tmp/d"); err != nil {
+		t.Fatal(err)
+	}
+}
