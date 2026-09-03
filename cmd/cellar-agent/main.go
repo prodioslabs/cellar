@@ -23,6 +23,13 @@ func main() {
 		}
 		return
 	}
+	if handled, err := sandboxagent.RunFsCLI(args); handled {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cellar-agent: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	log.Printf("cellar-agent %s (pid 1 init)", version.Version)
 	if err := sandboxagent.RunInit(); err != nil {
