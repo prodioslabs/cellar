@@ -1123,6 +1123,36 @@ func (c *controlServer) SandboxStopJob(ctx context.Context, req *cellarv1.StopJo
 func (c *controlServer) SandboxJobLogs(req *cellarv1.JobLogsRequest, stream cellarv1.Control_SandboxJobLogsServer) error {
 	return c.d.SandboxJobLogs(req, stream)
 }
+func (c *controlServer) SandboxFsRead(req *cellarv1.FsReadRequest, stream cellarv1.Control_SandboxFsReadServer) error {
+	return c.d.SandboxFsRead(req, stream)
+}
+func (c *controlServer) SandboxFsWrite(stream cellarv1.Control_SandboxFsWriteServer) error {
+	return c.d.SandboxFsWrite(stream)
+}
+func (c *controlServer) SandboxFsStat(ctx context.Context, req *cellarv1.FsStatRequest) (*cellarv1.FsStatResponse, error) {
+	return c.d.SandboxFsStat(ctx, req)
+}
+func (c *controlServer) SandboxFsList(ctx context.Context, req *cellarv1.FsListRequest) (*cellarv1.FsListResponse, error) {
+	return c.d.SandboxFsList(ctx, req)
+}
+func (c *controlServer) SandboxFsExists(ctx context.Context, req *cellarv1.FsExistsRequest) (*cellarv1.FsExistsResponse, error) {
+	return c.d.SandboxFsExists(ctx, req)
+}
+func (c *controlServer) SandboxFsMkdir(ctx context.Context, req *cellarv1.FsMkdirRequest) (*cellarv1.FsMkdirResponse, error) {
+	return c.d.SandboxFsMkdir(ctx, req)
+}
+func (c *controlServer) SandboxFsRemove(ctx context.Context, req *cellarv1.FsRemoveRequest) (*cellarv1.FsRemoveResponse, error) {
+	return c.d.SandboxFsRemove(ctx, req)
+}
+func (c *controlServer) SandboxFsRemoveDir(ctx context.Context, req *cellarv1.FsRemoveDirRequest) (*cellarv1.FsRemoveDirResponse, error) {
+	return c.d.SandboxFsRemoveDir(ctx, req)
+}
+func (c *controlServer) SandboxFsCopy(ctx context.Context, req *cellarv1.FsCopyRequest) (*cellarv1.FsCopyResponse, error) {
+	return c.d.SandboxFsCopy(ctx, req)
+}
+func (c *controlServer) SandboxFsRename(ctx context.Context, req *cellarv1.FsRenameRequest) (*cellarv1.FsRenameResponse, error) {
+	return c.d.SandboxFsRename(ctx, req)
+}
 func (c *controlServer) APIKeyCreate(ctx context.Context, req *cellarv1.APIKeyCreateRequest) (*cellarv1.APIKeyCreateResponse, error) {
 	return c.d.APIKeyCreate(ctx, req)
 }
