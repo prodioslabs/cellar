@@ -37,6 +37,12 @@ type fakeUpstream struct {
 	execErr    error
 
 	canceledLogs bool
+
+	fsChunks [][]byte
+	fsErr    error
+	fsWrote  []byte
+	fsMeta   *cellarv1.FsMetadata
+	fsExists bool
 }
 
 func (f *fakeUpstream) Create(_ context.Context, apiKey string, _ *cellarv1.SandboxCreateRequest) (*cellarv1.Sandbox, error) {
@@ -187,6 +193,120 @@ func (f *fakeUpstream) StopJob(_ context.Context, apiKey, _, _ string, _ int32) 
 func (f *fakeUpstream) JobLogs(ctx context.Context, apiKey string, _ *cellarv1.JobLogsRequest) (LogsStream, error) {
 	return f.Logs(ctx, apiKey, &cellarv1.SandboxLogsRequest{})
 }
+
+func (f *fakeUpstream) FsRead(ctx context.Context, apiKey, _, _ string) (FsStream, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &fakeFsStream{ctx: ctx, chunks: f.fsChunks, err: f.fsErr}, nil
+}
+
+func (f *fakeUpstream) FsWrite(_ context.Context, apiKey, _, _ string, r io.Reader) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return f.err
+	}
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	f.fsWrote = append([]byte(nil), data...)
+	return nil
+}
+
+func (f *fakeUpstream) FsStat(_ context.Context, apiKey, _, _ string) (*cellarv1.FsMetadata, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.fsMeta != nil {
+		return f.fsMeta, nil
+	}
+	return &cellarv1.FsMetadata{Kind: "file", Size: 11, Mode: 0o644}, nil
+}
+
+func (f *fakeUpstream) FsList(_ context.Context, apiKey, _, _ string) ([]*cellarv1.FsEntry, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	return []*cellarv1.FsEntry{{Path: "/tmp/a", Kind: "file", Size: 1, Mode: 0o644}}, nil
+}
+
+func (f *fakeUpstream) FsExists(_ context.Context, apiKey, _, _ string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return false, f.err
+	}
+	return f.fsExists, nil
+}
+
+func (f *fakeUpstream) FsMkdir(_ context.Context, apiKey, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) FsRemove(_ context.Context, apiKey, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) FsRemoveDir(_ context.Context, apiKey, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) FsCopy(_ context.Context, apiKey, _, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) FsRename(_ context.Context, apiKey, _, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+type fakeFsStream struct {
+	ctx    context.Context
+	chunks [][]byte
+	err    error
+	i      int
+}
+
+func (s *fakeFsStream) Recv() (*cellarv1.FsChunk, error) {
+	if s.i < len(s.chunks) {
+		ch := &cellarv1.FsChunk{Data: s.chunks[s.i]}
+		s.i++
+		return ch, nil
+	}
+	if s.err != nil {
+		return nil, s.err
+	}
+	return nil, io.EOF
+}
+
+func (s *fakeFsStream) Close() error { return nil }
 
 func (f *fakeUpstream) Ready(_ context.Context) error {
 	f.mu.Lock()
@@ -424,5 +544,110 @@ func TestGRPCCodeToHTTP(t *testing.T) {
 		if got := grpcCodeToHTTP(code); got != want {
 			t.Fatalf("%v: got %d want %d", code, got, want)
 		}
+	}
+}
+
+func TestFsContentReadWrite(t *testing.T) {
+	up := &fakeUpstream{
+		fsChunks: [][]byte{[]byte("hello"), []byte(" world")},
+	}
+	s := newTestServer(t, up)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/content?path=/tmp/a", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "application/octet-stream") {
+		t.Fatalf("content-type = %q", ct)
+	}
+	if rec.Body.String() != "hello world" {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPut, "/v1/sandboxes/sb1/fs/content?path=/tmp/a", strings.NewReader("payload"))
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("put status = %d", rec.Code)
+	}
+	up.mu.Lock()
+	wrote := string(up.fsWrote)
+	up.mu.Unlock()
+	if wrote != "payload" {
+		t.Fatalf("wrote = %q", wrote)
+	}
+}
+
+func TestFsStatListExists(t *testing.T) {
+	up := &fakeUpstream{
+		fsExists: true,
+		fsMeta:   &cellarv1.FsMetadata{Kind: "file", Size: 3, Mode: 0o644, ModifiedUnixNano: time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC).UnixNano()},
+	}
+	s := newTestServer(t, up)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/stat?path=/tmp/a", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("stat status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &meta); err != nil {
+		t.Fatal(err)
+	}
+	if meta["kind"] != "file" || meta["modified"] == nil {
+		t.Fatalf("meta = %#v", meta)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/list?path=/tmp", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status = %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/exists?path=/tmp/a", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("exists status = %d", rec.Code)
+	}
+	var exists map[string]bool
+	if err := json.Unmarshal(rec.Body.Bytes(), &exists); err != nil {
+		t.Fatal(err)
+	}
+	if !exists["exists"] {
+		t.Fatalf("exists = %#v", exists)
+	}
+}
+
+func TestFsNotFound(t *testing.T) {
+	up := &fakeUpstream{err: status.Error(codes.NotFound, "missing")}
+	s := newTestServer(t, up)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/stat?path=/missing", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestFsMkdirMissingPath(t *testing.T) {
+	s := newTestServer(t, &fakeUpstream{})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sb1/fs/mkdir", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer k")
+	req.Header.Set("Content-Type", "application/json")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d", rec.Code)
 	}
 }

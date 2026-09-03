@@ -35,6 +35,16 @@ type Upstream interface {
 	GetJob(ctx context.Context, apiKey, sandboxID, jobID string) (*cellarv1.JobInfo, error)
 	StopJob(ctx context.Context, apiKey, sandboxID, jobID string, timeoutSec int32) error
 	JobLogs(ctx context.Context, apiKey string, req *cellarv1.JobLogsRequest) (LogsStream, error)
+	FsRead(ctx context.Context, apiKey, sandboxID, path string) (FsStream, error)
+	FsWrite(ctx context.Context, apiKey, sandboxID, path string, r io.Reader) error
+	FsStat(ctx context.Context, apiKey, sandboxID, path string) (*cellarv1.FsMetadata, error)
+	FsList(ctx context.Context, apiKey, sandboxID, path string) ([]*cellarv1.FsEntry, error)
+	FsExists(ctx context.Context, apiKey, sandboxID, path string) (bool, error)
+	FsMkdir(ctx context.Context, apiKey, sandboxID, path string) error
+	FsRemove(ctx context.Context, apiKey, sandboxID, path string) error
+	FsRemoveDir(ctx context.Context, apiKey, sandboxID, path string) error
+	FsCopy(ctx context.Context, apiKey, sandboxID, from, to string) error
+	FsRename(ctx context.Context, apiKey, sandboxID, from, to string) error
 	// Ready probes whether SandboxAPI is reachable (Unauthenticated counts as ready).
 	Ready(ctx context.Context) error
 }
@@ -42,6 +52,12 @@ type Upstream interface {
 // LogsStream yields log chunks until EOF.
 type LogsStream interface {
 	Recv() (*cellarv1.SandboxLogsChunk, error)
+	Close() error
+}
+
+// FsStream yields filesystem content chunks until EOF.
+type FsStream interface {
+	Recv() (*cellarv1.FsChunk, error)
 	Close() error
 }
 
@@ -512,6 +528,207 @@ func (u *GRPCUpstream) JobLogs(ctx context.Context, apiKey string, req *cellarv1
 		lastErr = fmt.Errorf("no upstream managers reachable")
 	}
 	return nil, lastErr
+}
+
+type grpcFsStream struct {
+	stream interface {
+		Recv() (*cellarv1.FsChunk, error)
+	}
+	conn   *grpc.ClientConn
+	cancel context.CancelFunc
+}
+
+func (s *grpcFsStream) Recv() (*cellarv1.FsChunk, error) {
+	return s.stream.Recv()
+}
+
+func (s *grpcFsStream) Close() error {
+	if s.cancel != nil {
+		s.cancel()
+	}
+	if s.conn != nil {
+		return s.conn.Close()
+	}
+	return nil
+}
+
+func (u *GRPCUpstream) FsRead(ctx context.Context, apiKey, sandboxID, path string) (FsStream, error) {
+	addrs, caPEM, err := u.Resolver.Resolve()
+	if err != nil {
+		return nil, err
+	}
+	tlsCfg, err := grpcapi.ClientTLSFromPEMs(nil, nil, caPEM, grpcapi.TLSServerName)
+	if err != nil {
+		return nil, err
+	}
+	var lastErr error
+	for _, addr := range u.pickOrder(addrs) {
+		conn, err := grpc.NewClient(
+			normalizeGRPCAddr(addr),
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)),
+		)
+		if err != nil {
+			u.markBad(addr)
+			lastErr = err
+			continue
+		}
+		ctx2, cancel := context.WithCancel(ctx)
+		stream, err := cellarv1.NewSandboxAPIClient(conn).FsRead(withAPIKey(ctx2, apiKey), &cellarv1.FsReadRequest{
+			SandboxId: sandboxID,
+			Path:      path,
+		})
+		if err != nil {
+			cancel()
+			_ = conn.Close()
+			lastErr = err
+			if retryable(err) {
+				u.markBad(addr)
+				continue
+			}
+			return nil, err
+		}
+		u.markOK(addr)
+		return &grpcFsStream{stream: stream, conn: conn, cancel: cancel}, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no upstream managers reachable")
+	}
+	return nil, lastErr
+}
+
+func (u *GRPCUpstream) FsWrite(ctx context.Context, apiKey, sandboxID, path string, r io.Reader) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		stream, err := api.FsWrite(withAPIKey(ctx, apiKey))
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(&cellarv1.FsWriteMessage{
+			Payload: &cellarv1.FsWriteMessage_Start{Start: &cellarv1.FsWriteStart{
+				SandboxId: sandboxID,
+				Path:      path,
+			}},
+		}); err != nil {
+			return err
+		}
+		buf := make([]byte, 32*1024)
+		for {
+			n, rerr := r.Read(buf)
+			if n > 0 {
+				if err := stream.Send(&cellarv1.FsWriteMessage{
+					Payload: &cellarv1.FsWriteMessage_Data{Data: append([]byte(nil), buf[:n]...)},
+				}); err != nil {
+					return err
+				}
+			}
+			if rerr == io.EOF {
+				_, err := stream.CloseAndRecv()
+				return err
+			}
+			if rerr != nil {
+				return rerr
+			}
+		}
+	})
+}
+
+func (u *GRPCUpstream) FsStat(ctx context.Context, apiKey, sandboxID, path string) (*cellarv1.FsMetadata, error) {
+	var out *cellarv1.FsMetadata
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.FsStat(withAPIKey(ctx, apiKey), &cellarv1.FsStatRequest{
+			SandboxId: sandboxID,
+			Path:      path,
+		})
+		if err != nil {
+			return err
+		}
+		out = resp.Metadata
+		return nil
+	})
+	return out, err
+}
+
+func (u *GRPCUpstream) FsList(ctx context.Context, apiKey, sandboxID, path string) ([]*cellarv1.FsEntry, error) {
+	var out []*cellarv1.FsEntry
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.FsList(withAPIKey(ctx, apiKey), &cellarv1.FsListRequest{
+			SandboxId: sandboxID,
+			Path:      path,
+		})
+		if err != nil {
+			return err
+		}
+		out = resp.Entries
+		return nil
+	})
+	return out, err
+}
+
+func (u *GRPCUpstream) FsExists(ctx context.Context, apiKey, sandboxID, path string) (bool, error) {
+	var exists bool
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.FsExists(withAPIKey(ctx, apiKey), &cellarv1.FsExistsRequest{
+			SandboxId: sandboxID,
+			Path:      path,
+		})
+		if err != nil {
+			return err
+		}
+		exists = resp.Exists
+		return nil
+	})
+	return exists, err
+}
+
+func (u *GRPCUpstream) FsMkdir(ctx context.Context, apiKey, sandboxID, path string) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		_, err := api.FsMkdir(withAPIKey(ctx, apiKey), &cellarv1.FsMkdirRequest{
+			SandboxId: sandboxID,
+			Path:      path,
+		})
+		return err
+	})
+}
+
+func (u *GRPCUpstream) FsRemove(ctx context.Context, apiKey, sandboxID, path string) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		_, err := api.FsRemove(withAPIKey(ctx, apiKey), &cellarv1.FsRemoveRequest{
+			SandboxId: sandboxID,
+			Path:      path,
+		})
+		return err
+	})
+}
+
+func (u *GRPCUpstream) FsRemoveDir(ctx context.Context, apiKey, sandboxID, path string) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		_, err := api.FsRemoveDir(withAPIKey(ctx, apiKey), &cellarv1.FsRemoveDirRequest{
+			SandboxId: sandboxID,
+			Path:      path,
+		})
+		return err
+	})
+}
+
+func (u *GRPCUpstream) FsCopy(ctx context.Context, apiKey, sandboxID, from, to string) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		_, err := api.FsCopy(withAPIKey(ctx, apiKey), &cellarv1.FsCopyRequest{
+			SandboxId: sandboxID,
+			From:      from,
+			To:        to,
+		})
+		return err
+	})
+}
+
+func (u *GRPCUpstream) FsRename(ctx context.Context, apiKey, sandboxID, from, to string) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		_, err := api.FsRename(withAPIKey(ctx, apiKey), &cellarv1.FsRenameRequest{
+			SandboxId: sandboxID,
+			From:      from,
+			To:        to,
+		})
+		return err
+	})
 }
 
 // Ready dials SandboxAPI without an API key. Unauthenticated means the service

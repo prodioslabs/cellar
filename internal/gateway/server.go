@@ -62,6 +62,16 @@ func (s *Server) routes() {
 		v1.GET("/sandboxes/:id/jobs/:jobId", s.handleGetJob)
 		v1.DELETE("/sandboxes/:id/jobs/:jobId", s.handleStopJob)
 		v1.GET("/sandboxes/:id/jobs/:jobId/logs", s.handleJobLogs)
+		v1.GET("/sandboxes/:id/fs/content", s.handleFsGetContent)
+		v1.PUT("/sandboxes/:id/fs/content", s.handleFsPutContent)
+		v1.GET("/sandboxes/:id/fs/stat", s.handleFsStat)
+		v1.GET("/sandboxes/:id/fs/list", s.handleFsList)
+		v1.GET("/sandboxes/:id/fs/exists", s.handleFsExists)
+		v1.POST("/sandboxes/:id/fs/mkdir", s.handleFsMkdir)
+		v1.POST("/sandboxes/:id/fs/remove", s.handleFsRemove)
+		v1.POST("/sandboxes/:id/fs/remove-dir", s.handleFsRemoveDir)
+		v1.POST("/sandboxes/:id/fs/copy", s.handleFsCopy)
+		v1.POST("/sandboxes/:id/fs/rename", s.handleFsRename)
 	}
 }
 
@@ -79,7 +89,9 @@ func (s *Server) Run(ctx context.Context) error {
 	srv := &http.Server{
 		Handler:           s.eng,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       60 * time.Second,
+		// ReadTimeout unset (0) so large fs PUT bodies and long uploads are not
+		// cut by a fixed deadline; headers still capped by ReadHeaderTimeout.
+		ReadTimeout: 0,
 		// IdleTimeout leaves room for long-lived log streams behind an ALB.
 		IdleTimeout: 120 * time.Second,
 		// WriteTimeout is unset (0) so streaming logs/exec can run longer than
