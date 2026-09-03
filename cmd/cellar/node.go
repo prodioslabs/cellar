@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/internal/node"
 )
 
 func newNodeCmd() *cobra.Command {
@@ -48,13 +50,13 @@ func newNodeListCmd() *cobra.Command {
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "ID\tTYPE\tSTATUS\tAVAILABILITY\tMANAGER STATUS\tSANDBOXES")
 			for _, n := range resp.Nodes {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\n",
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 					shortNodeID(n.NodeId),
 					n.NodeType,
 					n.Status,
 					n.Availability,
 					n.ManagerStatus,
-					n.RuntimeSandboxCount,
+					sandboxCountDisplay(n),
 				)
 			}
 			return w.Flush()
@@ -91,7 +93,7 @@ func newNodeInspectCmd() *cobra.Command {
 			fmt.Printf("Status: %s\n", n.Status)
 			fmt.Printf("ManagerStatus: %s\n", n.ManagerStatus)
 			fmt.Printf("RuntimeAddr: %s\n", n.RuntimeGrpcAddr)
-			fmt.Printf("Sandboxes: %d\n", n.RuntimeSandboxCount)
+			fmt.Printf("Sandboxes: %s\n", sandboxCountDisplay(n))
 			if n.RuntimeHeartbeatUnixNano > 0 {
 				fmt.Printf("Heartbeat: %s\n", time.Unix(0, n.RuntimeHeartbeatUnixNano).UTC().Format(time.RFC3339))
 			}
@@ -256,4 +258,14 @@ func shortNodeID(id string) string {
 		return id[:12]
 	}
 	return id
+}
+
+// sandboxCountDisplay prints the last-reported sandbox count only when the
+// node is live. Otherwise 0 is indistinguishable from "never heartbeated"
+// and a stale count can outlive eviction.
+func sandboxCountDisplay(n *cellarv1.NodeInfo) string {
+	if n == nil || n.Status != string(node.StatusReady) {
+		return "-"
+	}
+	return strconv.Itoa(int(n.RuntimeSandboxCount))
 }
