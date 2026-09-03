@@ -28,6 +28,16 @@ service Control {
   rpc SandboxGetJob(GetJobRequest) returns (GetJobResponse);
   rpc SandboxStopJob(StopJobRequest) returns (StopJobResponse);
   rpc SandboxJobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
+  rpc SandboxFsRead(FsReadRequest) returns (stream FsChunk);
+  rpc SandboxFsWrite(stream FsWriteMessage) returns (FsWriteResponse);
+  rpc SandboxFsStat(FsStatRequest) returns (FsStatResponse);
+  rpc SandboxFsList(FsListRequest) returns (FsListResponse);
+  rpc SandboxFsExists(FsExistsRequest) returns (FsExistsResponse);
+  rpc SandboxFsMkdir(FsMkdirRequest) returns (FsMkdirResponse);
+  rpc SandboxFsRemove(FsRemoveRequest) returns (FsRemoveResponse);
+  rpc SandboxFsRemoveDir(FsRemoveDirRequest) returns (FsRemoveDirResponse);
+  rpc SandboxFsCopy(FsCopyRequest) returns (FsCopyResponse);
+  rpc SandboxFsRename(FsRenameRequest) returns (FsRenameResponse);
 
   // API key management (local unix socket; writes require Raft leader).
   rpc APIKeyCreate(APIKeyCreateRequest) returns (APIKeyCreateResponse);

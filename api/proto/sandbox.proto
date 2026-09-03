@@ -32,6 +32,16 @@ service SandboxAPI {
   rpc GetJob(GetJobRequest) returns (GetJobResponse);
   rpc StopJob(StopJobRequest) returns (StopJobResponse);
   rpc JobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
+  rpc FsRead(FsReadRequest) returns (stream FsChunk);
+  rpc FsWrite(stream FsWriteMessage) returns (FsWriteResponse);
+  rpc FsStat(FsStatRequest) returns (FsStatResponse);
+  rpc FsList(FsListRequest) returns (FsListResponse);
+  rpc FsExists(FsExistsRequest) returns (FsExistsResponse);
+  rpc FsMkdir(FsMkdirRequest) returns (FsMkdirResponse);
+  rpc FsRemove(FsRemoveRequest) returns (FsRemoveResponse);
+  rpc FsRemoveDir(FsRemoveDirRequest) returns (FsRemoveDirResponse);
+  rpc FsCopy(FsCopyRequest) returns (FsCopyResponse);
+  rpc FsRename(FsRenameRequest) returns (FsRenameResponse);
 }
 
 // RuntimeAgent is served on managers. Nodes report heartbeats and status.
@@ -53,6 +63,16 @@ service SandboxRuntime {
   rpc GetJob(GetJobRequest) returns (GetJobResponse);
   rpc StopJob(StopJobRequest) returns (StopJobResponse);
   rpc JobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
+  rpc FsRead(FsReadRequest) returns (stream FsChunk);
+  rpc FsWrite(stream FsWriteMessage) returns (FsWriteResponse);
+  rpc FsStat(FsStatRequest) returns (FsStatResponse);
+  rpc FsList(FsListRequest) returns (FsListResponse);
+  rpc FsExists(FsExistsRequest) returns (FsExistsResponse);
+  rpc FsMkdir(FsMkdirRequest) returns (FsMkdirResponse);
+  rpc FsRemove(FsRemoveRequest) returns (FsRemoveResponse);
+  rpc FsRemoveDir(FsRemoveDirRequest) returns (FsRemoveDirResponse);
+  rpc FsCopy(FsCopyRequest) returns (FsCopyResponse);
+  rpc FsRename(FsRenameRequest) returns (FsRenameResponse);
 }
 
 message Mount {
@@ -298,3 +318,107 @@ message JobLogsRequest {
   string job_id = 2;
   bool follow = 3;
 }
+
+message FsReadRequest {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsChunk {
+  bytes data = 1;
+}
+
+message FsWriteMessage {
+  oneof payload {
+    FsWriteStart start = 1;
+    bytes data = 2;
+  }
+}
+
+message FsWriteStart {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsWriteResponse {}
+
+message FsStatRequest {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsMetadata {
+  string kind = 1; // file | directory | symlink | other
+  int64 size = 2;
+  uint32 mode = 3;
+  bool readonly = 4;
+  int64 modified_unix_nano = 5; // 0 = unavailable
+  int64 created_unix_nano = 6;  // 0 = unavailable
+}
+
+message FsStatResponse {
+  FsMetadata metadata = 1;
+}
+
+message FsListRequest {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsEntry {
+  string path = 1;
+  string kind = 2;
+  int64 size = 3;
+  uint32 mode = 4;
+  int64 modified_unix_nano = 5;
+}
+
+message FsListResponse {
+  repeated FsEntry entries = 1;
+}
+
+message FsExistsRequest {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsExistsResponse {
+  bool exists = 1;
+}
+
+message FsMkdirRequest {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsMkdirResponse {}
+
+message FsRemoveRequest {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsRemoveResponse {}
+
+message FsRemoveDirRequest {
+  string sandbox_id = 1;
+  string path = 2;
+}
+
+message FsRemoveDirResponse {}
+
+message FsCopyRequest {
+  string sandbox_id = 1;
+  string from = 2;
+  string to = 3;
+}
+
+message FsCopyResponse {}
+
+message FsRenameRequest {
+  string sandbox_id = 1;
+  string from = 2;
+  string to = 3;
+}
+
+message FsRenameResponse {}

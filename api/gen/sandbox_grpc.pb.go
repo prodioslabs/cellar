@@ -330,6 +330,16 @@ const (
 	SandboxAPI_GetJob_FullMethodName        = "/cellar.v1.SandboxAPI/GetJob"
 	SandboxAPI_StopJob_FullMethodName       = "/cellar.v1.SandboxAPI/StopJob"
 	SandboxAPI_JobLogs_FullMethodName       = "/cellar.v1.SandboxAPI/JobLogs"
+	SandboxAPI_FsRead_FullMethodName        = "/cellar.v1.SandboxAPI/FsRead"
+	SandboxAPI_FsWrite_FullMethodName       = "/cellar.v1.SandboxAPI/FsWrite"
+	SandboxAPI_FsStat_FullMethodName        = "/cellar.v1.SandboxAPI/FsStat"
+	SandboxAPI_FsList_FullMethodName        = "/cellar.v1.SandboxAPI/FsList"
+	SandboxAPI_FsExists_FullMethodName      = "/cellar.v1.SandboxAPI/FsExists"
+	SandboxAPI_FsMkdir_FullMethodName       = "/cellar.v1.SandboxAPI/FsMkdir"
+	SandboxAPI_FsRemove_FullMethodName      = "/cellar.v1.SandboxAPI/FsRemove"
+	SandboxAPI_FsRemoveDir_FullMethodName   = "/cellar.v1.SandboxAPI/FsRemoveDir"
+	SandboxAPI_FsCopy_FullMethodName        = "/cellar.v1.SandboxAPI/FsCopy"
+	SandboxAPI_FsRename_FullMethodName      = "/cellar.v1.SandboxAPI/FsRename"
 )
 
 // SandboxAPIClient is the client API for SandboxAPI service.
@@ -353,6 +363,16 @@ type SandboxAPIClient interface {
 	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
 	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
 	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
+	FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error)
+	FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error)
+	FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error)
+	FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error)
+	FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error)
+	FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error)
+	FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error)
+	FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error)
+	FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error)
+	FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error)
 }
 
 type sandboxAPIClient struct {
@@ -514,6 +534,118 @@ func (c *sandboxAPIClient) JobLogs(ctx context.Context, in *JobLogsRequest, opts
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxAPI_JobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
 
+func (c *sandboxAPIClient) FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[3], SandboxAPI_FsRead_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FsReadRequest, FsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_FsReadClient = grpc.ServerStreamingClient[FsChunk]
+
+func (c *sandboxAPIClient) FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[4], SandboxAPI_FsWrite_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FsWriteMessage, FsWriteResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_FsWriteClient = grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse]
+
+func (c *sandboxAPIClient) FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsStatResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsStat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsListResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsExistsResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsExists_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsMkdirResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsMkdir_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRemoveResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsRemove_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRemoveDirResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsRemoveDir_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsCopyResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsCopy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRenameResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_FsRename_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SandboxAPIServer is the server API for SandboxAPI service.
 // All implementations must embed UnimplementedSandboxAPIServer
 // for forward compatibility.
@@ -535,6 +667,16 @@ type SandboxAPIServer interface {
 	GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
 	StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
 	JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
+	FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error
+	FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error
+	FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error)
+	FsList(context.Context, *FsListRequest) (*FsListResponse, error)
+	FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error)
+	FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error)
+	FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error)
+	FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error)
+	FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error)
+	FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error)
 	mustEmbedUnimplementedSandboxAPIServer()
 }
 
@@ -583,6 +725,36 @@ func (UnimplementedSandboxAPIServer) StopJob(context.Context, *StopJobRequest) (
 }
 func (UnimplementedSandboxAPIServer) JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
 	return status.Error(codes.Unimplemented, "method JobLogs not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error {
+	return status.Error(codes.Unimplemented, "method FsRead not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error {
+	return status.Error(codes.Unimplemented, "method FsWrite not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsStat not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsList(context.Context, *FsListRequest) (*FsListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsList not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsExists not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsMkdir not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsRemove not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsRemoveDir not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsCopy not implemented")
+}
+func (UnimplementedSandboxAPIServer) FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsRename not implemented")
 }
 func (UnimplementedSandboxAPIServer) mustEmbedUnimplementedSandboxAPIServer() {}
 func (UnimplementedSandboxAPIServer) testEmbeddedByValue()                    {}
@@ -814,6 +986,168 @@ func _SandboxAPI_JobLogs_Handler(srv interface{}, stream grpc.ServerStream) erro
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxAPI_JobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
 
+func _SandboxAPI_FsRead_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FsReadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SandboxAPIServer).FsRead(m, &grpc.GenericServerStream[FsReadRequest, FsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_FsReadServer = grpc.ServerStreamingServer[FsChunk]
+
+func _SandboxAPI_FsWrite_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SandboxAPIServer).FsWrite(&grpc.GenericServerStream[FsWriteMessage, FsWriteResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxAPI_FsWriteServer = grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]
+
+func _SandboxAPI_FsStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsStatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsStat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsStat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsStat(ctx, req.(*FsStatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_FsList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsList(ctx, req.(*FsListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_FsExists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsExistsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsExists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsExists_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsExists(ctx, req.(*FsExistsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_FsMkdir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsMkdirRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsMkdir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsMkdir_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsMkdir(ctx, req.(*FsMkdirRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_FsRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsRemove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsRemove_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsRemove(ctx, req.(*FsRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_FsRemoveDir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRemoveDirRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsRemoveDir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsRemoveDir_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsRemoveDir(ctx, req.(*FsRemoveDirRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_FsCopy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsCopyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsCopy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsCopy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsCopy(ctx, req.(*FsCopyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_FsRename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRenameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).FsRename(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_FsRename_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).FsRename(ctx, req.(*FsRenameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SandboxAPI_ServiceDesc is the grpc.ServiceDesc for SandboxAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -861,6 +1195,38 @@ var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "StopJob",
 			Handler:    _SandboxAPI_StopJob_Handler,
 		},
+		{
+			MethodName: "FsStat",
+			Handler:    _SandboxAPI_FsStat_Handler,
+		},
+		{
+			MethodName: "FsList",
+			Handler:    _SandboxAPI_FsList_Handler,
+		},
+		{
+			MethodName: "FsExists",
+			Handler:    _SandboxAPI_FsExists_Handler,
+		},
+		{
+			MethodName: "FsMkdir",
+			Handler:    _SandboxAPI_FsMkdir_Handler,
+		},
+		{
+			MethodName: "FsRemove",
+			Handler:    _SandboxAPI_FsRemove_Handler,
+		},
+		{
+			MethodName: "FsRemoveDir",
+			Handler:    _SandboxAPI_FsRemoveDir_Handler,
+		},
+		{
+			MethodName: "FsCopy",
+			Handler:    _SandboxAPI_FsCopy_Handler,
+		},
+		{
+			MethodName: "FsRename",
+			Handler:    _SandboxAPI_FsRename_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -878,6 +1244,16 @@ var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "JobLogs",
 			Handler:       _SandboxAPI_JobLogs_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "FsRead",
+			Handler:       _SandboxAPI_FsRead_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "FsWrite",
+			Handler:       _SandboxAPI_FsWrite_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "sandbox.proto",
@@ -1074,6 +1450,16 @@ const (
 	SandboxRuntime_GetJob_FullMethodName             = "/cellar.v1.SandboxRuntime/GetJob"
 	SandboxRuntime_StopJob_FullMethodName            = "/cellar.v1.SandboxRuntime/StopJob"
 	SandboxRuntime_JobLogs_FullMethodName            = "/cellar.v1.SandboxRuntime/JobLogs"
+	SandboxRuntime_FsRead_FullMethodName             = "/cellar.v1.SandboxRuntime/FsRead"
+	SandboxRuntime_FsWrite_FullMethodName            = "/cellar.v1.SandboxRuntime/FsWrite"
+	SandboxRuntime_FsStat_FullMethodName             = "/cellar.v1.SandboxRuntime/FsStat"
+	SandboxRuntime_FsList_FullMethodName             = "/cellar.v1.SandboxRuntime/FsList"
+	SandboxRuntime_FsExists_FullMethodName           = "/cellar.v1.SandboxRuntime/FsExists"
+	SandboxRuntime_FsMkdir_FullMethodName            = "/cellar.v1.SandboxRuntime/FsMkdir"
+	SandboxRuntime_FsRemove_FullMethodName           = "/cellar.v1.SandboxRuntime/FsRemove"
+	SandboxRuntime_FsRemoveDir_FullMethodName        = "/cellar.v1.SandboxRuntime/FsRemoveDir"
+	SandboxRuntime_FsCopy_FullMethodName             = "/cellar.v1.SandboxRuntime/FsCopy"
+	SandboxRuntime_FsRename_FullMethodName           = "/cellar.v1.SandboxRuntime/FsRename"
 )
 
 // SandboxRuntimeClient is the client API for SandboxRuntime service.
@@ -1092,6 +1478,16 @@ type SandboxRuntimeClient interface {
 	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
 	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
 	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
+	FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error)
+	FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error)
+	FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error)
+	FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error)
+	FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error)
+	FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error)
+	FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error)
+	FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error)
+	FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error)
+	FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error)
 }
 
 type sandboxRuntimeClient struct {
@@ -1203,6 +1599,118 @@ func (c *sandboxRuntimeClient) JobLogs(ctx context.Context, in *JobLogsRequest, 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxRuntime_JobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
 
+func (c *sandboxRuntimeClient) FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[3], SandboxRuntime_FsRead_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FsReadRequest, FsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxRuntime_FsReadClient = grpc.ServerStreamingClient[FsChunk]
+
+func (c *sandboxRuntimeClient) FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[4], SandboxRuntime_FsWrite_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FsWriteMessage, FsWriteResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxRuntime_FsWriteClient = grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse]
+
+func (c *sandboxRuntimeClient) FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsStatResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsStat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsListResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsExistsResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsExists_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsMkdirResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsMkdir_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRemoveResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsRemove_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRemoveDirResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsRemoveDir_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsCopyResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsCopy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRenameResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_FsRename_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SandboxRuntimeServer is the server API for SandboxRuntime service.
 // All implementations must embed UnimplementedSandboxRuntimeServer
 // for forward compatibility.
@@ -1219,6 +1727,16 @@ type SandboxRuntimeServer interface {
 	GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
 	StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
 	JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
+	FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error
+	FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error
+	FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error)
+	FsList(context.Context, *FsListRequest) (*FsListResponse, error)
+	FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error)
+	FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error)
+	FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error)
+	FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error)
+	FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error)
+	FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error)
 	mustEmbedUnimplementedSandboxRuntimeServer()
 }
 
@@ -1252,6 +1770,36 @@ func (UnimplementedSandboxRuntimeServer) StopJob(context.Context, *StopJobReques
 }
 func (UnimplementedSandboxRuntimeServer) JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
 	return status.Error(codes.Unimplemented, "method JobLogs not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error {
+	return status.Error(codes.Unimplemented, "method FsRead not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error {
+	return status.Error(codes.Unimplemented, "method FsWrite not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsStat not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsList(context.Context, *FsListRequest) (*FsListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsList not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsExists not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsMkdir not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsRemove not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsRemoveDir not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsCopy not implemented")
+}
+func (UnimplementedSandboxRuntimeServer) FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FsRename not implemented")
 }
 func (UnimplementedSandboxRuntimeServer) mustEmbedUnimplementedSandboxRuntimeServer() {}
 func (UnimplementedSandboxRuntimeServer) testEmbeddedByValue()                        {}
@@ -1393,6 +1941,168 @@ func _SandboxRuntime_JobLogs_Handler(srv interface{}, stream grpc.ServerStream) 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxRuntime_JobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
 
+func _SandboxRuntime_FsRead_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FsReadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SandboxRuntimeServer).FsRead(m, &grpc.GenericServerStream[FsReadRequest, FsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxRuntime_FsReadServer = grpc.ServerStreamingServer[FsChunk]
+
+func _SandboxRuntime_FsWrite_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SandboxRuntimeServer).FsWrite(&grpc.GenericServerStream[FsWriteMessage, FsWriteResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxRuntime_FsWriteServer = grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]
+
+func _SandboxRuntime_FsStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsStatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsStat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsStat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsStat(ctx, req.(*FsStatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_FsList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsList(ctx, req.(*FsListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_FsExists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsExistsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsExists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsExists_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsExists(ctx, req.(*FsExistsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_FsMkdir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsMkdirRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsMkdir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsMkdir_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsMkdir(ctx, req.(*FsMkdirRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_FsRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsRemove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsRemove_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsRemove(ctx, req.(*FsRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_FsRemoveDir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRemoveDirRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsRemoveDir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsRemoveDir_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsRemoveDir(ctx, req.(*FsRemoveDirRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_FsCopy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsCopyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsCopy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsCopy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsCopy(ctx, req.(*FsCopyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_FsRename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRenameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).FsRename(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_FsRename_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).FsRename(ctx, req.(*FsRenameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SandboxRuntime_ServiceDesc is the grpc.ServiceDesc for SandboxRuntime service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1420,6 +2130,38 @@ var SandboxRuntime_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "StopJob",
 			Handler:    _SandboxRuntime_StopJob_Handler,
 		},
+		{
+			MethodName: "FsStat",
+			Handler:    _SandboxRuntime_FsStat_Handler,
+		},
+		{
+			MethodName: "FsList",
+			Handler:    _SandboxRuntime_FsList_Handler,
+		},
+		{
+			MethodName: "FsExists",
+			Handler:    _SandboxRuntime_FsExists_Handler,
+		},
+		{
+			MethodName: "FsMkdir",
+			Handler:    _SandboxRuntime_FsMkdir_Handler,
+		},
+		{
+			MethodName: "FsRemove",
+			Handler:    _SandboxRuntime_FsRemove_Handler,
+		},
+		{
+			MethodName: "FsRemoveDir",
+			Handler:    _SandboxRuntime_FsRemoveDir_Handler,
+		},
+		{
+			MethodName: "FsCopy",
+			Handler:    _SandboxRuntime_FsCopy_Handler,
+		},
+		{
+			MethodName: "FsRename",
+			Handler:    _SandboxRuntime_FsRename_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1437,6 +2179,16 @@ var SandboxRuntime_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "JobLogs",
 			Handler:       _SandboxRuntime_JobLogs_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "FsRead",
+			Handler:       _SandboxRuntime_FsRead_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "FsWrite",
+			Handler:       _SandboxRuntime_FsWrite_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "sandbox.proto",

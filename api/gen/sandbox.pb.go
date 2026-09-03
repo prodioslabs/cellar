@@ -2491,6 +2491,1176 @@ func (x *JobLogsRequest) GetFollow() bool {
 	return false
 }
 
+type FsReadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsReadRequest) Reset() {
+	*x = FsReadRequest{}
+	mi := &file_sandbox_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsReadRequest) ProtoMessage() {}
+
+func (x *FsReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsReadRequest.ProtoReflect.Descriptor instead.
+func (*FsReadRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *FsReadRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsReadRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsChunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsChunk) Reset() {
+	*x = FsChunk{}
+	mi := &file_sandbox_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsChunk) ProtoMessage() {}
+
+func (x *FsChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsChunk.ProtoReflect.Descriptor instead.
+func (*FsChunk) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *FsChunk) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type FsWriteMessage struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Payload:
+	//
+	//	*FsWriteMessage_Start
+	//	*FsWriteMessage_Data
+	Payload       isFsWriteMessage_Payload `protobuf_oneof:"payload"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsWriteMessage) Reset() {
+	*x = FsWriteMessage{}
+	mi := &file_sandbox_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsWriteMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsWriteMessage) ProtoMessage() {}
+
+func (x *FsWriteMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsWriteMessage.ProtoReflect.Descriptor instead.
+func (*FsWriteMessage) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *FsWriteMessage) GetPayload() isFsWriteMessage_Payload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *FsWriteMessage) GetStart() *FsWriteStart {
+	if x != nil {
+		if x, ok := x.Payload.(*FsWriteMessage_Start); ok {
+			return x.Start
+		}
+	}
+	return nil
+}
+
+func (x *FsWriteMessage) GetData() []byte {
+	if x != nil {
+		if x, ok := x.Payload.(*FsWriteMessage_Data); ok {
+			return x.Data
+		}
+	}
+	return nil
+}
+
+type isFsWriteMessage_Payload interface {
+	isFsWriteMessage_Payload()
+}
+
+type FsWriteMessage_Start struct {
+	Start *FsWriteStart `protobuf:"bytes,1,opt,name=start,proto3,oneof"`
+}
+
+type FsWriteMessage_Data struct {
+	Data []byte `protobuf:"bytes,2,opt,name=data,proto3,oneof"`
+}
+
+func (*FsWriteMessage_Start) isFsWriteMessage_Payload() {}
+
+func (*FsWriteMessage_Data) isFsWriteMessage_Payload() {}
+
+type FsWriteStart struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsWriteStart) Reset() {
+	*x = FsWriteStart{}
+	mi := &file_sandbox_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsWriteStart) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsWriteStart) ProtoMessage() {}
+
+func (x *FsWriteStart) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsWriteStart.ProtoReflect.Descriptor instead.
+func (*FsWriteStart) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *FsWriteStart) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsWriteStart) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsWriteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsWriteResponse) Reset() {
+	*x = FsWriteResponse{}
+	mi := &file_sandbox_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsWriteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsWriteResponse) ProtoMessage() {}
+
+func (x *FsWriteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsWriteResponse.ProtoReflect.Descriptor instead.
+func (*FsWriteResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{47}
+}
+
+type FsStatRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsStatRequest) Reset() {
+	*x = FsStatRequest{}
+	mi := &file_sandbox_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsStatRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsStatRequest) ProtoMessage() {}
+
+func (x *FsStatRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsStatRequest.ProtoReflect.Descriptor instead.
+func (*FsStatRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *FsStatRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsStatRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsMetadata struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Kind             string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"` // file | directory | symlink | other
+	Size             int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	Mode             uint32                 `protobuf:"varint,3,opt,name=mode,proto3" json:"mode,omitempty"`
+	Readonly         bool                   `protobuf:"varint,4,opt,name=readonly,proto3" json:"readonly,omitempty"`
+	ModifiedUnixNano int64                  `protobuf:"varint,5,opt,name=modified_unix_nano,json=modifiedUnixNano,proto3" json:"modified_unix_nano,omitempty"` // 0 = unavailable
+	CreatedUnixNano  int64                  `protobuf:"varint,6,opt,name=created_unix_nano,json=createdUnixNano,proto3" json:"created_unix_nano,omitempty"`    // 0 = unavailable
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *FsMetadata) Reset() {
+	*x = FsMetadata{}
+	mi := &file_sandbox_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsMetadata) ProtoMessage() {}
+
+func (x *FsMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsMetadata.ProtoReflect.Descriptor instead.
+func (*FsMetadata) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *FsMetadata) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *FsMetadata) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *FsMetadata) GetMode() uint32 {
+	if x != nil {
+		return x.Mode
+	}
+	return 0
+}
+
+func (x *FsMetadata) GetReadonly() bool {
+	if x != nil {
+		return x.Readonly
+	}
+	return false
+}
+
+func (x *FsMetadata) GetModifiedUnixNano() int64 {
+	if x != nil {
+		return x.ModifiedUnixNano
+	}
+	return 0
+}
+
+func (x *FsMetadata) GetCreatedUnixNano() int64 {
+	if x != nil {
+		return x.CreatedUnixNano
+	}
+	return 0
+}
+
+type FsStatResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Metadata      *FsMetadata            `protobuf:"bytes,1,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsStatResponse) Reset() {
+	*x = FsStatResponse{}
+	mi := &file_sandbox_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsStatResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsStatResponse) ProtoMessage() {}
+
+func (x *FsStatResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsStatResponse.ProtoReflect.Descriptor instead.
+func (*FsStatResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *FsStatResponse) GetMetadata() *FsMetadata {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+type FsListRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsListRequest) Reset() {
+	*x = FsListRequest{}
+	mi := &file_sandbox_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsListRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsListRequest) ProtoMessage() {}
+
+func (x *FsListRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsListRequest.ProtoReflect.Descriptor instead.
+func (*FsListRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *FsListRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsListRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsEntry struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Path             string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Kind             string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Size             int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	Mode             uint32                 `protobuf:"varint,4,opt,name=mode,proto3" json:"mode,omitempty"`
+	ModifiedUnixNano int64                  `protobuf:"varint,5,opt,name=modified_unix_nano,json=modifiedUnixNano,proto3" json:"modified_unix_nano,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *FsEntry) Reset() {
+	*x = FsEntry{}
+	mi := &file_sandbox_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsEntry) ProtoMessage() {}
+
+func (x *FsEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsEntry.ProtoReflect.Descriptor instead.
+func (*FsEntry) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *FsEntry) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *FsEntry) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *FsEntry) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *FsEntry) GetMode() uint32 {
+	if x != nil {
+		return x.Mode
+	}
+	return 0
+}
+
+func (x *FsEntry) GetModifiedUnixNano() int64 {
+	if x != nil {
+		return x.ModifiedUnixNano
+	}
+	return 0
+}
+
+type FsListResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*FsEntry             `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsListResponse) Reset() {
+	*x = FsListResponse{}
+	mi := &file_sandbox_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsListResponse) ProtoMessage() {}
+
+func (x *FsListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsListResponse.ProtoReflect.Descriptor instead.
+func (*FsListResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *FsListResponse) GetEntries() []*FsEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type FsExistsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsExistsRequest) Reset() {
+	*x = FsExistsRequest{}
+	mi := &file_sandbox_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsExistsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsExistsRequest) ProtoMessage() {}
+
+func (x *FsExistsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsExistsRequest.ProtoReflect.Descriptor instead.
+func (*FsExistsRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *FsExistsRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsExistsRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsExistsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Exists        bool                   `protobuf:"varint,1,opt,name=exists,proto3" json:"exists,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsExistsResponse) Reset() {
+	*x = FsExistsResponse{}
+	mi := &file_sandbox_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsExistsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsExistsResponse) ProtoMessage() {}
+
+func (x *FsExistsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsExistsResponse.ProtoReflect.Descriptor instead.
+func (*FsExistsResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *FsExistsResponse) GetExists() bool {
+	if x != nil {
+		return x.Exists
+	}
+	return false
+}
+
+type FsMkdirRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsMkdirRequest) Reset() {
+	*x = FsMkdirRequest{}
+	mi := &file_sandbox_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsMkdirRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsMkdirRequest) ProtoMessage() {}
+
+func (x *FsMkdirRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsMkdirRequest.ProtoReflect.Descriptor instead.
+func (*FsMkdirRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *FsMkdirRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsMkdirRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsMkdirResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsMkdirResponse) Reset() {
+	*x = FsMkdirResponse{}
+	mi := &file_sandbox_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsMkdirResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsMkdirResponse) ProtoMessage() {}
+
+func (x *FsMkdirResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsMkdirResponse.ProtoReflect.Descriptor instead.
+func (*FsMkdirResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{57}
+}
+
+type FsRemoveRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsRemoveRequest) Reset() {
+	*x = FsRemoveRequest{}
+	mi := &file_sandbox_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsRemoveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsRemoveRequest) ProtoMessage() {}
+
+func (x *FsRemoveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsRemoveRequest.ProtoReflect.Descriptor instead.
+func (*FsRemoveRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *FsRemoveRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsRemoveRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsRemoveResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsRemoveResponse) Reset() {
+	*x = FsRemoveResponse{}
+	mi := &file_sandbox_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsRemoveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsRemoveResponse) ProtoMessage() {}
+
+func (x *FsRemoveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsRemoveResponse.ProtoReflect.Descriptor instead.
+func (*FsRemoveResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{59}
+}
+
+type FsRemoveDirRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsRemoveDirRequest) Reset() {
+	*x = FsRemoveDirRequest{}
+	mi := &file_sandbox_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsRemoveDirRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsRemoveDirRequest) ProtoMessage() {}
+
+func (x *FsRemoveDirRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsRemoveDirRequest.ProtoReflect.Descriptor instead.
+func (*FsRemoveDirRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *FsRemoveDirRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsRemoveDirRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type FsRemoveDirResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsRemoveDirResponse) Reset() {
+	*x = FsRemoveDirResponse{}
+	mi := &file_sandbox_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsRemoveDirResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsRemoveDirResponse) ProtoMessage() {}
+
+func (x *FsRemoveDirResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsRemoveDirResponse.ProtoReflect.Descriptor instead.
+func (*FsRemoveDirResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{61}
+}
+
+type FsCopyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsCopyRequest) Reset() {
+	*x = FsCopyRequest{}
+	mi := &file_sandbox_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsCopyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsCopyRequest) ProtoMessage() {}
+
+func (x *FsCopyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsCopyRequest.ProtoReflect.Descriptor instead.
+func (*FsCopyRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *FsCopyRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsCopyRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *FsCopyRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+type FsCopyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsCopyResponse) Reset() {
+	*x = FsCopyResponse{}
+	mi := &file_sandbox_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsCopyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsCopyResponse) ProtoMessage() {}
+
+func (x *FsCopyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsCopyResponse.ProtoReflect.Descriptor instead.
+func (*FsCopyResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{63}
+}
+
+type FsRenameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SandboxId     string                 `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
+	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsRenameRequest) Reset() {
+	*x = FsRenameRequest{}
+	mi := &file_sandbox_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsRenameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsRenameRequest) ProtoMessage() {}
+
+func (x *FsRenameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsRenameRequest.ProtoReflect.Descriptor instead.
+func (*FsRenameRequest) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *FsRenameRequest) GetSandboxId() string {
+	if x != nil {
+		return x.SandboxId
+	}
+	return ""
+}
+
+func (x *FsRenameRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *FsRenameRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+type FsRenameResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FsRenameResponse) Reset() {
+	*x = FsRenameResponse{}
+	mi := &file_sandbox_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FsRenameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FsRenameResponse) ProtoMessage() {}
+
+func (x *FsRenameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sandbox_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FsRenameResponse.ProtoReflect.Descriptor instead.
+func (*FsRenameResponse) Descriptor() ([]byte, []int) {
+	return file_sandbox_proto_rawDescGZIP(), []int{65}
+}
+
 var File_sandbox_proto protoreflect.FileDescriptor
 
 const file_sandbox_proto_rawDesc = "" +
@@ -2668,14 +3838,88 @@ const file_sandbox_proto_rawDesc = "" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x15\n" +
 	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x16\n" +
-	"\x06follow\x18\x03 \x01(\bR\x06follow2\xde\x03\n" +
+	"\x06follow\x18\x03 \x01(\bR\x06follow\"B\n" +
+	"\rFsReadRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x1d\n" +
+	"\aFsChunk\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"b\n" +
+	"\x0eFsWriteMessage\x12/\n" +
+	"\x05start\x18\x01 \x01(\v2\x17.cellar.v1.FsWriteStartH\x00R\x05start\x12\x14\n" +
+	"\x04data\x18\x02 \x01(\fH\x00R\x04dataB\t\n" +
+	"\apayload\"A\n" +
+	"\fFsWriteStart\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x11\n" +
+	"\x0fFsWriteResponse\"B\n" +
+	"\rFsStatRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\xbe\x01\n" +
+	"\n" +
+	"FsMetadata\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\x12\x12\n" +
+	"\x04mode\x18\x03 \x01(\rR\x04mode\x12\x1a\n" +
+	"\breadonly\x18\x04 \x01(\bR\breadonly\x12,\n" +
+	"\x12modified_unix_nano\x18\x05 \x01(\x03R\x10modifiedUnixNano\x12*\n" +
+	"\x11created_unix_nano\x18\x06 \x01(\x03R\x0fcreatedUnixNano\"C\n" +
+	"\x0eFsStatResponse\x121\n" +
+	"\bmetadata\x18\x01 \x01(\v2\x15.cellar.v1.FsMetadataR\bmetadata\"B\n" +
+	"\rFsListRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x87\x01\n" +
+	"\aFsEntry\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x12\n" +
+	"\x04mode\x18\x04 \x01(\rR\x04mode\x12,\n" +
+	"\x12modified_unix_nano\x18\x05 \x01(\x03R\x10modifiedUnixNano\">\n" +
+	"\x0eFsListResponse\x12,\n" +
+	"\aentries\x18\x01 \x03(\v2\x12.cellar.v1.FsEntryR\aentries\"D\n" +
+	"\x0fFsExistsRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"*\n" +
+	"\x10FsExistsResponse\x12\x16\n" +
+	"\x06exists\x18\x01 \x01(\bR\x06exists\"C\n" +
+	"\x0eFsMkdirRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x11\n" +
+	"\x0fFsMkdirResponse\"D\n" +
+	"\x0fFsRemoveRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x12\n" +
+	"\x10FsRemoveResponse\"G\n" +
+	"\x12FsRemoveDirRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x15\n" +
+	"\x13FsRemoveDirResponse\"R\n" +
+	"\rFsCopyRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\"\x10\n" +
+	"\x0eFsCopyResponse\"T\n" +
+	"\x0fFsRenameRequest\x12\x1d\n" +
+	"\n" +
+	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\"\x12\n" +
+	"\x10FsRenameResponse2\xde\x03\n" +
 	"\x0eSandboxControl\x12K\n" +
 	"\x06Create\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12E\n" +
 	"\x04Stop\x12\x1d.cellar.v1.SandboxStopRequest\x1a\x1e.cellar.v1.SandboxStopResponse\x12K\n" +
 	"\x06Remove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12B\n" +
 	"\x03Get\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12E\n" +
 	"\x04List\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12`\n" +
-	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse2\xba\a\n" +
+	"\rUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse2\xd4\f\n" +
 	"\n" +
 	"SandboxAPI\x12K\n" +
 	"\x06Create\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12E\n" +
@@ -2690,11 +3934,21 @@ const file_sandbox_proto_rawDesc = "" +
 	"\bListJobs\x12\x1a.cellar.v1.ListJobsRequest\x1a\x1b.cellar.v1.ListJobsResponse\x12=\n" +
 	"\x06GetJob\x12\x18.cellar.v1.GetJobRequest\x1a\x19.cellar.v1.GetJobResponse\x12@\n" +
 	"\aStopJob\x12\x19.cellar.v1.StopJobRequest\x1a\x1a.cellar.v1.StopJobResponse\x12C\n" +
-	"\aJobLogs\x12\x19.cellar.v1.JobLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x012\xaa\x02\n" +
+	"\aJobLogs\x12\x19.cellar.v1.JobLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x128\n" +
+	"\x06FsRead\x12\x18.cellar.v1.FsReadRequest\x1a\x12.cellar.v1.FsChunk0\x01\x12B\n" +
+	"\aFsWrite\x12\x19.cellar.v1.FsWriteMessage\x1a\x1a.cellar.v1.FsWriteResponse(\x01\x12=\n" +
+	"\x06FsStat\x12\x18.cellar.v1.FsStatRequest\x1a\x19.cellar.v1.FsStatResponse\x12=\n" +
+	"\x06FsList\x12\x18.cellar.v1.FsListRequest\x1a\x19.cellar.v1.FsListResponse\x12C\n" +
+	"\bFsExists\x12\x1a.cellar.v1.FsExistsRequest\x1a\x1b.cellar.v1.FsExistsResponse\x12@\n" +
+	"\aFsMkdir\x12\x19.cellar.v1.FsMkdirRequest\x1a\x1a.cellar.v1.FsMkdirResponse\x12C\n" +
+	"\bFsRemove\x12\x1a.cellar.v1.FsRemoveRequest\x1a\x1b.cellar.v1.FsRemoveResponse\x12L\n" +
+	"\vFsRemoveDir\x12\x1d.cellar.v1.FsRemoveDirRequest\x1a\x1e.cellar.v1.FsRemoveDirResponse\x12=\n" +
+	"\x06FsCopy\x12\x18.cellar.v1.FsCopyRequest\x1a\x19.cellar.v1.FsCopyResponse\x12C\n" +
+	"\bFsRename\x12\x1a.cellar.v1.FsRenameRequest\x1a\x1b.cellar.v1.FsRenameResponse2\xaa\x02\n" +
 	"\fRuntimeAgent\x12T\n" +
 	"\tHeartbeat\x12\".cellar.v1.RuntimeHeartbeatRequest\x1a#.cellar.v1.RuntimeHeartbeatResponse\x12d\n" +
 	"\x13UpdateSandboxStatus\x12%.cellar.v1.UpdateSandboxStatusRequest\x1a&.cellar.v1.UpdateSandboxStatusResponse\x12^\n" +
-	"\x11ListNodeSandboxes\x12#.cellar.v1.ListNodeSandboxesRequest\x1a$.cellar.v1.ListNodeSandboxesResponse2\xd3\x04\n" +
+	"\x11ListNodeSandboxes\x12#.cellar.v1.ListNodeSandboxesRequest\x1a$.cellar.v1.ListNodeSandboxesResponse2\xed\t\n" +
 	"\x0eSandboxRuntime\x12D\n" +
 	"\x04Logs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12H\n" +
 	"\x04Exec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01\x12a\n" +
@@ -2703,7 +3957,17 @@ const file_sandbox_proto_rawDesc = "" +
 	"\bListJobs\x12\x1a.cellar.v1.ListJobsRequest\x1a\x1b.cellar.v1.ListJobsResponse\x12=\n" +
 	"\x06GetJob\x12\x18.cellar.v1.GetJobRequest\x1a\x19.cellar.v1.GetJobResponse\x12@\n" +
 	"\aStopJob\x12\x19.cellar.v1.StopJobRequest\x1a\x1a.cellar.v1.StopJobResponse\x12C\n" +
-	"\aJobLogs\x12\x19.cellar.v1.JobLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01B0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
+	"\aJobLogs\x12\x19.cellar.v1.JobLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x128\n" +
+	"\x06FsRead\x12\x18.cellar.v1.FsReadRequest\x1a\x12.cellar.v1.FsChunk0\x01\x12B\n" +
+	"\aFsWrite\x12\x19.cellar.v1.FsWriteMessage\x1a\x1a.cellar.v1.FsWriteResponse(\x01\x12=\n" +
+	"\x06FsStat\x12\x18.cellar.v1.FsStatRequest\x1a\x19.cellar.v1.FsStatResponse\x12=\n" +
+	"\x06FsList\x12\x18.cellar.v1.FsListRequest\x1a\x19.cellar.v1.FsListResponse\x12C\n" +
+	"\bFsExists\x12\x1a.cellar.v1.FsExistsRequest\x1a\x1b.cellar.v1.FsExistsResponse\x12@\n" +
+	"\aFsMkdir\x12\x19.cellar.v1.FsMkdirRequest\x1a\x1a.cellar.v1.FsMkdirResponse\x12C\n" +
+	"\bFsRemove\x12\x1a.cellar.v1.FsRemoveRequest\x1a\x1b.cellar.v1.FsRemoveResponse\x12L\n" +
+	"\vFsRemoveDir\x12\x1d.cellar.v1.FsRemoveDirRequest\x1a\x1e.cellar.v1.FsRemoveDirResponse\x12=\n" +
+	"\x06FsCopy\x12\x18.cellar.v1.FsCopyRequest\x1a\x19.cellar.v1.FsCopyResponse\x12C\n" +
+	"\bFsRename\x12\x1a.cellar.v1.FsRenameRequest\x1a\x1b.cellar.v1.FsRenameResponseB0Z.github.com/prodioslabs/cellar/api/gen;cellarv1b\x06proto3"
 
 var (
 	file_sandbox_proto_rawDescOnce sync.Once
@@ -2717,7 +3981,7 @@ func file_sandbox_proto_rawDescGZIP() []byte {
 	return file_sandbox_proto_rawDescData
 }
 
-var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
 var file_sandbox_proto_goTypes = []any{
 	(*Mount)(nil),                        // 0: cellar.v1.Mount
 	(*Resources)(nil),                    // 1: cellar.v1.Resources
@@ -2762,6 +4026,29 @@ var file_sandbox_proto_goTypes = []any{
 	(*StopJobRequest)(nil),               // 40: cellar.v1.StopJobRequest
 	(*StopJobResponse)(nil),              // 41: cellar.v1.StopJobResponse
 	(*JobLogsRequest)(nil),               // 42: cellar.v1.JobLogsRequest
+	(*FsReadRequest)(nil),                // 43: cellar.v1.FsReadRequest
+	(*FsChunk)(nil),                      // 44: cellar.v1.FsChunk
+	(*FsWriteMessage)(nil),               // 45: cellar.v1.FsWriteMessage
+	(*FsWriteStart)(nil),                 // 46: cellar.v1.FsWriteStart
+	(*FsWriteResponse)(nil),              // 47: cellar.v1.FsWriteResponse
+	(*FsStatRequest)(nil),                // 48: cellar.v1.FsStatRequest
+	(*FsMetadata)(nil),                   // 49: cellar.v1.FsMetadata
+	(*FsStatResponse)(nil),               // 50: cellar.v1.FsStatResponse
+	(*FsListRequest)(nil),                // 51: cellar.v1.FsListRequest
+	(*FsEntry)(nil),                      // 52: cellar.v1.FsEntry
+	(*FsListResponse)(nil),               // 53: cellar.v1.FsListResponse
+	(*FsExistsRequest)(nil),              // 54: cellar.v1.FsExistsRequest
+	(*FsExistsResponse)(nil),             // 55: cellar.v1.FsExistsResponse
+	(*FsMkdirRequest)(nil),               // 56: cellar.v1.FsMkdirRequest
+	(*FsMkdirResponse)(nil),              // 57: cellar.v1.FsMkdirResponse
+	(*FsRemoveRequest)(nil),              // 58: cellar.v1.FsRemoveRequest
+	(*FsRemoveResponse)(nil),             // 59: cellar.v1.FsRemoveResponse
+	(*FsRemoveDirRequest)(nil),           // 60: cellar.v1.FsRemoveDirRequest
+	(*FsRemoveDirResponse)(nil),          // 61: cellar.v1.FsRemoveDirResponse
+	(*FsCopyRequest)(nil),                // 62: cellar.v1.FsCopyRequest
+	(*FsCopyResponse)(nil),               // 63: cellar.v1.FsCopyResponse
+	(*FsRenameRequest)(nil),              // 64: cellar.v1.FsRenameRequest
+	(*FsRenameResponse)(nil),             // 65: cellar.v1.FsRenameResponse
 }
 var file_sandbox_proto_depIdxs = []int32{
 	3,  // 0: cellar.v1.NetworkPolicy.dns:type_name -> cellar.v1.DNSPolicy
@@ -2786,71 +4073,114 @@ var file_sandbox_proto_depIdxs = []int32{
 	32, // 19: cellar.v1.SandboxExecMessage.exit:type_name -> cellar.v1.SandboxExecExit
 	36, // 20: cellar.v1.ListJobsResponse.jobs:type_name -> cellar.v1.JobInfo
 	36, // 21: cellar.v1.GetJobResponse.job:type_name -> cellar.v1.JobInfo
-	8,  // 22: cellar.v1.SandboxControl.Create:input_type -> cellar.v1.SandboxCreateRequest
-	10, // 23: cellar.v1.SandboxControl.Stop:input_type -> cellar.v1.SandboxStopRequest
-	12, // 24: cellar.v1.SandboxControl.Remove:input_type -> cellar.v1.SandboxRemoveRequest
-	14, // 25: cellar.v1.SandboxControl.Get:input_type -> cellar.v1.SandboxGetRequest
-	20, // 26: cellar.v1.SandboxControl.List:input_type -> cellar.v1.SandboxListRequest
-	16, // 27: cellar.v1.SandboxControl.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	8,  // 28: cellar.v1.SandboxAPI.Create:input_type -> cellar.v1.SandboxCreateRequest
-	10, // 29: cellar.v1.SandboxAPI.Stop:input_type -> cellar.v1.SandboxStopRequest
-	12, // 30: cellar.v1.SandboxAPI.Remove:input_type -> cellar.v1.SandboxRemoveRequest
-	14, // 31: cellar.v1.SandboxAPI.Get:input_type -> cellar.v1.SandboxGetRequest
-	20, // 32: cellar.v1.SandboxAPI.List:input_type -> cellar.v1.SandboxListRequest
-	16, // 33: cellar.v1.SandboxAPI.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	28, // 34: cellar.v1.SandboxAPI.Logs:input_type -> cellar.v1.SandboxLogsRequest
-	30, // 35: cellar.v1.SandboxAPI.Exec:input_type -> cellar.v1.SandboxExecMessage
-	33, // 36: cellar.v1.SandboxAPI.StartJob:input_type -> cellar.v1.StartJobRequest
-	35, // 37: cellar.v1.SandboxAPI.ListJobs:input_type -> cellar.v1.ListJobsRequest
-	38, // 38: cellar.v1.SandboxAPI.GetJob:input_type -> cellar.v1.GetJobRequest
-	40, // 39: cellar.v1.SandboxAPI.StopJob:input_type -> cellar.v1.StopJobRequest
-	42, // 40: cellar.v1.SandboxAPI.JobLogs:input_type -> cellar.v1.JobLogsRequest
-	22, // 41: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
-	24, // 42: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
-	26, // 43: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
-	28, // 44: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
-	30, // 45: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
-	18, // 46: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:input_type -> cellar.v1.ApplyNetworkPolicyRequest
-	33, // 47: cellar.v1.SandboxRuntime.StartJob:input_type -> cellar.v1.StartJobRequest
-	35, // 48: cellar.v1.SandboxRuntime.ListJobs:input_type -> cellar.v1.ListJobsRequest
-	38, // 49: cellar.v1.SandboxRuntime.GetJob:input_type -> cellar.v1.GetJobRequest
-	40, // 50: cellar.v1.SandboxRuntime.StopJob:input_type -> cellar.v1.StopJobRequest
-	42, // 51: cellar.v1.SandboxRuntime.JobLogs:input_type -> cellar.v1.JobLogsRequest
-	9,  // 52: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
-	11, // 53: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
-	13, // 54: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
-	15, // 55: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
-	21, // 56: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
-	17, // 57: cellar.v1.SandboxControl.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	9,  // 58: cellar.v1.SandboxAPI.Create:output_type -> cellar.v1.SandboxCreateResponse
-	11, // 59: cellar.v1.SandboxAPI.Stop:output_type -> cellar.v1.SandboxStopResponse
-	13, // 60: cellar.v1.SandboxAPI.Remove:output_type -> cellar.v1.SandboxRemoveResponse
-	15, // 61: cellar.v1.SandboxAPI.Get:output_type -> cellar.v1.SandboxGetResponse
-	21, // 62: cellar.v1.SandboxAPI.List:output_type -> cellar.v1.SandboxListResponse
-	17, // 63: cellar.v1.SandboxAPI.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	29, // 64: cellar.v1.SandboxAPI.Logs:output_type -> cellar.v1.SandboxLogsChunk
-	30, // 65: cellar.v1.SandboxAPI.Exec:output_type -> cellar.v1.SandboxExecMessage
-	34, // 66: cellar.v1.SandboxAPI.StartJob:output_type -> cellar.v1.StartJobResponse
-	37, // 67: cellar.v1.SandboxAPI.ListJobs:output_type -> cellar.v1.ListJobsResponse
-	39, // 68: cellar.v1.SandboxAPI.GetJob:output_type -> cellar.v1.GetJobResponse
-	41, // 69: cellar.v1.SandboxAPI.StopJob:output_type -> cellar.v1.StopJobResponse
-	29, // 70: cellar.v1.SandboxAPI.JobLogs:output_type -> cellar.v1.SandboxLogsChunk
-	23, // 71: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
-	25, // 72: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
-	27, // 73: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
-	29, // 74: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
-	30, // 75: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
-	19, // 76: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:output_type -> cellar.v1.ApplyNetworkPolicyResponse
-	34, // 77: cellar.v1.SandboxRuntime.StartJob:output_type -> cellar.v1.StartJobResponse
-	37, // 78: cellar.v1.SandboxRuntime.ListJobs:output_type -> cellar.v1.ListJobsResponse
-	39, // 79: cellar.v1.SandboxRuntime.GetJob:output_type -> cellar.v1.GetJobResponse
-	41, // 80: cellar.v1.SandboxRuntime.StopJob:output_type -> cellar.v1.StopJobResponse
-	29, // 81: cellar.v1.SandboxRuntime.JobLogs:output_type -> cellar.v1.SandboxLogsChunk
-	52, // [52:82] is the sub-list for method output_type
-	22, // [22:52] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	46, // 22: cellar.v1.FsWriteMessage.start:type_name -> cellar.v1.FsWriteStart
+	49, // 23: cellar.v1.FsStatResponse.metadata:type_name -> cellar.v1.FsMetadata
+	52, // 24: cellar.v1.FsListResponse.entries:type_name -> cellar.v1.FsEntry
+	8,  // 25: cellar.v1.SandboxControl.Create:input_type -> cellar.v1.SandboxCreateRequest
+	10, // 26: cellar.v1.SandboxControl.Stop:input_type -> cellar.v1.SandboxStopRequest
+	12, // 27: cellar.v1.SandboxControl.Remove:input_type -> cellar.v1.SandboxRemoveRequest
+	14, // 28: cellar.v1.SandboxControl.Get:input_type -> cellar.v1.SandboxGetRequest
+	20, // 29: cellar.v1.SandboxControl.List:input_type -> cellar.v1.SandboxListRequest
+	16, // 30: cellar.v1.SandboxControl.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	8,  // 31: cellar.v1.SandboxAPI.Create:input_type -> cellar.v1.SandboxCreateRequest
+	10, // 32: cellar.v1.SandboxAPI.Stop:input_type -> cellar.v1.SandboxStopRequest
+	12, // 33: cellar.v1.SandboxAPI.Remove:input_type -> cellar.v1.SandboxRemoveRequest
+	14, // 34: cellar.v1.SandboxAPI.Get:input_type -> cellar.v1.SandboxGetRequest
+	20, // 35: cellar.v1.SandboxAPI.List:input_type -> cellar.v1.SandboxListRequest
+	16, // 36: cellar.v1.SandboxAPI.UpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
+	28, // 37: cellar.v1.SandboxAPI.Logs:input_type -> cellar.v1.SandboxLogsRequest
+	30, // 38: cellar.v1.SandboxAPI.Exec:input_type -> cellar.v1.SandboxExecMessage
+	33, // 39: cellar.v1.SandboxAPI.StartJob:input_type -> cellar.v1.StartJobRequest
+	35, // 40: cellar.v1.SandboxAPI.ListJobs:input_type -> cellar.v1.ListJobsRequest
+	38, // 41: cellar.v1.SandboxAPI.GetJob:input_type -> cellar.v1.GetJobRequest
+	40, // 42: cellar.v1.SandboxAPI.StopJob:input_type -> cellar.v1.StopJobRequest
+	42, // 43: cellar.v1.SandboxAPI.JobLogs:input_type -> cellar.v1.JobLogsRequest
+	43, // 44: cellar.v1.SandboxAPI.FsRead:input_type -> cellar.v1.FsReadRequest
+	45, // 45: cellar.v1.SandboxAPI.FsWrite:input_type -> cellar.v1.FsWriteMessage
+	48, // 46: cellar.v1.SandboxAPI.FsStat:input_type -> cellar.v1.FsStatRequest
+	51, // 47: cellar.v1.SandboxAPI.FsList:input_type -> cellar.v1.FsListRequest
+	54, // 48: cellar.v1.SandboxAPI.FsExists:input_type -> cellar.v1.FsExistsRequest
+	56, // 49: cellar.v1.SandboxAPI.FsMkdir:input_type -> cellar.v1.FsMkdirRequest
+	58, // 50: cellar.v1.SandboxAPI.FsRemove:input_type -> cellar.v1.FsRemoveRequest
+	60, // 51: cellar.v1.SandboxAPI.FsRemoveDir:input_type -> cellar.v1.FsRemoveDirRequest
+	62, // 52: cellar.v1.SandboxAPI.FsCopy:input_type -> cellar.v1.FsCopyRequest
+	64, // 53: cellar.v1.SandboxAPI.FsRename:input_type -> cellar.v1.FsRenameRequest
+	22, // 54: cellar.v1.RuntimeAgent.Heartbeat:input_type -> cellar.v1.RuntimeHeartbeatRequest
+	24, // 55: cellar.v1.RuntimeAgent.UpdateSandboxStatus:input_type -> cellar.v1.UpdateSandboxStatusRequest
+	26, // 56: cellar.v1.RuntimeAgent.ListNodeSandboxes:input_type -> cellar.v1.ListNodeSandboxesRequest
+	28, // 57: cellar.v1.SandboxRuntime.Logs:input_type -> cellar.v1.SandboxLogsRequest
+	30, // 58: cellar.v1.SandboxRuntime.Exec:input_type -> cellar.v1.SandboxExecMessage
+	18, // 59: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:input_type -> cellar.v1.ApplyNetworkPolicyRequest
+	33, // 60: cellar.v1.SandboxRuntime.StartJob:input_type -> cellar.v1.StartJobRequest
+	35, // 61: cellar.v1.SandboxRuntime.ListJobs:input_type -> cellar.v1.ListJobsRequest
+	38, // 62: cellar.v1.SandboxRuntime.GetJob:input_type -> cellar.v1.GetJobRequest
+	40, // 63: cellar.v1.SandboxRuntime.StopJob:input_type -> cellar.v1.StopJobRequest
+	42, // 64: cellar.v1.SandboxRuntime.JobLogs:input_type -> cellar.v1.JobLogsRequest
+	43, // 65: cellar.v1.SandboxRuntime.FsRead:input_type -> cellar.v1.FsReadRequest
+	45, // 66: cellar.v1.SandboxRuntime.FsWrite:input_type -> cellar.v1.FsWriteMessage
+	48, // 67: cellar.v1.SandboxRuntime.FsStat:input_type -> cellar.v1.FsStatRequest
+	51, // 68: cellar.v1.SandboxRuntime.FsList:input_type -> cellar.v1.FsListRequest
+	54, // 69: cellar.v1.SandboxRuntime.FsExists:input_type -> cellar.v1.FsExistsRequest
+	56, // 70: cellar.v1.SandboxRuntime.FsMkdir:input_type -> cellar.v1.FsMkdirRequest
+	58, // 71: cellar.v1.SandboxRuntime.FsRemove:input_type -> cellar.v1.FsRemoveRequest
+	60, // 72: cellar.v1.SandboxRuntime.FsRemoveDir:input_type -> cellar.v1.FsRemoveDirRequest
+	62, // 73: cellar.v1.SandboxRuntime.FsCopy:input_type -> cellar.v1.FsCopyRequest
+	64, // 74: cellar.v1.SandboxRuntime.FsRename:input_type -> cellar.v1.FsRenameRequest
+	9,  // 75: cellar.v1.SandboxControl.Create:output_type -> cellar.v1.SandboxCreateResponse
+	11, // 76: cellar.v1.SandboxControl.Stop:output_type -> cellar.v1.SandboxStopResponse
+	13, // 77: cellar.v1.SandboxControl.Remove:output_type -> cellar.v1.SandboxRemoveResponse
+	15, // 78: cellar.v1.SandboxControl.Get:output_type -> cellar.v1.SandboxGetResponse
+	21, // 79: cellar.v1.SandboxControl.List:output_type -> cellar.v1.SandboxListResponse
+	17, // 80: cellar.v1.SandboxControl.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	9,  // 81: cellar.v1.SandboxAPI.Create:output_type -> cellar.v1.SandboxCreateResponse
+	11, // 82: cellar.v1.SandboxAPI.Stop:output_type -> cellar.v1.SandboxStopResponse
+	13, // 83: cellar.v1.SandboxAPI.Remove:output_type -> cellar.v1.SandboxRemoveResponse
+	15, // 84: cellar.v1.SandboxAPI.Get:output_type -> cellar.v1.SandboxGetResponse
+	21, // 85: cellar.v1.SandboxAPI.List:output_type -> cellar.v1.SandboxListResponse
+	17, // 86: cellar.v1.SandboxAPI.UpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
+	29, // 87: cellar.v1.SandboxAPI.Logs:output_type -> cellar.v1.SandboxLogsChunk
+	30, // 88: cellar.v1.SandboxAPI.Exec:output_type -> cellar.v1.SandboxExecMessage
+	34, // 89: cellar.v1.SandboxAPI.StartJob:output_type -> cellar.v1.StartJobResponse
+	37, // 90: cellar.v1.SandboxAPI.ListJobs:output_type -> cellar.v1.ListJobsResponse
+	39, // 91: cellar.v1.SandboxAPI.GetJob:output_type -> cellar.v1.GetJobResponse
+	41, // 92: cellar.v1.SandboxAPI.StopJob:output_type -> cellar.v1.StopJobResponse
+	29, // 93: cellar.v1.SandboxAPI.JobLogs:output_type -> cellar.v1.SandboxLogsChunk
+	44, // 94: cellar.v1.SandboxAPI.FsRead:output_type -> cellar.v1.FsChunk
+	47, // 95: cellar.v1.SandboxAPI.FsWrite:output_type -> cellar.v1.FsWriteResponse
+	50, // 96: cellar.v1.SandboxAPI.FsStat:output_type -> cellar.v1.FsStatResponse
+	53, // 97: cellar.v1.SandboxAPI.FsList:output_type -> cellar.v1.FsListResponse
+	55, // 98: cellar.v1.SandboxAPI.FsExists:output_type -> cellar.v1.FsExistsResponse
+	57, // 99: cellar.v1.SandboxAPI.FsMkdir:output_type -> cellar.v1.FsMkdirResponse
+	59, // 100: cellar.v1.SandboxAPI.FsRemove:output_type -> cellar.v1.FsRemoveResponse
+	61, // 101: cellar.v1.SandboxAPI.FsRemoveDir:output_type -> cellar.v1.FsRemoveDirResponse
+	63, // 102: cellar.v1.SandboxAPI.FsCopy:output_type -> cellar.v1.FsCopyResponse
+	65, // 103: cellar.v1.SandboxAPI.FsRename:output_type -> cellar.v1.FsRenameResponse
+	23, // 104: cellar.v1.RuntimeAgent.Heartbeat:output_type -> cellar.v1.RuntimeHeartbeatResponse
+	25, // 105: cellar.v1.RuntimeAgent.UpdateSandboxStatus:output_type -> cellar.v1.UpdateSandboxStatusResponse
+	27, // 106: cellar.v1.RuntimeAgent.ListNodeSandboxes:output_type -> cellar.v1.ListNodeSandboxesResponse
+	29, // 107: cellar.v1.SandboxRuntime.Logs:output_type -> cellar.v1.SandboxLogsChunk
+	30, // 108: cellar.v1.SandboxRuntime.Exec:output_type -> cellar.v1.SandboxExecMessage
+	19, // 109: cellar.v1.SandboxRuntime.ApplyNetworkPolicy:output_type -> cellar.v1.ApplyNetworkPolicyResponse
+	34, // 110: cellar.v1.SandboxRuntime.StartJob:output_type -> cellar.v1.StartJobResponse
+	37, // 111: cellar.v1.SandboxRuntime.ListJobs:output_type -> cellar.v1.ListJobsResponse
+	39, // 112: cellar.v1.SandboxRuntime.GetJob:output_type -> cellar.v1.GetJobResponse
+	41, // 113: cellar.v1.SandboxRuntime.StopJob:output_type -> cellar.v1.StopJobResponse
+	29, // 114: cellar.v1.SandboxRuntime.JobLogs:output_type -> cellar.v1.SandboxLogsChunk
+	44, // 115: cellar.v1.SandboxRuntime.FsRead:output_type -> cellar.v1.FsChunk
+	47, // 116: cellar.v1.SandboxRuntime.FsWrite:output_type -> cellar.v1.FsWriteResponse
+	50, // 117: cellar.v1.SandboxRuntime.FsStat:output_type -> cellar.v1.FsStatResponse
+	53, // 118: cellar.v1.SandboxRuntime.FsList:output_type -> cellar.v1.FsListResponse
+	55, // 119: cellar.v1.SandboxRuntime.FsExists:output_type -> cellar.v1.FsExistsResponse
+	57, // 120: cellar.v1.SandboxRuntime.FsMkdir:output_type -> cellar.v1.FsMkdirResponse
+	59, // 121: cellar.v1.SandboxRuntime.FsRemove:output_type -> cellar.v1.FsRemoveResponse
+	61, // 122: cellar.v1.SandboxRuntime.FsRemoveDir:output_type -> cellar.v1.FsRemoveDirResponse
+	63, // 123: cellar.v1.SandboxRuntime.FsCopy:output_type -> cellar.v1.FsCopyResponse
+	65, // 124: cellar.v1.SandboxRuntime.FsRename:output_type -> cellar.v1.FsRenameResponse
+	75, // [75:125] is the sub-list for method output_type
+	25, // [25:75] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_sandbox_proto_init() }
@@ -2867,13 +4197,17 @@ func file_sandbox_proto_init() {
 		(*SandboxExecMessage_Exit)(nil),
 		(*SandboxExecMessage_StdinClosed)(nil),
 	}
+	file_sandbox_proto_msgTypes[45].OneofWrappers = []any{
+		(*FsWriteMessage_Start)(nil),
+		(*FsWriteMessage_Data)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sandbox_proto_rawDesc), len(file_sandbox_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   43,
+			NumMessages:   66,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

@@ -37,6 +37,16 @@ const (
 	Control_SandboxGetJob_FullMethodName        = "/cellar.v1.Control/SandboxGetJob"
 	Control_SandboxStopJob_FullMethodName       = "/cellar.v1.Control/SandboxStopJob"
 	Control_SandboxJobLogs_FullMethodName       = "/cellar.v1.Control/SandboxJobLogs"
+	Control_SandboxFsRead_FullMethodName        = "/cellar.v1.Control/SandboxFsRead"
+	Control_SandboxFsWrite_FullMethodName       = "/cellar.v1.Control/SandboxFsWrite"
+	Control_SandboxFsStat_FullMethodName        = "/cellar.v1.Control/SandboxFsStat"
+	Control_SandboxFsList_FullMethodName        = "/cellar.v1.Control/SandboxFsList"
+	Control_SandboxFsExists_FullMethodName      = "/cellar.v1.Control/SandboxFsExists"
+	Control_SandboxFsMkdir_FullMethodName       = "/cellar.v1.Control/SandboxFsMkdir"
+	Control_SandboxFsRemove_FullMethodName      = "/cellar.v1.Control/SandboxFsRemove"
+	Control_SandboxFsRemoveDir_FullMethodName   = "/cellar.v1.Control/SandboxFsRemoveDir"
+	Control_SandboxFsCopy_FullMethodName        = "/cellar.v1.Control/SandboxFsCopy"
+	Control_SandboxFsRename_FullMethodName      = "/cellar.v1.Control/SandboxFsRename"
 	Control_APIKeyCreate_FullMethodName         = "/cellar.v1.Control/APIKeyCreate"
 	Control_APIKeyList_FullMethodName           = "/cellar.v1.Control/APIKeyList"
 	Control_APIKeyDelete_FullMethodName         = "/cellar.v1.Control/APIKeyDelete"
@@ -73,6 +83,16 @@ type ControlClient interface {
 	SandboxGetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
 	SandboxStopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
 	SandboxJobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
+	SandboxFsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error)
+	SandboxFsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error)
+	SandboxFsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error)
+	SandboxFsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error)
+	SandboxFsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error)
+	SandboxFsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error)
+	SandboxFsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error)
+	SandboxFsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error)
+	SandboxFsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error)
+	SandboxFsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error)
 	// API key management (local unix socket; writes require Raft leader).
 	APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error)
 	APIKeyList(ctx context.Context, in *APIKeyListRequest, opts ...grpc.CallOption) (*APIKeyListResponse, error)
@@ -295,6 +315,118 @@ func (c *controlClient) SandboxJobLogs(ctx context.Context, in *JobLogsRequest, 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxJobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
 
+func (c *controlClient) SandboxFsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Control_ServiceDesc.Streams[3], Control_SandboxFsRead_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FsReadRequest, FsChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxFsReadClient = grpc.ServerStreamingClient[FsChunk]
+
+func (c *controlClient) SandboxFsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Control_ServiceDesc.Streams[4], Control_SandboxFsWrite_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FsWriteMessage, FsWriteResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxFsWriteClient = grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse]
+
+func (c *controlClient) SandboxFsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsStatResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsStat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxFsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsListResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxFsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsExistsResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsExists_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxFsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsMkdirResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsMkdir_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxFsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRemoveResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsRemove_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxFsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRemoveDirResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsRemoveDir_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxFsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsCopyResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsCopy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SandboxFsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FsRenameResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxFsRename_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlClient) APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(APIKeyCreateResponse)
@@ -410,6 +542,16 @@ type ControlServer interface {
 	SandboxGetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
 	SandboxStopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
 	SandboxJobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
+	SandboxFsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error
+	SandboxFsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error
+	SandboxFsStat(context.Context, *FsStatRequest) (*FsStatResponse, error)
+	SandboxFsList(context.Context, *FsListRequest) (*FsListResponse, error)
+	SandboxFsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error)
+	SandboxFsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error)
+	SandboxFsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error)
+	SandboxFsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error)
+	SandboxFsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error)
+	SandboxFsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error)
 	// API key management (local unix socket; writes require Raft leader).
 	APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error)
 	APIKeyList(context.Context, *APIKeyListRequest) (*APIKeyListResponse, error)
@@ -484,6 +626,36 @@ func (UnimplementedControlServer) SandboxStopJob(context.Context, *StopJobReques
 }
 func (UnimplementedControlServer) SandboxJobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
 	return status.Error(codes.Unimplemented, "method SandboxJobLogs not implemented")
+}
+func (UnimplementedControlServer) SandboxFsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error {
+	return status.Error(codes.Unimplemented, "method SandboxFsRead not implemented")
+}
+func (UnimplementedControlServer) SandboxFsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error {
+	return status.Error(codes.Unimplemented, "method SandboxFsWrite not implemented")
+}
+func (UnimplementedControlServer) SandboxFsStat(context.Context, *FsStatRequest) (*FsStatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsStat not implemented")
+}
+func (UnimplementedControlServer) SandboxFsList(context.Context, *FsListRequest) (*FsListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsList not implemented")
+}
+func (UnimplementedControlServer) SandboxFsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsExists not implemented")
+}
+func (UnimplementedControlServer) SandboxFsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsMkdir not implemented")
+}
+func (UnimplementedControlServer) SandboxFsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsRemove not implemented")
+}
+func (UnimplementedControlServer) SandboxFsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsRemoveDir not implemented")
+}
+func (UnimplementedControlServer) SandboxFsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsCopy not implemented")
+}
+func (UnimplementedControlServer) SandboxFsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxFsRename not implemented")
 }
 func (UnimplementedControlServer) APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method APIKeyCreate not implemented")
@@ -832,6 +1004,168 @@ func _Control_SandboxJobLogs_Handler(srv interface{}, stream grpc.ServerStream) 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxJobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
 
+func _Control_SandboxFsRead_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FsReadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ControlServer).SandboxFsRead(m, &grpc.GenericServerStream[FsReadRequest, FsChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxFsReadServer = grpc.ServerStreamingServer[FsChunk]
+
+func _Control_SandboxFsWrite_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServer).SandboxFsWrite(&grpc.GenericServerStream[FsWriteMessage, FsWriteResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Control_SandboxFsWriteServer = grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]
+
+func _Control_SandboxFsStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsStatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsStat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsStat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsStat(ctx, req.(*FsStatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxFsList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsList(ctx, req.(*FsListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxFsExists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsExistsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsExists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsExists_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsExists(ctx, req.(*FsExistsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxFsMkdir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsMkdirRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsMkdir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsMkdir_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsMkdir(ctx, req.(*FsMkdirRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxFsRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsRemove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsRemove_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsRemove(ctx, req.(*FsRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxFsRemoveDir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRemoveDirRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsRemoveDir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsRemoveDir_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsRemoveDir(ctx, req.(*FsRemoveDirRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxFsCopy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsCopyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsCopy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsCopy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsCopy(ctx, req.(*FsCopyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SandboxFsRename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FsRenameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxFsRename(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxFsRename_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxFsRename(ctx, req.(*FsRenameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Control_APIKeyCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(APIKeyCreateRequest)
 	if err := dec(in); err != nil {
@@ -1062,6 +1396,38 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Control_SandboxStopJob_Handler,
 		},
 		{
+			MethodName: "SandboxFsStat",
+			Handler:    _Control_SandboxFsStat_Handler,
+		},
+		{
+			MethodName: "SandboxFsList",
+			Handler:    _Control_SandboxFsList_Handler,
+		},
+		{
+			MethodName: "SandboxFsExists",
+			Handler:    _Control_SandboxFsExists_Handler,
+		},
+		{
+			MethodName: "SandboxFsMkdir",
+			Handler:    _Control_SandboxFsMkdir_Handler,
+		},
+		{
+			MethodName: "SandboxFsRemove",
+			Handler:    _Control_SandboxFsRemove_Handler,
+		},
+		{
+			MethodName: "SandboxFsRemoveDir",
+			Handler:    _Control_SandboxFsRemoveDir_Handler,
+		},
+		{
+			MethodName: "SandboxFsCopy",
+			Handler:    _Control_SandboxFsCopy_Handler,
+		},
+		{
+			MethodName: "SandboxFsRename",
+			Handler:    _Control_SandboxFsRename_Handler,
+		},
+		{
 			MethodName: "APIKeyCreate",
 			Handler:    _Control_APIKeyCreate_Handler,
 		},
@@ -1114,6 +1480,16 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "SandboxJobLogs",
 			Handler:       _Control_SandboxJobLogs_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "SandboxFsRead",
+			Handler:       _Control_SandboxFsRead_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SandboxFsWrite",
+			Handler:       _Control_SandboxFsWrite_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "control.proto",
