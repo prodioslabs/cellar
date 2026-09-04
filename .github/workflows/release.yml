@@ -45,8 +45,8 @@ jobs:
           tag="${GITHUB_REF_NAME}"
           version="${tag#v}"
           mkdir -p release-extras
-          # Sequential: shared :latest / :$tag names must not overwrite the
-          # other arch before docker save finishes.
+          # Each arch is exported straight to its tarball without touching
+          # the runner's local image store.
           for arch in amd64 arm64; do
             make egress-gateway-image-tarball \
               VERSION="$tag" \

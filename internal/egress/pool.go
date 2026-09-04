@@ -1,6 +1,7 @@
 package egress
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -184,6 +187,9 @@ func (p *Pool) spawnLocked(ctx context.Context) (*Instance, error) {
 	if err := p.pullIfMissing(ctx, p.cfg.Image); err != nil {
 		return nil, err
 	}
+	if err := p.checkImageArch(ctx, p.cfg.Image); err != nil {
+		return nil, err
+	}
 
 	exposed, err := nat.NewPort("tcp", controlPort)
 	if err != nil {
@@ -231,11 +237,98 @@ func (p *Pool) spawnLocked(ctx context.Context) (*Instance, error) {
 		_ = p.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 		return nil, fmt.Errorf("egress gateway published port: %w", err)
 	}
-	if err := waitTCP(addr, 30*time.Second); err != nil {
+	if err := p.waitControl(ctx, resp.ID, addr, token, 30*time.Second); err != nil {
 		_ = p.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 		return nil, fmt.Errorf("egress gateway control: %w", err)
 	}
 	return &Instance{ID: id, CID: resp.ID, ControlAddr: addr, Token: token}, nil
+}
+
+// checkImageArch refuses an egress image built for a different CPU
+// architecture. Docker happily creates such a container, but the process dies
+// with "exec format error" and the pool would otherwise only notice via
+// opaque connection-refused errors on every sandbox create.
+func (p *Pool) checkImageArch(ctx context.Context, ref string) error {
+	ins, _, err := p.cli.ImageInspectWithRaw(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("inspect egress image %s: %w", ref, err)
+	}
+	if ins.Architecture == "" || ins.Architecture == runtime.GOARCH {
+		return nil
+	}
+	return fmt.Errorf("egress image %s is built for %s/%s but this host is %s/%s; rebuild it with `make egress-gateway-image` or load the %s release archive",
+		ref, ins.Os, ins.Architecture, runtime.GOOS, runtime.GOARCH, runtime.GOARCH)
+}
+
+// readinessProbeID is a sandbox id that never exists; DeregisterSandbox on it
+// is a side-effect-free, authenticated round trip through the control API.
+const readinessProbeID = "cellar-readiness-probe"
+
+// waitControl blocks until the gateway's gRPC control API answers an
+// authenticated call. A bare TCP connect is not enough: Docker's port proxy
+// accepts connections on the published port even while the container is
+// crash-looping, so the process itself has to be probed. A container that
+// exits or restarts meanwhile fails fast with its last log lines.
+func (p *Pool) waitControl(ctx context.Context, containerID, addr, token string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		ins, err := p.cli.ContainerInspect(ctx, containerID)
+		if err != nil {
+			return fmt.Errorf("inspect egress gateway: %w", err)
+		}
+		if st := ins.State; st != nil && (!st.Running || st.Restarting || ins.RestartCount > 0) {
+			return fmt.Errorf("egress gateway container exited with code %d: %s", st.ExitCode, p.containerLogTail(ctx, containerID))
+		}
+		if err := probeControl(ctx, addr, token); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout waiting for control %s: %w", addr, lastErr)
+}
+
+// probeControl performs one authenticated control RPC against addr.
+func probeControl(ctx context.Context, addr, token string) error {
+	cli, conn, err := ControlClient(addr, token)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	pctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	defer cancel()
+	_, err = cli.DeregisterSandbox(pctx, &cellarv1.DeregisterSandboxRequest{SandboxId: readinessProbeID})
+	return err
+}
+
+// containerLogTail returns the last few log lines of a container, collapsed
+// onto one line for inclusion in an error message.
+func (p *Pool) containerLogTail(ctx context.Context, containerID string) string {
+	lctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+	rc, err := p.cli.ContainerLogs(lctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Tail: "5"})
+	if err != nil {
+		return "(logs unavailable)"
+	}
+	defer rc.Close()
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, rc); err != nil {
+		return "(logs unavailable)"
+	}
+	text := strings.TrimSpace(stderr.String() + "\n" + stdout.String())
+	if text == "" {
+		return "(no logs)"
+	}
+	const maxLogBytes = 1024
+	if len(text) > maxLogBytes {
+		text = text[len(text)-maxLogBytes:]
+	}
+	return strings.Join(strings.Fields(text), " ")
 }
 
 func mintToken() (string, error) {
@@ -279,24 +372,6 @@ func (p *Pool) pullIfMissing(ctx context.Context, ref string) error {
 	defer rc.Close()
 	_, _ = io.Copy(io.Discard, rc)
 	return nil
-}
-
-func waitTCP(addr string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	var lastErr error
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-		if err == nil {
-			_ = conn.Close()
-			return nil
-		}
-		lastErr = err
-		time.Sleep(100 * time.Millisecond)
-	}
-	if lastErr != nil {
-		return fmt.Errorf("timeout waiting for %s: %w", addr, lastErr)
-	}
-	return fmt.Errorf("timeout waiting for %s", addr)
 }
 
 // Assign picks the least-loaded gateway under MaxLegs, spawning if needed.

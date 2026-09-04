@@ -11,6 +11,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -41,6 +42,10 @@ type AssignmentSource interface {
 type restartBackoff struct {
 	attempts  int
 	notBefore time.Time
+	// reason is the failure that scheduled this backoff, surfaced in the
+	// sandbox status while waiting so `cellar sandbox inspect` shows the
+	// cause rather than only the countdown.
+	reason string
 }
 
 // Agent reconciles this node's Docker containers with the sandboxes the
@@ -325,8 +330,9 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 		phase, exit, err := a.Driver.InspectPhase(ctx, cid)
 		if err != nil {
 			delete(a.local, sb.ID)
-			a.noteRestart(sb.ID)
-			return fmt.Errorf("inspect: %w", err)
+			err = fmt.Errorf("inspect: %w", err)
+			a.noteRestart(sb.ID, err)
+			return err
 		}
 		if phase == sandbox.PhaseRunning {
 			_ = a.ensurePolicy(ctx, sb)
@@ -349,7 +355,7 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 			UpdatedAt:   time.Now().UTC(),
 			FinishedAt:  time.Now().UTC(),
 		})
-		a.reapContainer(ctx, sb.ID, cid)
+		a.reapContainer(ctx, sb.ID, cid, errors.New(msg))
 		return nil
 	}
 	return nil
@@ -360,9 +366,13 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) error {
 	now := time.Now()
 	if rb, ok := a.restarts[sb.ID]; ok && now.Before(rb.notBefore) {
+		msg := fmt.Sprintf("waiting %s before recreate", rb.notBefore.Sub(now).Round(time.Second))
+		if rb.reason != "" {
+			msg = rb.reason + "; " + msg
+		}
 		return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 			Phase:     sandbox.PhaseFailed,
-			Message:   fmt.Sprintf("waiting %s before recreate", rb.notBefore.Sub(now).Round(time.Second)),
+			Message:   msg,
 			UpdatedAt: now.UTC(),
 		})
 	}
@@ -380,7 +390,7 @@ func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) e
 	if sb.Spec.Network.Mode != sandbox.NetworkNone && sb.Spec.Network.Mode != "" {
 		egressOpts, err := a.setupTopology(ctx, sb)
 		if err != nil {
-			a.noteRestart(sb.ID)
+			a.noteRestart(sb.ID, err)
 			return err
 		}
 		opts.NetworkName = egressOpts.NetworkName
@@ -394,7 +404,7 @@ func (a *Agent) createDesiredRunning(ctx context.Context, sb *sandbox.Sandbox) e
 		if sb.Spec.Network.Mode != sandbox.NetworkNone && sb.Spec.Network.Mode != "" {
 			a.teardownEgress(ctx, sb.ID)
 		}
-		a.noteRestart(sb.ID)
+		a.noteRestart(sb.ID, err)
 		return err
 	}
 	delete(a.restarts, sb.ID)
@@ -530,22 +540,28 @@ func (a *Agent) ensurePolicy(ctx context.Context, sb *sandbox.Sandbox) error {
 
 // reapContainer removes an exited container, tears down egress, and starts
 // restart backoff so the next tick can recreate it.
-func (a *Agent) reapContainer(ctx context.Context, sandboxID, cid string) {
+func (a *Agent) reapContainer(ctx context.Context, sandboxID, cid string, reason error) {
 	if s := a.stopper(); s != nil {
 		_ = s.Remove(ctx, cid)
 	}
 	a.teardownEgress(ctx, sandboxID)
 	delete(a.local, sandboxID)
-	a.noteRestart(sandboxID)
+	a.noteRestart(sandboxID, reason)
 }
 
-// noteRestart records a failed or unexpected exit and sets the next recreate time.
-func (a *Agent) noteRestart(sandboxID string) {
+// noteRestart records a failed or unexpected exit and sets the next recreate
+// time. reason is kept so the status reported during the wait explains it.
+func (a *Agent) noteRestart(sandboxID string, reason error) {
 	prev := a.restarts[sandboxID]
 	attempts := prev.attempts
+	var why string
+	if reason != nil {
+		why = reason.Error()
+	}
 	a.restarts[sandboxID] = restartBackoff{
 		attempts:  attempts + 1,
 		notBefore: time.Now().Add(nextRestartDelay(attempts)),
+		reason:    why,
 	}
 }
 

@@ -115,8 +115,12 @@ cellar-egress-gateway:
 egress-gateway-image:
 	$(DOCKER) build -f images/egress-gateway/Dockerfile -t $(EGRESS_IMAGE):$(VERSION) -t $(EGRESS_IMAGE):latest .
 
-# Build a single-platform image and write a gzipped `docker save` archive
+# Build a single-platform image and write a gzipped `docker load`-able archive
 # (used by the release workflow; install.sh loads these with `docker load`).
+# The image is exported straight to the tarball and never enters the build
+# host's local image store: a `--load` of the foreign arch would retag
+# $(EGRESS_IMAGE):latest and leave cellard on that machine starting a gateway
+# that dies with "exec format error".
 # Cross-arch builds (e.g. arm64 on amd64) need QEMU/binfmt registered first:
 #   docker run --privileged --rm tonistiigi/binfmt --install all
 # (release.sh and CI do this automatically.)
@@ -126,8 +130,9 @@ egress-gateway-image-tarball:
 		-f images/egress-gateway/Dockerfile \
 		-t $(EGRESS_IMAGE):$(EGRESS_IMAGE_TAG) \
 		-t $(EGRESS_IMAGE):latest \
-		--load .
-	$(DOCKER) save $(EGRESS_IMAGE):latest $(EGRESS_IMAGE):$(EGRESS_IMAGE_TAG) | gzip > $(EGRESS_TARBALL)
+		--output type=docker,dest=$(EGRESS_TARBALL).tmp .
+	gzip -c $(EGRESS_TARBALL).tmp > $(EGRESS_TARBALL)
+	@rm -f $(EGRESS_TARBALL).tmp
 	@echo "Wrote $(EGRESS_TARBALL)"
 
 sdk-node:

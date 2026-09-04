@@ -54,7 +54,8 @@ docker run --privileged --rm tonistiigi/binfmt --install all >/dev/null
 
 printf 'Building egress-gateway image archives...\n'
 mkdir -p release-extras
-# Sequential: shared :latest / :$tag names must not overwrite the other arch before save.
+# Each arch is exported straight to its tarball; the local image store is
+# untouched, so a native cellard on this machine keeps its own :latest.
 for arch in amd64 arm64; do
 	make egress-gateway-image-tarball \
 		VERSION="$tag" \
