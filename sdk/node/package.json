@@ -1,6 +1,6 @@
 {
   "name": "@cellar/node",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript SDK for Cellar SandboxAPI (Node.js and Bun)",
   "license": "MIT",
   "files": [
