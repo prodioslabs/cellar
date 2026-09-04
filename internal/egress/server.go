@@ -212,18 +212,9 @@ func (s *Server) RegisterSandbox(_ context.Context, req *cellarv1.RegisterSandbo
 	}
 	sbIP := SandboxIP(subnet)
 
-	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(req.GetGatewayIp(), "53"))
+	udpConn, tcpLis, err := listenDNS(req.GetGatewayIp())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "dns udp addr: %v", err)
-	}
-	udpConn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "listen dns udp %s: %v", req.GetGatewayIp(), err)
-	}
-	tcpLis, err := net.Listen("tcp", net.JoinHostPort(req.GetGatewayIp(), "53"))
-	if err != nil {
-		_ = udpConn.Close()
-		return nil, status.Errorf(codes.Internal, "listen dns tcp %s: %v", req.GetGatewayIp(), err)
+		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
 
 	if err := addCatchAllRedirect(req.GetGatewayIp(), sbIP.String()); err != nil {
@@ -679,6 +670,50 @@ func (s *Server) handleDNS(sess *session, pkt []byte, reply func([]byte)) {
 	reply(out)
 }
 
+// dnsBindAttempts / dnsBindRetry are vars so tests can shrink the window.
+var (
+	dnsBindAttempts = 20
+	dnsBindRetry    = 50 * time.Millisecond
+)
+
+// listenUDP / listenTCP are net defaults, overridden in tests.
+var (
+	listenUDP = net.ListenUDP
+	listenTCP = net.Listen
+)
+
+// listenDNS binds UDP/TCP :53 on host. Retries because Docker may not have
+// assigned the gateway .2 address yet right after NetworkConnect.
+func listenDNS(host string) (*net.UDPConn, net.Listener, error) {
+	addr := net.JoinHostPort(host, "53")
+	var last error
+	for attempt := 0; attempt < dnsBindAttempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(dnsBindRetry)
+		}
+		udpAddr, err := net.ResolveUDPAddr("udp", addr)
+		if err != nil {
+			return nil, nil, fmt.Errorf("dns udp addr: %w", err)
+		}
+		udpConn, err := listenUDP("udp", udpAddr)
+		if err != nil {
+			last = fmt.Errorf("listen dns udp %s: %w", host, err)
+			continue
+		}
+		tcpLis, err := listenTCP("tcp", addr)
+		if err != nil {
+			_ = udpConn.Close()
+			last = fmt.Errorf("listen dns tcp %s: %w", host, err)
+			continue
+		}
+		return udpConn, tcpLis, nil
+	}
+	if last == nil {
+		return nil, nil, fmt.Errorf("listen dns %s: exhausted retries", host)
+	}
+	return nil, nil, last
+}
+
 func addCatchAllRedirect(gatewayIP, sandboxIP string) error {
 	specs := catchAllSpecs(gatewayIP, sandboxIP)
 	var applied [][]string
@@ -709,11 +744,14 @@ func deleteCatchAllRedirect(gatewayIP, sandboxIP string) error {
 
 func catchAllSpecs(gatewayIP, sandboxIP string) [][]string {
 	port := strconv.Itoa(catchAllPort)
-	// DNS-bait path: traffic destined to this gateway leg on non-80/443/53
-	// ports (domain allowlist with explicit ports).
+	// Dedicated listeners own :53 / :80 / :443 on the gateway leg. Skip
+	// those ports with RETURN instead of `multiport ! --dports` — nftables
+	// rejects inverted multiport ("multiport.0 does not support invert").
+	except := func(dport string) []string {
+		return []string{"PREROUTING", "-d", gatewayIP, "-p", "tcp", "--dport", dport, "-j", "RETURN"}
+	}
 	toLeg := []string{
 		"PREROUTING", "-d", gatewayIP, "-p", "tcp",
-		"-m", "multiport", "!", "--dports", "53,80,443",
 		"-j", "REDIRECT", "--to-ports", port,
 	}
 	// Routed raw-IP path: sandbox default route via .2 preserves the original
@@ -723,7 +761,7 @@ func catchAllSpecs(gatewayIP, sandboxIP string) [][]string {
 		"PREROUTING", "-s", sandboxIP, "!", "-d", gatewayIP, "-p", "tcp",
 		"-j", "REDIRECT", "--to-ports", port,
 	}
-	return [][]string{toLeg, routed}
+	return [][]string{except("53"), except("80"), except("443"), toLeg, routed}
 }
 
 func runIPTables(action string, spec []string) error {

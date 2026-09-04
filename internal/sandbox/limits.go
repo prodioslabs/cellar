@@ -47,7 +47,7 @@ func ResolveNetworkPolicy(np NetworkPolicy, networkAllowList, domainAllowList st
 	// everything except curated hosts.
 	essentialsAlone := out.EssentialServices && allowCIDRs == "" && allowDomains == "" && !hasBlock && !hasAllowAll &&
 		(np.Mode == "" || np.Mode == NetworkNone) &&
-		len(np.Rules) == 0 && np.DNS.Mode == "" && len(np.DNS.Names) == 0
+		len(np.Rules) == 0 && (np.DNS.Mode == "" || np.DNS.Mode == DNSNone) && len(np.DNS.Names) == 0
 
 	if limitCount > 1 {
 		return NetworkPolicy{}, fmt.Errorf("network_allow_list, domain_allow_list, block_all, and allow_all are mutually exclusive; set at most one")
