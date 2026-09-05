@@ -1,30 +1,28 @@
 ---
 title: Introduction
-description: Control plane for isolated microsandbox VMs
+description: Run isolated microsandbox VMs on your own machines
 ---
 
-Cellar is a control plane for isolated [microsandbox](https://github.com/superradcompany/microsandbox) VMs.
-This project implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
-**sandbox lifecycle** (desired state in Raft, local microsandbox driver on every node).
+Cellar is how you run [microsandbox](https://github.com/superradcompany/microsandbox) on machines you already have — a laptop, a rack in the basement, or VMs on AWS or GCP. You get the same isolated environments the hosted product would give you, without waiting on someone else's cloud.
 
-Clients use the **official microsandbox SDKs** in cloud mode with the backend URL set to
-**`cellar-gateway`**. See [Client API](/docs/api).
+Each sandbox is a real virtual machine, not a container sharing the host kernel. That is the point: untrusted code stays boxed in, whether you are evaluating a model, running a user-submitted script, or spinning up a short-lived workspace.
+
+You install Cellar, start a cluster, and add more machines when you need capacity. From there you can create sandboxes with the CLI, or from your own apps using the **official microsandbox SDKs**. Point the SDK at your Cellar gateway, pass an API key, and you are talking to sandboxes you run yourself. There is no separate Cellar SDK.
+
+The rest of these docs walk through install, joining nodes, and connecting clients.
 
 <Cards>
   <Card
     title="Quick start"
     href="/docs/quick-start"
-    description="Initialize a cluster and join a worker"
+    description="Stand up a cluster and add a worker"
   />
+  <Card title="Install" href="/docs/install" description="Get Cellar onto Linux or macOS" />
   <Card
-    title="Install"
-    href="/docs/install"
-    description="Build binaries and install systemd units"
+    title="Architecture"
+    href="/docs/architecture"
+    description="Binaries, roles, ports, and the cluster CA"
   />
-  <Card
-    title="Sandboxes"
-    href="/docs/sandboxes"
-    description="Create and manage KVM-backed sandboxes"
-  />
-  <Card title="Client API" href="/docs/api" description="HTTP gateway, API keys, and msb SDKs" />
+  <Card title="Sandboxes" href="/docs/sandboxes" description="Create and manage isolated VMs" />
+  <Card title="Client API" href="/docs/api" description="Connect apps with the microsandbox SDKs" />
 </Cards>

@@ -3,6 +3,45 @@ title: Build & install
 description: Build Cellar binaries, install systemd units, and download GitHub Releases
 ---
 
+## curl installer
+
+```bash
+curl -fsSL https://cellar.prodioslabs.in/install.sh | sh
+```
+
+<Callout type="info" title="Install v0.5.0">
+  Previous versions do not use microsandbox. Pin the installer:
+
+```bash
+curl -fsSL https://cellar.prodioslabs.in/install.sh | CELLAR_VERSION=v0.5.0 sh
+```
+
+</Callout>
+
+The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`). It uses `sudo` when needed, but does not enable or start the services.
+
+To set a prefix:
+
+```bash
+curl -fsSL https://cellar.prodioslabs.in/install.sh | CELLAR_VERSION=v0.5.0 CELLAR_PREFIX=/usr/local sh
+```
+
+## GitHub Releases
+
+Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles.
+
+Download URLs follow a stable layout:
+
+```text
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_amd64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_arm64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_amd64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_arm64.tar.gz
+https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/checksums.txt
+```
+
+Each tarball contains `cellar`, `cellard`, `cellar-gateway`, `LICENSE`, `README.md`, and `contrib/`.
+
 ## From source
 
 ```bash
@@ -38,27 +77,3 @@ cellar --version
 cellard -version
 cellar-gateway -version
 ```
-
-## GitHub Releases
-
-Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles.
-
-Download URLs follow a stable layout:
-
-```text
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_amd64.tar.gz
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_arm64.tar.gz
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_amd64.tar.gz
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_arm64.tar.gz
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/checksums.txt
-```
-
-Each tarball contains `cellar`, `cellard`, `cellar-gateway`, `LICENSE`, `README.md`, and `contrib/`.
-
-### curl installer
-
-```bash
-curl -fsSL https://cellar.prodioslabs.in/install.sh | sh
-```
-
-The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`).

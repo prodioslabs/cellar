@@ -5,7 +5,10 @@ description: Run the Cellar CLI without sudo via the cellar group
 
 The control socket is mode `0660` and owned by `cellar:cellar`. By default only root can talk to it; to run `cellar` without `sudo`, add your user to the `cellar` group (created by `systemd-sysusers` from `contrib/systemd/cellar.sysusers`).
 
-> **Warning:** The `cellar` group grants local control-plane access equivalent to root for CLI operations against the socket.
+<Callout type="warn" title="Warning">
+  The `cellar` group grants local control-plane access equivalent to root for CLI operations against
+  the socket.
+</Callout>
 
 1. Add your user to the `cellar` group.
 
