@@ -6,6 +6,7 @@ const withMDX = createMDX()
 const config = {
   reactStrictMode: true,
   output: 'standalone',
+  transpilePackages: ['three', '@react-three/fiber'],
   async redirects() {
     return [
       {

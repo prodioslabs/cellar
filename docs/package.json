@@ -12,6 +12,7 @@
     "typecheck": "fumadocs-mdx && next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@react-three/fiber": "^9.7.0",
     "fumadocs-core": "16.8.12",
     "fumadocs-mdx": "15.0.7",
     "fumadocs-ui": "16.8.12",

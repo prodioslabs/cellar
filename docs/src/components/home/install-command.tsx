@@ -28,14 +28,14 @@ export function InstallCommand({
   return (
     <div
       className={cn(
-        'flex w-full max-w-2xl items-center gap-2 rounded-xl border border-fd-border bg-fd-card px-3 py-2 shadow-sm sm:px-4 sm:py-2.5',
+        'flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-xl border border-fd-border bg-fd-card px-3 py-2 shadow-sm sm:max-w-2xl sm:px-4 sm:py-2.5',
         className,
       )}
     >
       <span className="shrink-0 font-mono text-sm text-fd-muted-foreground select-none" aria-hidden>
         $
       </span>
-      <code className="min-w-0 flex-1 truncate text-left font-mono text-[13px] text-fd-foreground sm:text-sm">
+      <code className="min-w-0 flex-1 truncate text-left font-mono text-[12px] text-fd-foreground sm:text-[13px] md:text-sm">
         {command}
       </code>
       <button
