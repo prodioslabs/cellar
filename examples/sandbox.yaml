@@ -1,8 +1,0 @@
-# Minimal sandbox create example (CLI uses flags; YAML file create was removed).
-# Prefer official microsandbox SDKs against cellar-gateway for apps.
-
-name: demo
-image: alpine:3.20
-resources:
-  vcpus: 1
-  memory_mib: 512
