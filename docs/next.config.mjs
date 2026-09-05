@@ -14,6 +14,26 @@ const config = {
         destination: 'https://raw.githubusercontent.com/prodioslabs/cellar/main/install.sh',
         permanent: false,
       },
+      {
+        source: '/docs/architecture/binaries',
+        destination: '/docs/architecture#binaries',
+        permanent: true,
+      },
+      {
+        source: '/docs/architecture/roles',
+        destination: '/docs/architecture#roles',
+        permanent: true,
+      },
+      {
+        source: '/docs/architecture/ports',
+        destination: '/docs/architecture#ports-and-sockets',
+        permanent: true,
+      },
+      {
+        source: '/docs/architecture/cluster-ca',
+        destination: '/docs/architecture#cluster-ca',
+        permanent: true,
+      },
     ]
   },
 }

@@ -1,9 +1,0 @@
----
-title: Cluster CA (HA)
-description: How the Raft-replicated RootCA works across managers
----
-
-1. `cellar init` generates a RootCA in memory, issues a local manager leaf, bootstraps Raft, and proposes `CreateCluster` with `CAKey` + `CACert` + join tokens.
-2. Every manager receives the same `Cluster.RootCA` through the raft log/snapshots.
-3. Only the **leader** runs the CA signer (`UpdateRootCA` from the store). On failover, the new leader loads signing material from raft — it does not re-seed from disk.
-4. External APIs never return `CAKey` (`GetRootCACertificate` is cert-only; `Cluster.Redact()` strips the key).
