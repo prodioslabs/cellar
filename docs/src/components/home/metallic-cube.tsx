@@ -36,7 +36,16 @@ const COLORS = {
 function makeEnvironment() {
   const env = new THREE.Scene()
   env.background = new THREE.Color(0x9aa3af)
-  const panel = (w: number, h: number, col: number, x: number, y: number, z: number, ry = 0, rx = 0) => {
+  const panel = (
+    w: number,
+    h: number,
+    col: number,
+    x: number,
+    y: number,
+    z: number,
+    ry = 0,
+    rx = 0,
+  ) => {
     const m = new THREE.Mesh(
       new THREE.PlaneGeometry(w, h),
       new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide }),
@@ -202,7 +211,10 @@ function startScene(canvas: HTMLCanvasElement) {
     ),
   )
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.18 }))
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(40, 40),
+    new THREE.ShadowMaterial({ opacity: 0.18 }),
+  )
   ground.rotation.x = -Math.PI / 2
   ground.position.y = -2.3
   ground.receiveShadow = true
@@ -326,7 +338,7 @@ export function MetallicCube() {
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="absolute inset-0 block size-full pointer-events-none"
+        className="pointer-events-none absolute inset-0 block size-full"
       />
     </div>
   )

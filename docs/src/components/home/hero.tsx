@@ -4,7 +4,7 @@ import { MetallicCube } from './metallic-cube'
 
 export function Hero() {
   return (
-    <section className="flex flex-col items-center px-6 pb-16 pt-6 text-center sm:pb-24 sm:pt-8">
+    <section className="flex flex-col items-center px-6 pt-6 pb-16 text-center sm:pt-8 sm:pb-24">
       <MetallicCube />
       <h1 className="mb-4 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
         Isolated sandboxes in one command

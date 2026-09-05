@@ -141,7 +141,7 @@ export function CliTerminal() {
         <span className="size-2.5 rounded-full bg-emerald-400/80" aria-hidden />
         <span className="ml-2 font-mono text-xs text-neutral-400">cellar</span>
       </div>
-      <pre className="min-h-[17rem] overflow-x-hidden p-4 font-mono text-[13px] leading-relaxed break-words whitespace-pre-wrap text-neutral-100 sm:min-h-[18rem] sm:text-sm">
+      <pre className="min-h-68 overflow-x-hidden p-4 font-mono text-[13px] leading-relaxed wrap-break-word whitespace-pre-wrap text-neutral-100 sm:min-h-72 sm:text-sm">
         {lines.map((line) =>
           line.kind === 'output' ? (
             <div key={line.key} className="text-neutral-400">
@@ -149,8 +149,7 @@ export function CliTerminal() {
             </div>
           ) : (
             <div key={line.key}>
-              <span className="text-emerald-400">$</span>{' '}
-              <span>{line.text}</span>
+              <span className="text-emerald-400">$</span> <span>{line.text}</span>
               {line.kind === 'typing' && !reducedMotion ? (
                 <span className="ml-px inline-block w-1.5 animate-pulse bg-emerald-300 align-[-2px]">
                   &nbsp;
