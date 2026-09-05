@@ -38,34 +38,6 @@ func TestNormalizeSpec(t *testing.T) {
 	}
 }
 
-func TestApplyLanguagePreset(t *testing.T) {
-	s, err := sandbox.ApplyLanguagePreset(sandbox.Spec{Name: "x"}, "node-26")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if s.Image.Reference != "node:26-alpine" {
-		t.Fatalf("image=%q", s.Image.Reference)
-	}
-}
-
-func TestResolveImage(t *testing.T) {
-	cases := map[string]string{
-		"node-26":     "node:26-alpine",
-		"bun-1.3":     "oven/bun:1.3-alpine",
-		"python-3.13": "astral/uv:python3.13-alpine",
-		"go-1.26":     "golang:1.26-alpine",
-	}
-	for id, want := range cases {
-		got, err := sandbox.ResolveImage(id)
-		if err != nil {
-			t.Fatalf("%s: %v", id, err)
-		}
-		if got != want {
-			t.Fatalf("%s: got %q want %q", id, got, want)
-		}
-	}
-}
-
 func TestHasHostMounts(t *testing.T) {
 	s := sandbox.Spec{Mounts: []sandbox.VolumeMount{{Type: "named", Name: "v", Guest: "/data"}}}
 	if s.HasHostMounts() {

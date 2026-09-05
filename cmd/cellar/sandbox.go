@@ -34,39 +34,28 @@ func newSandboxCreateCmd() *cobra.Command {
 	var (
 		name      string
 		image     string
-		runtime   string
 		memoryMiB uint32
 		vcpus     uint8
 		start     bool
 	)
 	cmd := &cobra.Command{
-		Use:   "create (--image <image> | --runtime <runtime>)",
+		Use:   "create --image <image>",
 		Short: "Create and schedule a sandbox",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(name) == "" {
 				return fmt.Errorf("--name is required")
 			}
-			if image == "" && runtime == "" {
-				return fmt.Errorf("--image or --runtime is required")
-			}
-			if image != "" && runtime != "" {
-				return fmt.Errorf("specify --image or --runtime, not both")
+			if image == "" {
+				return fmt.Errorf("--image is required")
 			}
 
 			spec := sandbox.Spec{
-				Name: name,
+				Name:  name,
+				Image: sandbox.OCIImage(image),
 				Resources: sandbox.Resources{
 					VCPUs:     vcpus,
 					MemoryMiB: memoryMiB,
 				},
-			}
-			if image != "" {
-				spec.Image = sandbox.OCIImage(image)
-			}
-			var err error
-			spec, err = sandbox.ApplyLanguagePreset(spec, runtime)
-			if err != nil {
-				return err
 			}
 			spec = sandbox.NormalizeSpec(spec)
 			if err := sandbox.ValidateSpec(spec); err != nil {
@@ -98,12 +87,12 @@ func newSandboxCreateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "sandbox name (required)")
-	cmd.Flags().StringVar(&image, "image", "", "OCI image reference")
-	cmd.Flags().StringVar(&runtime, "runtime", "", "language runtime preset (node-26, bun-1.3, python-3.13, go-1.26)")
+	cmd.Flags().StringVar(&image, "image", "", "OCI image reference (required)")
 	cmd.Flags().Uint32Var(&memoryMiB, "memory-mib", 512, "memory limit in MiB")
 	cmd.Flags().Uint8Var(&vcpus, "vcpus", 1, "number of vCPUs")
 	cmd.Flags().BoolVar(&start, "start", false, "start the sandbox after create")
 	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("image")
 	return cmd
 }
 

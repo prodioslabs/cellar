@@ -370,23 +370,6 @@ func NormalizeSpec(spec Spec) Spec {
 	return spec
 }
 
-// ApplyLanguagePreset fills Image from a CLI language preset when reference empty.
-func ApplyLanguagePreset(spec Spec, preset string) (Spec, error) {
-	preset = strings.TrimSpace(preset)
-	if preset == "" {
-		return spec, nil
-	}
-	img, err := ResolveImage(preset)
-	if err != nil {
-		return spec, err
-	}
-	if spec.Image.Reference != "" && spec.Image.Reference != img {
-		return spec, fmt.Errorf("specify image or runtime preset, not both")
-	}
-	spec.Image = OCIImage(img)
-	return spec, nil
-}
-
 // Clone returns a deep copy.
 func Clone(s *Sandbox) *Sandbox {
 	if s == nil {
