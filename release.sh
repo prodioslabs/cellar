@@ -22,6 +22,10 @@ cd "$root"
 command -v git >/dev/null 2>&1 || fail "git is required"
 command -v goreleaser >/dev/null 2>&1 || fail "goreleaser is required (go install github.com/goreleaser/goreleaser/v2@latest)"
 command -v gh >/dev/null 2>&1 || fail "gh is required"
+# cellard CGO builds linux/arm64 via aarch64-linux-gnu-gcc (see .goreleaser.yaml overrides).
+command -v aarch64-linux-gnu-gcc >/dev/null 2>&1 ||
+	fail "aarch64-linux-gnu-gcc is required for cellard linux/arm64 CGO (e.g. pacman -S aarch64-linux-gnu-gcc or apt install gcc-aarch64-linux-gnu)"
+
 
 if [ -z "${SKIP_TESTS:-}" ]; then
 	printf 'Running tests...\n'
