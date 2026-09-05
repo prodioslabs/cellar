@@ -1,0 +1,111 @@
+version: 2.1
+
+orbs:
+  go: circleci/go@4.0.0
+
+executors:
+  linux-go:
+    docker:
+      - image: cimg/go:1.26
+    environment:
+      GOTOOLCHAIN: auto
+
+commands:
+  checkout-full:
+    description: 'Checkout with full git history (GitHub fetch-depth: 0)'
+    steps:
+      - checkout
+      - run:
+          name: Fetch full git history and tags
+          command: |
+            if git rev-parse --is-shallow-repository | grep -q true; then
+              git fetch --unshallow --tags --force
+            else
+              git fetch --tags --force
+            fi
+
+  install-aarch64-cross-compiler:
+    steps:
+      - run:
+          name: Install aarch64 cross-compiler
+          command: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
+  install-goreleaser:
+    steps:
+      # Latest v2.x, matching goreleaser-action version: "~> v2"
+      - go/install-goreleaser
+
+jobs:
+  test:
+    executor: linux-go
+    steps:
+      - checkout
+      - go/mod-download-cached
+      - run:
+          name: Test
+          command: go test ./...
+
+  snapshot:
+    executor: linux-go
+    resource_class: large
+    steps:
+      - checkout-full
+      - go/mod-download-cached
+      - install-aarch64-cross-compiler
+      - install-goreleaser
+      - run:
+          name: Check GoReleaser config
+          command: goreleaser check
+      - run:
+          name: Snapshot release
+          command: goreleaser release --snapshot --clean
+
+  release:
+    executor: linux-go
+    resource_class: large
+    steps:
+      - checkout-full
+      - run:
+          name: Validate tag
+          command: |
+            tag="${CIRCLE_TAG}"
+            if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+              echo "Invalid release tag: $tag"
+              echo "Expected SemVer like v1.2.3 or v1.2.3-rc.1"
+              exit 1
+            fi
+      - go/mod-download-cached
+      - install-aarch64-cross-compiler
+      - run:
+          name: Test
+          command: go test ./...
+      - install-goreleaser
+      - run:
+          name: Check GoReleaser config
+          command: goreleaser check
+      - run:
+          name: Release
+          command: goreleaser release --clean
+
+workflows:
+  ci:
+    jobs:
+      - test:
+          filters:
+            tags:
+              ignore: /.*/
+      - snapshot:
+          requires:
+            - test
+          filters:
+            tags:
+              ignore: /.*/
+
+  release:
+    jobs:
+      - release:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$/
