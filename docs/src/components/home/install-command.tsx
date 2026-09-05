@@ -28,7 +28,7 @@ export function InstallCommand({
   return (
     <div
       className={cn(
-        'flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-xl border border-fd-border bg-fd-card px-3 py-2 shadow-sm sm:max-w-2xl sm:px-4 sm:py-2.5',
+        'flex w-full max-w-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border border-fd-border bg-fd-card px-3 py-2 shadow-sm sm:max-w-2xl sm:px-4 sm:py-2.5',
         className,
       )}
     >

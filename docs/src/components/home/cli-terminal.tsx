@@ -139,7 +139,7 @@ const SCRIPT: Step[] = [
   },
   {
     host: 'manager-a',
-    command: 'cellar sandbox create --name demo --runtime node-26 --start',
+    command: 'cellar sandbox create --name demo --image alpine:3.20 --start',
     output: ['sandbox abc123de created (name=demo node=9e8d7c6b phase=pending)'],
     stage: 5,
   },
@@ -282,7 +282,7 @@ function ClusterDiagram({ stage }: { stage: number }) {
           addr="192.0.2.20"
           on={workerC}
           subtitle={workerC ? 'joined · schedulable' : 'waiting for join token'}
-          footer={sandboxOn ? 'sandbox demo · node-26' : 'no sandboxes yet'}
+          footer={sandboxOn ? 'sandbox demo · alpine:3.20' : 'no sandboxes yet'}
           footerActive={sandboxOn}
         />
         <NodeCard
@@ -475,16 +475,16 @@ export function CliShowcase() {
 
   return (
     <section className="border-t border-fd-border px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
-      <div className="mx-auto w-full min-w-0 max-w-(--fd-layout-width)">
+      <div className="mx-auto w-full max-w-(--fd-layout-width) min-w-0">
         <div className="mb-8 max-w-3xl sm:mb-10">
           <p className="mb-2 text-sm font-medium text-fd-muted-foreground">Cluster</p>
           <h2 className="mb-4 text-xl font-bold tracking-tight text-balance sm:text-2xl lg:text-3xl">
-            Raft-backed nodes for your sandboxes
+            Start a cluster. Add machines when you need them.
           </h2>
           <p className="text-pretty text-fd-muted-foreground">
-            Cellar uses <code className="font-mono text-[13px]">Raft</code> to replicate desired
-            state across managers, then schedules hardware-isolated microsandbox VMs onto ready
-            workers. Bootstrap a manager, join nodes, and place sandboxes — no YAML required.
+            Bootstrap a manager, join more nodes, and create sandboxes. Cellar keeps cluster state
+            in <code className="font-mono text-[13px]">Raft</code>, then places hardware-isolated
+            VMs on workers that are ready. You don&apos;t write YAML for this.
           </p>
         </div>
 
@@ -504,23 +504,23 @@ export function CliShowcase() {
               <li className="flex gap-3">
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">1</span>
                 <span>
-                  <code className="font-mono text-[13px]">cellar init</code> bootstraps the Raft
-                  leader and cluster CA
+                  <code className="font-mono text-[13px]">cellar init</code> stands up the first
+                  manager — Raft leader and cluster CA
                 </span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">2</span>
                 <span>
-                  <code className="font-mono text-[13px]">join-token</code> +{' '}
-                  <code className="font-mono text-[13px]">cellar join</code> add extra managers,
-                  then workers
+                  Mint a <code className="font-mono text-[13px]">join-token</code>, then{' '}
+                  <code className="font-mono text-[13px]">cellar join</code> to add more managers
+                  and workers
                 </span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">3</span>
                 <span>
-                  <code className="font-mono text-[13px]">sandbox create</code> schedules a
-                  microsandbox VM onto a live node
+                  <code className="font-mono text-[13px]">sandbox create</code> puts a microsandbox
+                  VM on a live node
                 </span>
               </li>
             </ol>
@@ -528,23 +528,25 @@ export function CliShowcase() {
         </div>
 
         <div className="mt-12">
-          <p className="mb-3 text-sm font-medium text-fd-muted-foreground">Where you run it</p>
+          <p className="mb-3 text-sm font-medium text-fd-muted-foreground">
+            Run it wherever you already have machines
+          </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {(
               [
                 {
                   title: 'AWS',
-                  body: 'EC2 / bare metal with KVM — deployment guide coming soon.',
+                  body: 'EC2 or bare metal with KVM. Same Cellar install as anywhere else.',
                   icon: <AwsIcon className="size-5" />,
                 },
                 {
                   title: 'GCP',
-                  body: 'Compute Engine with nested virtualization — guide coming soon.',
+                  body: 'Compute Engine with nested virtualization. Point Cellar at VMs you already run.',
                   icon: <GcpIcon className="size-5" />,
                 },
                 {
                   title: 'Your own infra',
-                  body: 'Any Linux host with /dev/kvm, or macOS — guide coming soon.',
+                  body: 'A Linux box with /dev/kvm, or a Mac. A laptop is enough to start.',
                   icon: <Server className="size-5" />,
                 },
               ] as const satisfies ReadonlyArray<{
@@ -557,16 +559,11 @@ export function CliShowcase() {
                 key={card.title}
                 className="min-w-0 rounded-xl border border-fd-border bg-fd-card px-4 py-4"
               >
-                <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-fd-border bg-fd-background text-fd-foreground">
-                      {card.icon}
-                    </span>
-                    <h3 className="truncate text-sm font-semibold">{card.title}</h3>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-fd-muted px-2 py-0.5 text-[11px] font-medium text-fd-muted-foreground">
-                    Coming soon
+                <div className="mb-2 flex min-w-0 items-center gap-2.5">
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-fd-border bg-fd-background text-fd-foreground">
+                    {card.icon}
                   </span>
+                  <h3 className="truncate text-sm font-semibold">{card.title}</h3>
                 </div>
                 <p className="text-sm text-fd-muted-foreground">{card.body}</p>
               </div>

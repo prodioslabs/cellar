@@ -310,7 +310,7 @@ function LogoScene({
 
 function FallbackLogo() {
   return (
-    <div className="relative mx-auto flex h-36 w-full min-w-0 max-w-full items-center justify-center sm:h-40 sm:max-w-lg lg:h-56">
+    <div className="relative mx-auto flex h-36 w-full max-w-full min-w-0 items-center justify-center sm:h-40 sm:max-w-lg lg:h-56">
       <Image src="/cellar-logo.png" alt="" width={128} height={128} />
     </div>
   )
@@ -349,14 +349,14 @@ export function AnimatedLogo() {
 
   if (!mounted) {
     return (
-      <div className="relative mx-auto h-[min(32vh,16rem)] w-full min-w-0 max-w-full sm:h-[min(42vh,22rem)] sm:max-w-lg lg:h-[min(52vh,28rem)] lg:max-w-none" />
+      <div className="relative mx-auto h-[min(32vh,16rem)] w-full max-w-full min-w-0 sm:h-[min(42vh,22rem)] sm:max-w-lg lg:h-[min(52vh,28rem)] lg:max-w-none" />
     )
   }
 
   return (
     <CanvasErrorBoundary fallback={<FallbackLogo />}>
       <div
-        className="relative mx-auto h-[min(32vh,16rem)] w-full min-w-0 max-w-full cursor-pointer sm:h-[min(42vh,22rem)] sm:max-w-lg lg:h-[min(52vh,28rem)] lg:max-w-none"
+        className="relative mx-auto h-[min(32vh,16rem)] w-full max-w-full min-w-0 cursor-pointer sm:h-[min(42vh,22rem)] sm:max-w-lg lg:h-[min(52vh,28rem)] lg:max-w-none"
         aria-hidden="true"
         onPointerEnter={(event) => {
           const rect = event.currentTarget.getBoundingClientRect()

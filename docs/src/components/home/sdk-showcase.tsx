@@ -15,18 +15,18 @@ export MSB_API_KEY=cellar_…   # from: cellar api-key create --name app
 export function SdkShowcase() {
   return (
     <section className="border-t border-fd-border px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
-      <div className="mx-auto w-full min-w-0 max-w-(--fd-layout-width)">
+      <div className="mx-auto w-full max-w-(--fd-layout-width) min-w-0">
         <p className="mb-2 text-sm font-medium text-fd-muted-foreground">Clients</p>
         <h2 className="mb-3 text-xl font-bold tracking-tight text-balance sm:text-2xl lg:text-3xl">
-          Use microsandbox directly
+          Use the microsandbox SDKs you already know
         </h2>
         <p className="mb-8 max-w-2xl text-pretty text-fd-muted-foreground">
-          After your Cellar cluster is up, apps talk to{' '}
-          <code className="font-mono text-[13px]">cellar-gateway</code> with the official
-          microsandbox SDKs and CLI in cloud mode — no Cellar client SDK. Select the cloud backend,
-          set the API URL to your gateway, and pass a Cellar API key.
+          Once the cluster is up, point the official microsandbox SDKs at your{' '}
+          <code className="font-mono text-[13px]">cellar-gateway</code>, pass a Cellar API key, and
+          you&apos;re talking to sandboxes you run yourself. There&apos;s no separate Cellar SDK —
+          you use theirs, in cloud mode.
         </p>
-        <div className="min-w-0 max-w-full overflow-x-auto">
+        <div className="max-w-full min-w-0 overflow-x-auto">
           <DynamicCodeBlock
             lang="bash"
             code={NOTE}
