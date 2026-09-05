@@ -1,17 +1,14 @@
 [Unit]
 Description=Cellar node daemon
 Documentation=https://github.com/prodioslabs/cellar
-After=network-online.target docker.service systemd-sysusers.service
+After=network-online.target systemd-sysusers.service
 Wants=network-online.target
-Requires=docker.service
 
 [Service]
 Type=simple
 User=cellar
 Group=cellar
-SupplementaryGroups=docker
-CapabilityBoundingSet=CAP_NET_ADMIN
-AmbientCapabilities=CAP_NET_ADMIN
+SupplementaryGroups=kvm
 StateDirectory=cellar
 RuntimeDirectory=cellar
 RuntimeDirectoryMode=0755
@@ -21,12 +18,14 @@ RestartSec=5
 KillSignal=SIGTERM
 TimeoutStopSec=45
 
-# Hardening (compatible with Docker + CAP_NET_ADMIN)
+# Hardening (compatible with microsandbox / KVM)
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/cellar /run/cellar
+DeviceAllow=/dev/kvm rw
+DevicePolicy=closed
 
 [Install]
 WantedBy=multi-user.target

@@ -10,8 +10,8 @@ export function Hero() {
         Isolated sandboxes in one command
       </h1>
       <p className="mb-8 max-w-2xl text-lg text-fd-muted-foreground">
-        Install Cellar, create a hardened container, and run untrusted code with userspace egress
-        policy.
+        Install Cellar, create a KVM-backed microsandbox, and run untrusted code with cluster
+        scheduling and an HTTP gateway for official microsandbox SDKs.
       </p>
       <InstallCommand className="mb-8" />
       <div className="flex flex-wrap items-center justify-center gap-3">

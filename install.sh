@@ -6,8 +6,6 @@ REPOSITORY="prodioslabs/cellar"
 VERSION="${CELLAR_VERSION:-latest}"
 SYSTEMD_UNIT_DIR="${CELLAR_SYSTEMD_UNIT_DIR:-/usr/lib/systemd/system}"
 SYSUSERS_DIR="${CELLAR_SYSUSERS_DIR:-/usr/lib/sysusers.d}"
-SKIP_EGRESS_IMAGE="${CELLAR_SKIP_EGRESS_IMAGE:-}"
-EGRESS_IMAGE="cellar/egress-gateway"
 
 fail() {
 	printf 'cellar installer: %s\n' "$*" >&2
@@ -41,8 +39,7 @@ case "$(uname -m)" in
 		;;
 esac
 
-# Prefer the invoking user's home when the installer itself runs under sudo, so
-# macOS data-dir staging lands under /Users/... (Docker Desktop file sharing).
+# Prefer the invoking user's home when the installer itself runs under sudo.
 install_home=${HOME:-}
 if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
 	sudo_home=$(eval echo "~$SUDO_USER" 2>/dev/null || true)
@@ -87,8 +84,7 @@ tmp_dir=$(mktemp -d 2>/dev/null || mktemp -d -t cellar-install)
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 host_dir="$tmp_dir/host"
-linux_dir="$tmp_dir/linux"
-mkdir -p "$host_dir" "$linux_dir"
+mkdir -p "$host_dir"
 
 verify_archive() {
 	archive=$1
@@ -128,30 +124,12 @@ printf 'Fetching checksums for cellar %s...\n' "$VERSION"
 curl -fsSL --retry 3 -o "$tmp_dir/checksums.txt" "$release_url/checksums.txt"
 
 host_archive="cellar_${release_version}_${os}_${arch}.tar.gz"
-if [ "$os" = "darwin" ]; then
-	download_and_extract "$host_archive" "$host_dir" "${os}/${arch}" \
-		"cellar, cellard, cellar-gateway"
-
-	# Also fetch the linux archive for cellar-agent (runs inside Linux containers).
-	linux_archive="cellar_${release_version}_linux_${arch}.tar.gz"
-	download_and_extract "$linux_archive" "$linux_dir" "linux/${arch}" \
-		"cellar-agent"
-	agent_src="$linux_dir/cellar-agent"
-	egress_src=""
-else
-	download_and_extract "$host_archive" "$host_dir" "${os}/${arch}" \
-		"cellar, cellard, cellar-gateway, cellar-agent, cellar-egress-gateway"
-	agent_src="$host_dir/cellar-agent"
-	egress_src="$host_dir/cellar-egress-gateway"
-fi
+download_and_extract "$host_archive" "$host_dir" "${os}/${arch}" \
+	"cellar, cellard, cellar-gateway"
 
 for file in cellar cellard cellar-gateway; do
 	[ -f "$host_dir/$file" ] || fail "$file is missing from the $os release archive"
 done
-[ -f "$agent_src" ] || fail "cellar-agent is missing from the linux release archive"
-if [ "$os" = "linux" ]; then
-	[ -f "$egress_src" ] || fail "cellar-egress-gateway is missing from the linux release archive"
-fi
 
 if [ "$os" = "linux" ]; then
 	[ -f "$host_dir/contrib/systemd/cellard.service" ] ||
@@ -167,7 +145,6 @@ elif [ "$os" = "darwin" ]; then
 		fail "com.prodioslabs.cellar-gateway.plist is missing from the release archive"
 fi
 
-# sudo for PREFIX when needed; Docker Desktop on macOS is user-scoped (no sudo).
 if [ "$(id -u)" -eq 0 ]; then
 	sudo_cmd=""
 elif mkdir -p "$PREFIX/bin" 2>/dev/null && [ -w "$PREFIX/bin" ]; then
@@ -178,25 +155,13 @@ else
 	fail "run as root, install sudo, or set CELLAR_PREFIX to a writable directory"
 fi
 
-if [ "$os" = "darwin" ]; then
-	docker_cmd="docker"
-else
-	docker_cmd="${sudo_cmd:+$sudo_cmd }docker"
-fi
-
 $sudo_cmd install -d "$PREFIX/bin"
 for file in cellar cellard cellar-gateway; do
 	$sudo_cmd install -m 755 "$host_dir/$file" "$PREFIX/bin/$file"
 done
-$sudo_cmd install -m 755 "$agent_src" "$PREFIX/bin/cellar-agent"
 
-# On macOS, also stage cellar-agent under the default data dir so Docker Desktop
-# can bind-mount it (paths under /usr/local and Homebrew prefixes are not shared).
-# Render LaunchAgent plists into ~/Library/LaunchAgents (does not load them).
 if [ "$os" = "darwin" ]; then
 	install -d "$CELLAR_DATA_DIR"
-	install -m 755 "$agent_src" "$CELLAR_DATA_DIR/cellar-agent"
-	printf 'Staged cellar-agent for Docker Desktop at %s/cellar-agent\n' "$CELLAR_DATA_DIR"
 
 	launchd_agent_dir="${CELLAR_LAUNCHD_AGENT_DIR:-$install_home/Library/LaunchAgents}"
 	cellar_log_dir="${CELLAR_LOG_DIR:-$install_home/Library/Logs/cellar}"
@@ -219,11 +184,7 @@ if [ "$os" = "darwin" ]; then
 	printf 'Installed LaunchAgents (not loaded) under %s\n' "$launchd_agent_dir"
 fi
 
-# On Linux, also install the egress-gateway binary next to cellard (parity with
-# make install). On macOS the host never executes it — only the Docker image does.
 if [ "$os" = "linux" ]; then
-	$sudo_cmd install -m 755 "$egress_src" "$PREFIX/bin/cellar-egress-gateway"
-
 	$sudo_cmd install -d "$SYSTEMD_UNIT_DIR"
 	$sudo_cmd install -m 644 \
 		"$host_dir/contrib/systemd/cellard.service" \
@@ -238,38 +199,10 @@ if [ "$os" = "linux" ]; then
 		"$SYSUSERS_DIR/cellar.conf"
 fi
 
-# Load the prebuilt cellar/egress-gateway image from the release (docker save).
-image_archive="cellar-egress-gateway-image_${release_version}_linux_${arch}.tar.gz"
-image_dir="$tmp_dir/image"
-mkdir -p "$image_dir"
-
-egress_image_loaded=0
-if [ -n "$SKIP_EGRESS_IMAGE" ]; then
-	printf '\nSkipping egress-gateway image load (CELLAR_SKIP_EGRESS_IMAGE is set).\n'
-elif ! command -v docker >/dev/null 2>&1; then
-	printf '\nDocker not found; skipping egress-gateway image load.\n'
-elif ! $docker_cmd info >/dev/null 2>&1; then
-	printf '\nDocker daemon not reachable; skipping egress-gateway image load.\n'
-else
-	printf '\nDownloading %s image archive...\n' "$EGRESS_IMAGE"
-	curl -fsSL --retry 3 -o "$image_dir/$image_archive" "$release_url/$image_archive"
-	verify_archive "$image_archive" "$image_dir"
-	printf 'Loading %s Docker image...\n' "$EGRESS_IMAGE"
-	$docker_cmd load -i "$image_dir/$image_archive"
-	egress_image_loaded=1
-	printf 'Loaded %s:latest and %s:%s\n' "$EGRESS_IMAGE" "$EGRESS_IMAGE" "$VERSION"
-fi
-
 printf '\nCellar %s installed successfully.\n' "$VERSION"
 
-if [ "$egress_image_loaded" -eq 0 ]; then
-	printf '\nNetworked sandboxes need the %s image. Load it later with:\n' "$EGRESS_IMAGE"
-	printf '  curl -fsSL -o %s %s/%s\n' "$image_archive" "$release_url" "$image_archive"
-	printf '  docker load -i %s\n' "$image_archive"
-	printf '  # or from a source checkout: make egress-gateway-image\n'
-fi
-
 if [ "$os" = "linux" ]; then
+	printf '\nHosts need KVM (/dev/kvm). cellard will EnsureInstalled microsandbox on first use.\n'
 	printf '\nRun these commands to create the service user and start Cellar:\n'
 	printf '  sudo systemd-sysusers\n'
 	printf '  sudo systemctl daemon-reload\n'
@@ -277,13 +210,13 @@ if [ "$os" = "linux" ]; then
 	printf '  sudo systemctl enable --now cellar-gateway   # optional\n'
 else
 	printf '\nNext steps on macOS:\n'
-	printf '  1. Ensure Docker Desktop is running\n'
+	printf '  1. Ensure Virtualization.framework / KVM-equivalent access is available\n'
 	printf '  2. Load the daemon:   launchctl bootstrap gui/$(id -u) %s/com.prodioslabs.cellard.plist\n' \
 		"${CELLAR_LAUNCHD_AGENT_DIR:-$install_home/Library/LaunchAgents}"
 	printf '  3. Initialize:        cellar init --advertise-addr 127.0.0.1:17946\n'
 	printf '  (Optional gateway):   launchctl bootstrap gui/$(id -u) %s/com.prodioslabs.cellar-gateway.plist\n' \
 		"${CELLAR_LAUNCHD_AGENT_DIR:-$install_home/Library/LaunchAgents}"
-	printf '  Data, socket, and staged cellar-agent live under %s.\n' "$CELLAR_DATA_DIR"
+	printf '  Data and socket live under %s.\n' "$CELLAR_DATA_DIR"
 	printf '  Logs: %s\n' "${CELLAR_LOG_DIR:-$install_home/Library/Logs/cellar}"
 	case ":$PATH:" in
 		*"$PREFIX/bin"*) ;;

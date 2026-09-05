@@ -1,13 +1,14 @@
 ---
 title: Introduction
-description: Container orchestrator control plane for isolated sandboxes
+description: Control plane for isolated microsandbox VMs
 ---
 
-Cellar is a container orchestrator control plane for isolated sandboxes.
+Cellar is a control plane for isolated [microsandbox](https://github.com/superradcompany/microsandbox) VMs.
 This project implements the **cluster identity layer** (mTLS gRPC, Raft-replicated CA) and
-**sandbox lifecycle** (desired state in Raft, Docker + hardened runc on every node, userspace egress policy).
+**sandbox lifecycle** (desired state in Raft, local microsandbox driver on every node).
 
-Clients: Go [`sdk/go`](/docs/sdk/go) and TypeScript [`@cellar/node`](/docs/sdk/node) talk to **`cellar-gateway`** over HTTPS — see [Client API](/docs/api) and the SDK pages.
+Clients use the **official microsandbox SDKs** in cloud mode with the backend URL set to
+**`cellar-gateway`**. See [Client API](/docs/api).
 
 <Cards>
   <Card
@@ -23,7 +24,7 @@ Clients: Go [`sdk/go`](/docs/sdk/go) and TypeScript [`@cellar/node`](/docs/sdk/n
   <Card
     title="Sandboxes"
     href="/docs/sandboxes"
-    description="Create, exec, and network-isolate sandboxes"
+    description="Create and manage KVM-backed sandboxes"
   />
-  <Card title="Client API" href="/docs/api" description="HTTP gateway, API keys, and SDKs" />
+  <Card title="Client API" href="/docs/api" description="HTTP gateway, API keys, and msb SDKs" />
 </Cards>

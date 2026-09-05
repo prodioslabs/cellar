@@ -10,6 +10,6 @@ Put an **Application Load Balancer** (HTTPS) in front of gateway instances:
 3. Health check: `GET /readyz` (mark unhealthy if SandboxAPI unreachable).
 4. **No stickiness** — unary routes are safe across instances; each log stream stays on one connection for its lifetime.
 5. Enable connection draining so in-flight log streams can finish on deregister.
-6. Raise the ALB idle timeout (e.g. 5–15 minutes) so collected `exec` and long `logs?follow=true` streams are not cut early.
+6. Raise the ALB idle timeout (e.g. 5–15 minutes) so long `logs` and agent WebSocket streams are not cut early.
 
 Keep Raft / gRPC advertise addresses as real node-reachable IPs — do not point intra-cluster traffic at the ALB.

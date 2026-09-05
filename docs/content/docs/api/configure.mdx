@@ -1,16 +1,19 @@
 ---
 title: Configure the client
-description: Environment variables for Go and TypeScript SDKs
+description: Point official microsandbox SDKs at cellar-gateway
 ---
 
-| Variable          | Required | Meaning                                         |
-| ----------------- | -------- | ----------------------------------------------- |
-| `CELLAR_API_KEY`  | yes      | Raw key from `api-key create` (`cellar_…`)      |
-| `CELLAR_ENDPOINT` | yes      | Gateway base URL (`https://cellar.example.com`) |
+Use the official microsandbox SDK in **cloud** mode. The cloud backend URL is your Cellar gateway; authenticate with a Cellar API key.
+
+| Variable / setting | Required | Meaning                                              |
+| ------------------ | -------- | ---------------------------------------------------- |
+| API key            | yes      | Raw key from `api-key create` (`cellar_…`)           |
+| Cloud backend URL  | yes      | Gateway base URL (`https://cellar.example.com`)      |
 
 ```bash
 export CELLAR_API_KEY='cellar_…'
-export CELLAR_ENDPOINT='https://cellar.example.com'
+# Configure the microsandbox SDK cloud backend to:
+#   https://cellar.example.com
 ```
 
-Apps no longer need `CELLAR_CA_CERT` or direct manager gRPC addresses. The gateway holds the cluster CA and talks to managers privately.
+Apps do not need `CELLAR_CA_CERT` or direct manager gRPC addresses. The gateway holds the cluster CA and talks to managers privately.

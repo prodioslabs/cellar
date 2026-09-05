@@ -11,7 +11,7 @@ with placeholders substituted; install does **not** load the agents.
 | `@BINDIR@` | `$HOME/.local/bin` | Directory containing `cellard` / `cellar-gateway` |
 | `@DATA_DIR@` | `$HOME/.cellar` | Cellar data directory (`--data-dir`) |
 | `@LOG_DIR@` | `$HOME/Library/Logs/cellar` | Stdout/stderr log files |
-| `@HOME@` | `$HOME` | Used for `DOCKER_HOST` (Docker Desktop user socket) |
+| `@HOME@` | `$HOME` | Home directory (reserved for future use) |
 
 ## Manual install
 

@@ -3,10 +3,13 @@ title: Quick start
 description: Initialize a Cellar cluster and join a worker node
 ---
 
+Hosts need **KVM** (`/dev/kvm` on Linux). `cellard` calls microsandbox `EnsureInstalled` on first sandbox use.
+
 ```bash
 # On each host — install, create the cellar system user, start the daemon
 sudo make install
 sudo systemd-sysusers
+sudo usermod -aG kvm cellar
 sudo systemctl daemon-reload
 sudo systemctl enable --now cellard
 sudo systemctl enable --now cellar-gateway   # optional: HTTP front door for apps

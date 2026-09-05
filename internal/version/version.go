@@ -21,7 +21,7 @@ func String() string {
 
 // Requested reports whether args contain -version or --version before a "--"
 // terminator. Useful for binaries that need early exit before full flag/config
-// parsing (e.g. cellar-agent).
+// parsing (e.g. cellard).
 func Requested(args []string) bool {
 	for _, a := range args {
 		if a == "--" {

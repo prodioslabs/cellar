@@ -6,15 +6,14 @@ description: Build Cellar binaries, install systemd units, and download GitHub R
 ## From source
 
 ```bash
-make build                  # → bin/cellard, bin/cellar, bin/cellar-agent, bin/cellar-gateway, bin/cellar-egress-gateway
-# or: make cellard / make cellar / make cellar-agent / make cellar-gateway / make cellar-egress-gateway
-make egress-gateway-image   # → cellar/egress-gateway:latest (required for networked sandboxes)
+make build                  # → bin/cellard, bin/cellar, bin/cellar-gateway
+# or: make cellard / make cellar / make cellar-gateway
 
 sudo make install           # Linux: binaries → /usr/local/bin, plus systemd units + sysusers from contrib/
-make install                # macOS: binaries → ~/.local/bin (no sudo), LaunchAgents, stage agent under ~/.cellar
+make install                # macOS: binaries → ~/.local/bin (no sudo), LaunchAgents under ~/Library/LaunchAgents
 ```
 
-Requires Go 1.26+. `cellar-agent` and `cellar-egress-gateway` are built with `CGO_ENABLED=0`. `make install` places them next to `cellard` (override with `CELLAR_AGENT_BINARY` if needed). It also installs:
+Requires Go 1.26+. `cellard` is built with `CGO_ENABLED=1` (microsandbox FFI / KVM). Hosts need `/dev/kvm` (Linux) or Virtualization.framework (macOS). `make install` places the three binaries next to each other. It also installs:
 
 | Source                                   | Destination (Linux)                              |
 | ---------------------------------------- | ------------------------------------------------ |
@@ -22,30 +21,27 @@ Requires Go 1.26+. `cellar-agent` and `cellar-egress-gateway` are built with `CG
 | `contrib/systemd/cellar-gateway.service` | `/usr/lib/systemd/system/cellar-gateway.service` |
 | `contrib/systemd/cellar.sysusers`        | `/usr/lib/sysusers.d/cellar.conf`                |
 
-| Source                                              | Destination (macOS)                                    |
-| --------------------------------------------------- | ------------------------------------------------------ |
-| host binaries                                       | `~/.local/bin/`                                        |
-| `contrib/launchd/com.prodioslabs.cellard.plist`     | `~/Library/LaunchAgents/com.prodioslabs.cellard.plist` |
+| Source                                                 | Destination (macOS)                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------- |
+| host binaries                                          | `~/.local/bin/`                                               |
+| `contrib/launchd/com.prodioslabs.cellard.plist`        | `~/Library/LaunchAgents/com.prodioslabs.cellard.plist`        |
 | `contrib/launchd/com.prodioslabs.cellar-gateway.plist` | `~/Library/LaunchAgents/com.prodioslabs.cellar-gateway.plist` |
-| `cellar-agent` (staged for Docker Desktop)          | `~/.cellar/cellar-agent`                               |
 
-`make install` does not enable or start the services. On macOS, load agents with `launchctl bootstrap gui/$(id -u) …`. Use `make uninstall` to remove the installed files.
+`make install` does not enable or start the services. On macOS, load agents with `launchctl bootstrap gui/$(id -u) …`. Use `make uninstall` to remove the installed files. After install on Linux, add the `cellar` user to the `kvm` group so sandboxes can open `/dev/kvm`.
 
 ### Version stamping
 
-`cellar`, `cellard`, `cellar-agent`, `cellar-gateway`, and `cellar-egress-gateway` share one SemVer. `make build` injects version, commit, and build date via ldflags (override with `VERSION=…`, `COMMIT=…`, `BUILD_DATE=…`).
+`cellar`, `cellard`, and `cellar-gateway` share one SemVer. `make build` injects version, commit, and build date via ldflags (override with `VERSION=…`, `COMMIT=…`, `BUILD_DATE=…`).
 
 ```bash
 cellar --version
 cellard -version
 cellar-gateway -version
-cellar-agent -version
-cellar-egress-gateway -version
 ```
 
 ## GitHub Releases
 
-Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles plus prebuilt `cellar/egress-gateway` image tarballs. `cellar-agent` and `cellar-egress-gateway` are Linux-only (injected into containers); Darwin archives ship host tools — the curl installer also fetches the matching Linux archive so it can place `cellar-agent` beside `cellard`, and loads the egress image with `docker load`.
+Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles.
 
 Download URLs follow a stable layout:
 
@@ -54,12 +50,10 @@ https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linu
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_arm64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_amd64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_arm64.tar.gz
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar-egress-gateway-image_X.Y.Z_linux_amd64.tar.gz
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar-egress-gateway-image_X.Y.Z_linux_arm64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/checksums.txt
 ```
 
-Each Linux tarball co-locates the Cellar binaries (so `cellard` can find `cellar-agent` beside itself), including `cellar-egress-gateway`, plus `LICENSE`, `README.md`, and `contrib/systemd/`. Darwin tarballs omit the Linux-only binaries and include `contrib/launchd/` LaunchAgent templates. Image archives are gzipped `docker save` outputs of `cellar/egress-gateway:latest` and `cellar/egress-gateway:vX.Y.Z`.
+Each tarball contains `cellar`, `cellard`, `cellar-gateway`, `LICENSE`, `README.md`, and `contrib/`.
 
 ### curl installer
 
@@ -67,4 +61,4 @@ Each Linux tarball co-locates the Cellar binaries (so `cellard` can find `cellar
 curl -fsSL https://cellar.prodioslabs.in/install.sh | sh
 ```
 
-The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`). When Docker is reachable it downloads and loads the prebuilt `cellar/egress-gateway` image. Opt out with `CELLAR_SKIP_EGRESS_IMAGE=1`. From a source checkout you can also run `make egress-gateway-image`.
+The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`).

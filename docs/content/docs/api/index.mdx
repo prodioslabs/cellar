@@ -5,6 +5,8 @@ description: Remote apps talk to cellar-gateway over HTTPS
 
 Apps talk to **`cellar-gateway`** over HTTPS (JSON). The gateway runs on manager or worker hosts, dials manager `SandboxAPI` with the cluster CA, and forwards each caller’s API key. Mint the key once with the CLI; do **not** run `cellar sandbox …` from application code.
 
+Use the **official microsandbox SDKs** in cloud mode. Set the cloud backend URL to your Cellar gateway (for example `https://cellar.example.com`) and pass a Cellar API key.
+
 <Cards>
   <Card title="API keys" href="/docs/api/api-keys" description="Create, list, and revoke keys" />
   <Card
@@ -20,12 +22,6 @@ Apps talk to **`cellar-gateway`** over HTTPS (JSON). The gateway runs on manager
   <Card
     title="Configure the client"
     href="/docs/api/configure"
-    description="CELLAR_API_KEY and CELLAR_ENDPOINT"
-  />
-  <Card title="Go SDK" href="/docs/sdk/go" description="github.com/prodioslabs/cellar/sdk/go" />
-  <Card
-    title="TypeScript SDK"
-    href="/docs/sdk/node"
-    description="@cellar/node for Node.js and Bun"
+    description="API key and gateway URL for msb SDKs"
   />
 </Cards>

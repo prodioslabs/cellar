@@ -1,5 +1,5 @@
 #!/bin/sh
-# Create a GitHub Release locally (tag + egress image tarballs + goreleaser).
+# Create a GitHub Release locally (tag + goreleaser).
 # Usage: ./release.sh v0.1.0
 # Optional: SKIP_TESTS=1 SKIP_PUSH=1 ./release.sh v0.1.0
 
@@ -16,18 +16,12 @@ tag=${1:-}
 echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$' ||
 	fail "invalid tag: $tag (expected SemVer like v1.2.3 or v1.2.3-rc.1)"
 
-version=${tag#v}
 root=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 cd "$root"
 
 command -v git >/dev/null 2>&1 || fail "git is required"
-command -v make >/dev/null 2>&1 || fail "make is required"
-command -v docker >/dev/null 2>&1 || fail "docker is required"
 command -v goreleaser >/dev/null 2>&1 || fail "goreleaser is required (go install github.com/goreleaser/goreleaser/v2@latest)"
 command -v gh >/dev/null 2>&1 || fail "gh is required"
-
-docker info >/dev/null 2>&1 || fail "docker daemon is not reachable"
-docker buildx version >/dev/null 2>&1 || fail "docker buildx is required"
 
 if [ -z "${SKIP_TESTS:-}" ]; then
 	printf 'Running tests...\n'
@@ -46,22 +40,6 @@ if [ -z "${SKIP_PUSH:-}" ]; then
 	printf 'Pushing tag %s...\n' "$tag"
 	git push origin "$tag"
 fi
-
-printf 'Registering QEMU binfmt handlers for cross-arch image builds...\n'
-# Same role as docker/setup-qemu-action in CI. Required to RUN foreign-arch
-# stages (e.g. apt-get in the arm64 debian stage on an amd64 host).
-docker run --privileged --rm tonistiigi/binfmt --install all >/dev/null
-
-printf 'Building egress-gateway image archives...\n'
-mkdir -p release-extras
-# Each arch is exported straight to its tarball; the local image store is
-# untouched, so a native cellard on this machine keeps its own :latest.
-for arch in amd64 arm64; do
-	make egress-gateway-image-tarball \
-		VERSION="$tag" \
-		EGRESS_IMAGE_ARCH="$arch" \
-		EGRESS_TARBALL="release-extras/cellar-egress-gateway-image_${version}_linux_${arch}.tar.gz"
-done
 
 export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
 [ -n "$GITHUB_TOKEN" ] || fail "GITHUB_TOKEN is empty (run: gh auth login)"

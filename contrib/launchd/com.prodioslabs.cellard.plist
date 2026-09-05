@@ -33,8 +33,6 @@
 	<dict>
 		<key>PATH</key>
 		<string>@BINDIR@:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-		<key>DOCKER_HOST</key>
-		<string>unix://@HOME@/.docker/run/docker.sock</string>
 	</dict>
 </dict>
 </plist>

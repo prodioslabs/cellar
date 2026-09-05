@@ -25,29 +25,26 @@ No auth:
 
 ## HTTP API
 
-All require `Authorization: Bearer cellar_…` or `X-Api-Key`:
+Routes follow the microsandbox cloud shape. All require `Authorization: Bearer cellar_…` or `X-Api-Key`:
 
-| Method | Path                        | Notes                                                       |
-| ------ | --------------------------- | ----------------------------------------------------------- |
-| POST   | `/v1/sandboxes`             | create                                                      |
-| GET    | `/v1/sandboxes`             | list                                                        |
-| GET    | `/v1/sandboxes/:id`         | get                                                         |
-| DELETE | `/v1/sandboxes/:id`         | remove                                                      |
-| POST   | `/v1/sandboxes/:id/stop`    | stop                                                        |
-| PUT    | `/v1/sandboxes/:id/network` | update network policy                                       |
-| GET    | `/v1/sandboxes/:id/logs`              | NDJSON stream (`follow`, `tail`, `timestamps` query params) |
-| POST   | `/v1/sandboxes/:id/exec`              | `{"command":[…]}` → collected stdout/stderr/exitCode; `detach:true` → `{jobId}` |
-| GET    | `/v1/sandboxes/:id/jobs`              | list background jobs                                        |
-| GET    | `/v1/sandboxes/:id/jobs/:jobId`       | get job                                                     |
-| DELETE | `/v1/sandboxes/:id/jobs/:jobId`       | stop job                                                    |
-| GET    | `/v1/sandboxes/:id/jobs/:jobId/logs`  | NDJSON job logs                                             |
-| GET    | `/v1/sandboxes/:id/fs/content?path=`  | raw file bytes (`application/octet-stream`)                 |
-| PUT    | `/v1/sandboxes/:id/fs/content?path=`  | write/overwrite file from raw body (streaming)               |
-| GET    | `/v1/sandboxes/:id/fs/stat?path=`     | JSON metadata                                               |
-| GET    | `/v1/sandboxes/:id/fs/list?path=`     | `{ "entries": […] }`                                        |
-| GET    | `/v1/sandboxes/:id/fs/exists?path=`   | `{ "exists": true }`                                        |
-| POST   | `/v1/sandboxes/:id/fs/mkdir`          | `{ "path" }` — parents must already exist                   |
-| POST   | `/v1/sandboxes/:id/fs/remove`         | `{ "path" }` — file only                                    |
-| POST   | `/v1/sandboxes/:id/fs/remove-dir`     | `{ "path" }` — empty directory only                         |
-| POST   | `/v1/sandboxes/:id/fs/copy`           | `{ "from", "to" }` — in-sandbox file copy                   |
-| POST   | `/v1/sandboxes/:id/fs/rename`         | `{ "from", "to" }`                                          |
+| Method | Path                                     | Notes                                      |
+| ------ | ---------------------------------------- | ------------------------------------------ |
+| POST   | `/v1/sandboxes`                          | create (cloud Spec JSON body)              |
+| GET    | `/v1/sandboxes`                          | list                                       |
+| GET    | `/v1/sandboxes/:id`                      | get                                        |
+| POST   | `/v1/sandboxes/:id/start`                | start                                      |
+| POST   | `/v1/sandboxes/:id/stop`                 | stop                                       |
+| DELETE | `/v1/sandboxes/:id`                      | remove                                     |
+| GET    | `/v1/sandboxes/:id/logs`                 | log stream                                 |
+| GET    | `/v1/sandboxes/:id/agent`                | agent WebSocket relay                      |
+| GET    | `/v1/sandboxes/by-name/:name`            | get by name                                |
+| POST   | `/v1/sandboxes/by-name/:name/start`      | start by name                              |
+| POST   | `/v1/sandboxes/by-name/:name/stop`       | stop by name                               |
+| DELETE | `/v1/sandboxes/by-name/:name`            | remove by name                             |
+| GET    | `/v1/volumes`                            | list volumes                               |
+| POST   | `/v1/volumes`                            | create volume                              |
+| GET    | `/v1/volumes/default`                    | default volume                             |
+| DELETE | `/v1/volumes/:id`                        | delete volume                              |
+| *      | `/v1/volumes/:id/files…`                 | volume filesystem ops                      |
+
+Point official microsandbox SDKs at this gateway as the cloud backend.

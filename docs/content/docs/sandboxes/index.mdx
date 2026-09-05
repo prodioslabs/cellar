@@ -1,50 +1,38 @@
 ---
 title: Sandboxes
-description: Create and manage isolated sandboxes with Docker
+description: Create and manage KVM-backed microsandbox VMs
 ---
 
-Requires Docker Engine (Linux) or Docker Desktop (macOS). Sandboxes run under Docker's default OCI runtime (`runc`) with `CapDrop: ALL`, `no-new-privileges`, a pids limit, and default seccomp/AppArmor. Egress is enforced by topology (internal Docker networks + shared egress gateway). On macOS, `cellard` stages `cellar-agent` under the data directory (`~/.cellar` by default) before bind-mounting it — Docker Desktop cannot mount paths like `/usr/local/bin` that sit outside its shared directories.
+Requires **KVM** on Linux (`/dev/kvm`) or Virtualization.framework on macOS. Each node’s `cellard` drives VMs through the official microsandbox Go SDK. On first use it runs `EnsureInstalled` to fetch the microsandbox CLI and firmware if needed.
 
-Each sandbox runs with `cellar-agent` **as the container entrypoint** (PID 1 init + job supervisor). There is no create-time `--entrypoint` / `command`; the sandbox stays up until `stop`/`rm`. Workloads run via `sandbox exec` (Docker exec). Use `--detach` for background jobs.
+Isolation is hardware virtualization — sandboxes do **not** share the host kernel like containers.
 
 ```bash
-# Create an isolated sandbox (no external network)
-sudo cellar sandbox create --image alpine
-# or a language runtime preset (resolves to an Alpine image):
-sudo cellar sandbox create --runtime node-26
-# or from YAML:
-sudo cellar sandbox create -f examples/sandbox.yaml
+# Create (does not start unless --start)
+sudo cellar sandbox create --name demo --image alpine:3.20
+# Language runtime preset:
+sudo cellar sandbox create --name demo --runtime node-26 --memory-mib 1024 --vcpus 2 --start
 
-# Allowlisted egress (topology gateway — see internal/egress/README.md).
-# At most one of --domain-allow-list / --network-allow-list / --network-block-all:
-sudo cellar sandbox create --image curlimages/curl \
-  --domain-allow-list 'example.com'
-# or: sudo cellar sandbox create -f examples/sandbox-allowlist.yaml
-sudo cellar sandbox create --image curlimages/curl \
-  --domain-allow-list 'example.com,*.openai.com' --essential-services
-sudo cellar sandbox create --image alpine --network-block-all
-sudo cellar sandbox create --image alpine \
-  --network-allow-list '208.80.154.232/32,192.168.1.0/24'
-# Live update (blockall/allowlist/denylist; not none):
-sudo cellar sandbox network <id> --domain-allow-list 'example.com'
-sudo cellar sandbox network <id> --network-block-all=false
-
-sudo cellar sandbox exec <id> -- uname -a
-sudo cellar sandbox exec --detach <id> -- sleep 3600
-sudo cellar sandbox job ls <id>
-sudo cellar sandbox job stop <id> <job-id>
-# Filesystem (absolute guest paths; mkdir/write do not create parents; remove-dir is non-recursive):
-echo hello | sudo cellar sandbox fs write <id> /tmp/hello.txt
-sudo cellar sandbox fs read <id> /tmp/hello.txt
-sudo cellar sandbox fs stat <id> /tmp/hello.txt
-sudo cellar sandbox fs list <id> /tmp
+sudo cellar sandbox ls
+sudo cellar sandbox ls --all
+sudo cellar sandbox inspect <id>
+sudo cellar sandbox start <id>
+sudo cellar sandbox logs -f <id>
 sudo cellar sandbox stop <id>
 sudo cellar sandbox rm <id>
 ```
 
-**Filesystem.** Guest file I/O is implemented by `cellar-agent fs …` inside the container (same docker-exec path as background jobs). SDKs expose `sandbox.fs` / `Sandbox.FS()` against the gateway HTTP routes under `/v1/sandboxes/:id/fs/…`.
-**Security model.** Isolation is runc + dropped capabilities + no-new-privileges + pids limit + Docker seccomp/AppArmor + topology-based egress. Sandboxes share the host (or Docker Desktop VM) kernel. For production Linux hosts, enable dockerd `userns-remap`.
+Runtime presets:
+
+| Runtime       | Image                         |
+| ------------- | ----------------------------- |
+| `node-26`     | `node:26-alpine`              |
+| `bun-1.3`     | `oven/bun:1.3-alpine`         |
+| `python-3.13` | `astral/uv:python3.13-alpine` |
+| `go-1.26`     | `golang:1.26-alpine`          |
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node (nodes with availability `pause` or `drain` are skipped).
 
-**How create works.** `sandbox create` writes desired state to Raft (`DesiredState=running`, `Phase=pending`, assigned `NodeID`) and returns immediately. It does not wait for Docker. Each node's runtime agent pulls sandboxes assigned to it: the Raft leader reads the FSM; other nodes learn assignments from the leader's runtime heartbeat response (every 5s). The agent reconciles every 3s — for `DesiredRunning` with no local container it sets up the private Docker network and egress-gateway leg (unless the spec is `none`), starts the container, and reports `PhaseRunning` back to Raft. Stop and remove are the same pull path (`DesiredStopped` / delete from Raft). Network-policy updates additionally push to the owning node as a latency optimization; create does not.
+**How create works.** `sandbox create` writes desired state to Raft and returns immediately. Each node's runtime agent pulls assigned sandboxes and reconciles them with the local microsandbox driver.
+
+Application workloads should use the **official microsandbox SDKs** against `cellar-gateway`, not the CLI.
