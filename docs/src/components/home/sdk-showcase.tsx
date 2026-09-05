@@ -1,35 +1,54 @@
 import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock'
 import Link from 'next/link'
 
-const NOTE = `# Point the official microsandbox SDK at Cellar:
-#   cloud backend URL = https://cellar.example.com  (cellar-gateway)
-#   API key           = cellar_…  (from: cellar api-key create)
-#
-# See microsandbox docs for language SDKs (TypeScript, Go, Python, …).
+const NOTE = `# Use the official microsandbox CLI / SDKs against Cellar.
+# Point cloud mode at your cellar-gateway — same surface as microsandbox cloud.
+
+export MSB_BACKEND=cloud
+export MSB_API_URL=https://cellar.example.com
+export MSB_API_KEY=cellar_…   # from: cellar api-key create --name app
+
+# Then use microsandbox as usual (SDK setDefaultBackend / CLI msb …).
+# See: https://docs.microsandbox.dev/operations/backends
 `
 
 export function SdkShowcase() {
   return (
-    <section className="border-t border-fd-border px-6 py-16 sm:py-20">
-      <div className="mx-auto w-full max-w-5xl">
+    <section className="border-t border-fd-border px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
+      <div className="mx-auto w-full min-w-0 max-w-(--fd-layout-width)">
         <p className="mb-2 text-sm font-medium text-fd-muted-foreground">Clients</p>
-        <h2 className="mb-3 text-2xl font-bold tracking-tight sm:text-3xl">
-          Official microsandbox SDKs
+        <h2 className="mb-3 text-xl font-bold tracking-tight text-balance sm:text-2xl lg:text-3xl">
+          Use microsandbox directly
         </h2>
-        <p className="mb-8 max-w-2xl text-fd-muted-foreground">
-          Apps use the official microsandbox SDKs in cloud mode against{' '}
-          <code className="font-mono text-[13px]">cellar-gateway</code>. Mint an API key with the
-          Cellar CLI, then set the SDK cloud backend URL to your gateway.
+        <p className="mb-8 max-w-2xl text-pretty text-fd-muted-foreground">
+          After your Cellar cluster is up, apps talk to{' '}
+          <code className="font-mono text-[13px]">cellar-gateway</code> with the official
+          microsandbox SDKs and CLI in cloud mode — no Cellar client SDK. Select the cloud backend,
+          set the API URL to your gateway, and pass a Cellar API key.
         </p>
-        <DynamicCodeBlock lang="bash" code={NOTE} codeblock={{ title: 'Configure' }} />
-        <p className="mt-4">
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          <DynamicCodeBlock
+            lang="bash"
+            code={NOTE}
+            codeblock={{ title: 'Configure microsandbox backends' }}
+          />
+        </div>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+          <a
+            href="https://docs.microsandbox.dev/operations/backends"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex text-sm font-medium text-fd-primary underline-offset-4 hover:underline"
+          >
+            microsandbox backends docs →
+          </a>
           <Link
             href="/docs/api"
             className="inline-flex text-sm font-medium text-fd-primary underline-offset-4 hover:underline"
           >
-            Client API docs →
+            Cellar client API docs →
           </Link>
-        </p>
+        </div>
       </div>
     </section>
   )
