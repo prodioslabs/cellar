@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/prodioslabs/cellar/internal/paths"
 )
 
 func TestNewResolvesRelativePaths(t *testing.T) {
@@ -33,7 +35,7 @@ func TestDarwinHomeDirNonRoot(t *testing.T) {
 	if err != nil || home == "" {
 		t.Fatalf("UserHomeDir: %v %q", err, home)
 	}
-	if got := darwinHomeDir(); got != home {
-		t.Fatalf("darwinHomeDir=%q, want %q", got, home)
+	if got := paths.DarwinHomeDir(); got != home {
+		t.Fatalf("DarwinHomeDir=%q, want %q", got, home)
 	}
 }

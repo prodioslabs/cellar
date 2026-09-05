@@ -6,9 +6,13 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 )
+
+// SandboxIDMetadataKey is the gRPC metadata key for AgentRelay sandbox id.
+const SandboxIDMetadataKey = "sandbox-id"
 
 // DialMTLS dials a manager with client certificates (control plane).
 func DialMTLS(addr string, certPEM, keyPEM, caPEM []byte) (*grpc.ClientConn, error) {
@@ -36,6 +40,16 @@ func SandboxCreateRemote(ctx context.Context, addr string, certPEM, keyPEM, caPE
 	}
 	defer conn.Close()
 	return cellarv1.NewSandboxControlClient(conn).Create(ctx, req)
+}
+
+// SandboxStartRemote starts a sandbox via SandboxControl.
+func SandboxStartRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, id string) (*cellarv1.SandboxStartResponse, error) {
+	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).Start(ctx, &cellarv1.SandboxStartRequest{SandboxId: id})
 }
 
 // SandboxStopRemote stops a sandbox.
@@ -69,6 +83,16 @@ func SandboxGetRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM [
 	return cellarv1.NewSandboxControlClient(conn).Get(ctx, &cellarv1.SandboxGetRequest{SandboxId: id})
 }
 
+// SandboxGetByNameRemote gets a sandbox by name.
+func SandboxGetByNameRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, name string) (*cellarv1.SandboxGetResponse, error) {
+	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).GetByName(ctx, &cellarv1.SandboxGetByNameRequest{Name: name})
+}
+
 // SandboxListRemote lists sandboxes.
 func SandboxListRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte) (*cellarv1.SandboxListResponse, error) {
 	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)
@@ -77,27 +101,6 @@ func SandboxListRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM 
 	}
 	defer conn.Close()
 	return cellarv1.NewSandboxControlClient(conn).List(ctx, &cellarv1.SandboxListRequest{})
-}
-
-// SandboxUpdateNetworkRemote replaces a sandbox network policy via the leader.
-func SandboxUpdateNetworkRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
-	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-	return cellarv1.NewSandboxControlClient(conn).UpdateNetwork(ctx, req)
-}
-
-// ApplyNetworkPolicyRemote pushes a committed policy to the node running the sandbox.
-func ApplyNetworkPolicyRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.ApplyNetworkPolicyRequest) error {
-	conn, err := DialRuntime(addr, certPEM, keyPEM, caPEM)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	_, err = cellarv1.NewSandboxRuntimeClient(conn).ApplyNetworkPolicy(ctx, req)
-	return err
 }
 
 // RuntimeHeartbeatRemote sends a heartbeat and receives assignments.
@@ -121,8 +124,8 @@ func UpdateSandboxStatusRemote(ctx context.Context, addr string, certPEM, keyPEM
 	return err
 }
 
-// StreamRemoteLogs copies remote SandboxRuntime.Logs to w.
-func StreamRemoteLogs(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.SandboxLogsRequest, w io.Writer) error {
+// StreamRemoteLogs forwards remote SandboxRuntime.Logs chunks via send.
+func StreamRemoteLogs(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.SandboxLogsRequest, send func(*cellarv1.SandboxLogsChunk) error) error {
 	conn, err := DialRuntime(addr, certPEM, keyPEM, caPEM)
 	if err != nil {
 		return err
@@ -140,8 +143,13 @@ func StreamRemoteLogs(ctx context.Context, addr string, certPEM, keyPEM, caPEM [
 		if err != nil {
 			return err
 		}
-		if _, err := w.Write(chunk.Data); err != nil {
+		if err := send(chunk); err != nil {
 			return err
 		}
 	}
+}
+
+// AgentRelayMetadata attaches sandbox-id metadata for AgentRelay.
+func AgentRelayMetadata(sandboxID string) metadata.MD {
+	return metadata.Pairs(SandboxIDMetadataKey, sandboxID)
 }

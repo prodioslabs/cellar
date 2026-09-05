@@ -8,23 +8,20 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/user"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 	"github.com/prodioslabs/cellar/internal/ca"
-	"github.com/prodioslabs/cellar/internal/egress"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/identity"
 	"github.com/prodioslabs/cellar/internal/node"
+	"github.com/prodioslabs/cellar/internal/paths"
 	"github.com/prodioslabs/cellar/internal/raftstore"
 	"github.com/prodioslabs/cellar/internal/renew"
 	"github.com/prodioslabs/cellar/internal/runtime"
@@ -42,49 +39,17 @@ const (
 	teardownTimeout     = 20 * time.Second
 )
 
+// Re-export platform defaults for existing call sites.
+var (
+	DefaultSocket  = paths.DefaultSocket
+	DefaultDataDir = paths.DefaultDataDir
+)
+
 // DefaultSocketPath returns the platform default control socket path.
-func DefaultSocketPath() string {
-	if goruntime.GOOS == "darwin" {
-		if home := darwinHomeDir(); home != "" {
-			return filepath.Join(home, ".cellar", "cellar.sock")
-		}
-	}
-	return "/var/run/cellar/cellar.sock"
-}
+func DefaultSocketPath() string { return paths.DefaultSocketPath() }
 
 // DefaultDataDirPath returns the platform default data directory.
-func DefaultDataDirPath() string {
-	if goruntime.GOOS == "darwin" {
-		if home := darwinHomeDir(); home != "" {
-			return filepath.Join(home, ".cellar")
-		}
-	}
-	return "/var/lib/cellar"
-}
-
-// darwinHomeDir returns the macOS home directory that Docker Desktop can share.
-// When cellard is started via sudo, prefer SUDO_USER's home over /var/root so
-// bind mounts (agent binary, resolv.conf) remain visible to the Docker VM.
-func darwinHomeDir() string {
-	if os.Geteuid() == 0 {
-		if name := os.Getenv("SUDO_USER"); name != "" && name != "root" {
-			if u, err := user.Lookup(name); err == nil && u.HomeDir != "" {
-				return u.HomeDir
-			}
-		}
-	}
-	home, err := os.UserHomeDir()
-	if err == nil && home != "" {
-		return home
-	}
-	return ""
-}
-
-// DefaultSocket is resolved at init for the current platform.
-var DefaultSocket = DefaultSocketPath()
-
-// DefaultDataDir is resolved at init for the current platform.
-var DefaultDataDir = DefaultDataDirPath()
+func DefaultDataDirPath() string { return paths.DefaultDataDirPath() }
 
 // Config configures the always-on cellard process.
 type Config struct {
@@ -92,15 +57,6 @@ type Config struct {
 	SocketPath string
 	ListenAddr string // default remote listen; may be overridden by init/join
 	RaftAddr   string
-	// EgressAllowPrivate exempts CIDRs from the egress internal-range deny
-	// list. Node-level so a sandbox spec can never widen it.
-	EgressAllowPrivate []string
-	// EgressSupernet is the IPAM pool for per-sandbox /29 networks.
-	EgressSupernet string
-	// EgressGatewayImage is the Docker image for cellar-egress-gateway.
-	EgressGatewayImage string
-	// EgressGatewayMaxLegs caps concurrent sandbox nets per gateway container.
-	EgressGatewayMaxLegs int
 }
 
 // Daemon is the long-running cellar node process.
@@ -115,11 +71,9 @@ type Daemon struct {
 	sandboxServer *grpcapi.SandboxServer
 	sandboxAPI    *grpcapi.SandboxAPIServer
 	runtimeSrv    *grpcapi.RuntimeServer
-	driver   *runtime.Driver
-	gwPool   *egress.Pool
-	ipam     *egress.Allocator
-	agent    *runtime.Agent
-	// runtimeErr is set when this node cannot start a Docker runtime agent.
+	driver        *runtime.Driver
+	agent         *runtime.Agent
+	// runtimeErr is set when this node cannot start a microsandbox runtime agent.
 	// SandboxCreate surfaces it when no other node has a live runtime.
 	runtimeErr error
 	// lastAssigned is the sandbox list from the latest runtime heartbeat.
@@ -223,7 +177,6 @@ func (d *Daemon) shutdown() {
 	raft := d.raft
 	driver := d.driver
 	agent := d.agent
-	gwPool := d.gwPool
 	clusterCancel := d.clusterCancel
 	cancel := d.cancel
 	d.remoteGRPC = nil
@@ -231,8 +184,6 @@ func (d *Daemon) shutdown() {
 	d.localGRPC = nil
 	d.localLis = nil
 	d.raft = nil
-	d.gwPool = nil
-	d.ipam = nil
 	d.driver = nil
 	d.agent = nil
 	d.caServer = nil
@@ -268,11 +219,6 @@ func (d *Daemon) shutdown() {
 		tctx, tcancel := context.WithTimeout(context.Background(), teardownTimeout)
 		agent.TeardownLocal(tctx)
 		tcancel()
-	}
-	if gwPool != nil {
-		pctx, pcancel := context.WithTimeout(context.Background(), teardownTimeout)
-		gwPool.Close(pctx)
-		pcancel()
 	}
 
 	if raft != nil {
@@ -440,13 +386,10 @@ func (d *Daemon) stopClusterLocal() {
 	raft := d.raft
 	driver := d.driver
 	agent := d.agent
-	gwPool := d.gwPool
 	clusterCancel := d.clusterCancel
 	d.remoteGRPC = nil
 	d.remoteLis = nil
 	d.raft = nil
-	d.gwPool = nil
-	d.ipam = nil
 	d.driver = nil
 	d.agent = nil
 	d.caServer = nil
@@ -472,11 +415,6 @@ func (d *Daemon) stopClusterLocal() {
 		tctx, tcancel := context.WithTimeout(context.Background(), teardownTimeout)
 		agent.TeardownLocal(tctx)
 		tcancel()
-	}
-	if gwPool != nil {
-		pctx, pcancel := context.WithTimeout(context.Background(), teardownTimeout)
-		gwPool.Close(pctx)
-		pcancel()
 	}
 	if raft != nil {
 		_ = raft.Close()
@@ -1087,6 +1025,9 @@ func (c *controlServer) Status(ctx context.Context, req *cellarv1.StatusRequest)
 func (c *controlServer) SandboxCreate(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
 	return c.d.SandboxCreate(ctx, req)
 }
+func (c *controlServer) SandboxStart(ctx context.Context, req *cellarv1.SandboxStartRequest) (*cellarv1.SandboxStartResponse, error) {
+	return c.d.SandboxStart(ctx, req)
+}
 func (c *controlServer) SandboxStop(ctx context.Context, req *cellarv1.SandboxStopRequest) (*cellarv1.SandboxStopResponse, error) {
 	return c.d.SandboxStop(ctx, req)
 }
@@ -1096,62 +1037,14 @@ func (c *controlServer) SandboxRemove(ctx context.Context, req *cellarv1.Sandbox
 func (c *controlServer) SandboxGet(ctx context.Context, req *cellarv1.SandboxGetRequest) (*cellarv1.SandboxGetResponse, error) {
 	return c.d.SandboxGet(ctx, req)
 }
-func (c *controlServer) SandboxUpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
-	return c.d.SandboxUpdateNetwork(ctx, req)
+func (c *controlServer) SandboxGetByName(ctx context.Context, req *cellarv1.SandboxGetByNameRequest) (*cellarv1.SandboxGetResponse, error) {
+	return c.d.SandboxGetByName(ctx, req)
 }
 func (c *controlServer) SandboxList(ctx context.Context, req *cellarv1.SandboxListRequest) (*cellarv1.SandboxListResponse, error) {
 	return c.d.SandboxList(ctx, req)
 }
 func (c *controlServer) SandboxLogs(req *cellarv1.SandboxLogsRequest, stream cellarv1.Control_SandboxLogsServer) error {
 	return c.d.SandboxLogs(req, stream)
-}
-func (c *controlServer) SandboxExec(stream cellarv1.Control_SandboxExecServer) error {
-	return c.d.SandboxExec(stream)
-}
-func (c *controlServer) SandboxStartJob(ctx context.Context, req *cellarv1.StartJobRequest) (*cellarv1.StartJobResponse, error) {
-	return c.d.SandboxStartJob(ctx, req)
-}
-func (c *controlServer) SandboxListJobs(ctx context.Context, req *cellarv1.ListJobsRequest) (*cellarv1.ListJobsResponse, error) {
-	return c.d.SandboxListJobs(ctx, req)
-}
-func (c *controlServer) SandboxGetJob(ctx context.Context, req *cellarv1.GetJobRequest) (*cellarv1.GetJobResponse, error) {
-	return c.d.SandboxGetJob(ctx, req)
-}
-func (c *controlServer) SandboxStopJob(ctx context.Context, req *cellarv1.StopJobRequest) (*cellarv1.StopJobResponse, error) {
-	return c.d.SandboxStopJob(ctx, req)
-}
-func (c *controlServer) SandboxJobLogs(req *cellarv1.JobLogsRequest, stream cellarv1.Control_SandboxJobLogsServer) error {
-	return c.d.SandboxJobLogs(req, stream)
-}
-func (c *controlServer) SandboxFsRead(req *cellarv1.FsReadRequest, stream cellarv1.Control_SandboxFsReadServer) error {
-	return c.d.SandboxFsRead(req, stream)
-}
-func (c *controlServer) SandboxFsWrite(stream cellarv1.Control_SandboxFsWriteServer) error {
-	return c.d.SandboxFsWrite(stream)
-}
-func (c *controlServer) SandboxFsStat(ctx context.Context, req *cellarv1.FsStatRequest) (*cellarv1.FsStatResponse, error) {
-	return c.d.SandboxFsStat(ctx, req)
-}
-func (c *controlServer) SandboxFsList(ctx context.Context, req *cellarv1.FsListRequest) (*cellarv1.FsListResponse, error) {
-	return c.d.SandboxFsList(ctx, req)
-}
-func (c *controlServer) SandboxFsExists(ctx context.Context, req *cellarv1.FsExistsRequest) (*cellarv1.FsExistsResponse, error) {
-	return c.d.SandboxFsExists(ctx, req)
-}
-func (c *controlServer) SandboxFsMkdir(ctx context.Context, req *cellarv1.FsMkdirRequest) (*cellarv1.FsMkdirResponse, error) {
-	return c.d.SandboxFsMkdir(ctx, req)
-}
-func (c *controlServer) SandboxFsRemove(ctx context.Context, req *cellarv1.FsRemoveRequest) (*cellarv1.FsRemoveResponse, error) {
-	return c.d.SandboxFsRemove(ctx, req)
-}
-func (c *controlServer) SandboxFsRemoveDir(ctx context.Context, req *cellarv1.FsRemoveDirRequest) (*cellarv1.FsRemoveDirResponse, error) {
-	return c.d.SandboxFsRemoveDir(ctx, req)
-}
-func (c *controlServer) SandboxFsCopy(ctx context.Context, req *cellarv1.FsCopyRequest) (*cellarv1.FsCopyResponse, error) {
-	return c.d.SandboxFsCopy(ctx, req)
-}
-func (c *controlServer) SandboxFsRename(ctx context.Context, req *cellarv1.FsRenameRequest) (*cellarv1.FsRenameResponse, error) {
-	return c.d.SandboxFsRename(ctx, req)
 }
 func (c *controlServer) APIKeyCreate(ctx context.Context, req *cellarv1.APIKeyCreateRequest) (*cellarv1.APIKeyCreateResponse, error) {
 	return c.d.APIKeyCreate(ctx, req)
@@ -1218,20 +1111,5 @@ func privateIPv4() string {
 
 // DialLocal connects to the local control socket.
 func DialLocal(socketPath string) (*grpc.ClientConn, error) {
-	if socketPath == "" {
-		socketPath = DefaultSocket
-	}
-	abs, err := filepath.Abs(socketPath)
-	if err != nil {
-		return nil, fmt.Errorf("resolve socket path: %w", err)
-	}
-	// Resolve to an absolute path so unix:///… has an empty authority. Relative
-	// paths like ./foo.sock become unix://./foo.sock, which gRPC rejects.
-	return grpc.NewClient(
-		"unix://"+abs,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, "unix", abs)
-		}),
-	)
+	return paths.DialLocal(socketPath)
 }

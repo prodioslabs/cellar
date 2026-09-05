@@ -70,22 +70,21 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 	if err := s.requireLeader(); err != nil {
 		return nil, err
 	}
-	spec := sandbox.SpecFromProto(req.Spec)
-	var netProto *cellarv1.NetworkPolicy
-	if req.Spec != nil {
-		netProto = req.Spec.Network
-	}
-	np, err := sandbox.ResolveNetworkPolicyFromProto(netProto)
+	spec, err := sandbox.SpecFromJSON(req.SpecJson)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	spec.Network = np
 	if err := sandbox.ValidateSpec(spec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if existing, err := s.store.GetSandboxByName(ctx, spec.Name); err == nil && existing != nil {
+		return nil, status.Error(codes.AlreadyExists, sandbox.ErrNameExists.Error())
+	} else if err != nil && !errors.Is(err, store.ErrSandboxNotFound) {
+		return nil, mapStoreErr(err)
+	}
+
 	id := req.SandboxId
 	if id == "" {
-		var err error
 		id, err = sandbox.NewID()
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
@@ -103,25 +102,64 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 	nodeID := scheduler.SelectNodeOpts(nodes, all, now, scheduler.SelectOpts{
 		ExcludeNodeIDs: s.quarantine.Excluded(),
 	})
+	// Pin to the node that owns any named volume mount.
+	for _, volName := range spec.NamedVolumeNames() {
+		v, err := s.store.GetVolumeByName(ctx, volName)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "volume %q: %v", volName, err)
+		}
+		if v.NodeID != "" {
+			nodeID = v.NodeID
+			break
+		}
+	}
+
+	desired := sandbox.DesiredStopped
+	phase := sandbox.PhaseCreated
+	if req.Start {
+		desired = sandbox.DesiredRunning
+	}
+
 	sb := &sandbox.Sandbox{
 		ID:                   id,
+		Name:                 spec.Name,
+		Slug:                 spec.Slug,
 		Spec:                 spec,
 		NodeID:               nodeID,
-		DesiredState:         sandbox.DesiredRunning,
+		DesiredState:         desired,
 		AssignmentGeneration: 1,
+		Ephemeral:            spec.Lifecycle.Ephemeral,
+		Labels:               spec.Labels,
 		Status: sandbox.Status{
-			Phase:     sandbox.PhasePending,
+			Phase:     phase,
 			UpdatedAt: now,
 		},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	// Desired state only: the assigned node's agent creates the container
-	// after it sees this record via heartbeat (workers) or a Raft read (leader).
 	if err := s.store.SaveSandbox(ctx, sb); err != nil {
 		return nil, mapStoreErr(err)
 	}
 	return &cellarv1.SandboxCreateResponse{Sandbox: sandbox.ToProto(sb)}, nil
+}
+
+func (s *SandboxServer) Start(ctx context.Context, req *cellarv1.SandboxStartRequest) (*cellarv1.SandboxStartResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
+	if err := s.requireLeader(); err != nil {
+		return nil, err
+	}
+	sb, err := s.store.GetSandbox(ctx, req.SandboxId)
+	if err != nil {
+		return nil, mapStoreErr(err)
+	}
+	sb.DesiredState = sandbox.DesiredRunning
+	sb.UpdatedAt = time.Now().UTC()
+	if err := s.store.SaveSandbox(ctx, sb); err != nil {
+		return nil, mapStoreErr(err)
+	}
+	return &cellarv1.SandboxStartResponse{Sandbox: sandbox.ToProto(sb)}, nil
 }
 
 func (s *SandboxServer) Stop(ctx context.Context, req *cellarv1.SandboxStopRequest) (*cellarv1.SandboxStopResponse, error) {
@@ -153,7 +191,6 @@ func (s *SandboxServer) Remove(ctx context.Context, req *cellarv1.SandboxRemoveR
 	if _, err := s.store.GetSandbox(ctx, req.SandboxId); err != nil {
 		return nil, mapStoreErr(err)
 	}
-	// Delete from Raft; owning agent tears down when the assignment disappears.
 	if err := s.store.DeleteSandbox(ctx, req.SandboxId); err != nil {
 		return nil, mapStoreErr(err)
 	}
@@ -165,6 +202,20 @@ func (s *SandboxServer) Get(ctx context.Context, req *cellarv1.SandboxGetRequest
 		return nil, err
 	}
 	sb, err := s.store.GetSandbox(ctx, req.SandboxId)
+	if err != nil {
+		return nil, mapStoreErr(err)
+	}
+	return &cellarv1.SandboxGetResponse{Sandbox: sandbox.ToProto(sb)}, nil
+}
+
+func (s *SandboxServer) GetByName(ctx context.Context, req *cellarv1.SandboxGetByNameRequest) (*cellarv1.SandboxGetResponse, error) {
+	if err := requireClusterPeer(ctx); err != nil {
+		return nil, err
+	}
+	if req.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "name required")
+	}
+	sb, err := s.store.GetSandboxByName(ctx, req.Name)
 	if err != nil {
 		return nil, mapStoreErr(err)
 	}
@@ -184,42 +235,6 @@ func (s *SandboxServer) List(ctx context.Context, _ *cellarv1.SandboxListRequest
 		out.Sandboxes = append(out.Sandboxes, sandbox.ToProto(sb))
 	}
 	return out, nil
-}
-
-// UpdateNetwork replaces the network policy of an existing sandbox. The write
-// is the source of truth; pushing it to the owning node is the caller's job.
-func (s *SandboxServer) UpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
-	if err := requireClusterPeer(ctx); err != nil {
-		return nil, err
-	}
-	if err := s.requireLeader(); err != nil {
-		return nil, err
-	}
-	if req.SandboxId == "" {
-		return nil, status.Error(codes.InvalidArgument, "sandbox_id required")
-	}
-	np, err := sandbox.ResolveNetworkPolicyFromProto(req.Network)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	sb, err := s.store.GetSandbox(ctx, req.SandboxId)
-	if err != nil {
-		return nil, mapStoreErr(err)
-	}
-	// Mode none is decided when the container is created: no bridge, no
-	// resolv.conf mount, no REDIRECT rules. Neither direction can be toggled
-	// on a live container. blockall keeps topology, so it may change live.
-	if (sb.Spec.Network.Mode == sandbox.NetworkNone) != (np.Mode == sandbox.NetworkNone) {
-		return nil, status.Errorf(codes.FailedPrecondition,
-			"cannot change network mode %q -> %q on a running sandbox; recreate it instead",
-			sb.Spec.Network.Mode, np.Mode)
-	}
-	sb.Spec.Network = np
-	sb.UpdatedAt = time.Now().UTC()
-	if err := s.store.SaveSandbox(ctx, sb); err != nil {
-		return nil, mapStoreErr(err)
-	}
-	return &cellarv1.SandboxUpdateNetworkResponse{Sandbox: sandbox.ToProto(sb)}, nil
 }
 
 func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHeartbeatRequest) (*cellarv1.RuntimeHeartbeatResponse, error) {
@@ -247,8 +262,6 @@ func (s *SandboxServer) Heartbeat(ctx context.Context, req *cellarv1.RuntimeHear
 		return nil, mapStoreErr(err)
 	}
 	s.quarantine.NoteHeartbeat(req.NodeId)
-	// Assigned is the pull path for workers: SaveSandbox does not notify the
-	// owning node. The agent creates/stops local containers from this list.
 	assigned, err := s.store.ListSandboxesByNode(ctx, req.NodeId)
 	if err != nil {
 		return nil, mapStoreErr(err)
@@ -317,16 +330,10 @@ func (s *SandboxServer) UpdateSandboxStatus(ctx context.Context, req *cellarv1.U
 			return nil, err
 		}
 	}
-	// Fencing: reject status from a stale assignment after reschedule. Generation 0
-	// on the store means legacy records; any non-zero store generation must match.
-	// Exec/logs are fenced by resolving the current Raft node_id (see daemon proxy).
 	if err := sandbox.CheckAssignmentGeneration(sb.AssignmentGeneration, req.AssignmentGeneration); err != nil {
 		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	st := sandbox.StatusFromProto(req.Status)
-	if req.ContainerId != "" {
-		st.ContainerID = req.ContainerId
-	}
 	st.UpdatedAt = time.Now().UTC()
 	sb.Status = st
 	sb.UpdatedAt = st.UpdatedAt

@@ -2,8 +2,6 @@ package grpcapi
 
 import (
 	"context"
-	"io"
-	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -59,7 +57,10 @@ func (s *SandboxAPIServer) dialLeader(ctx context.Context) (*grpc.ClientConn, er
 	return DialMTLS(addr, cert, key, ca)
 }
 
-func (s *SandboxAPIServer) forwardCreate(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
+func (s *SandboxAPIServer) Create(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
+	if s.raft != nil && s.raft.IsLeader() && s.control != nil {
+		return s.control.Create(WithInternalCall(ctx), req)
+	}
 	conn, err := s.dialLeader(ctx)
 	if err != nil {
 		return nil, err
@@ -68,11 +69,16 @@ func (s *SandboxAPIServer) forwardCreate(ctx context.Context, req *cellarv1.Sand
 	return cellarv1.NewSandboxControlClient(conn).Create(ctx, req)
 }
 
-func (s *SandboxAPIServer) Create(ctx context.Context, req *cellarv1.SandboxCreateRequest) (*cellarv1.SandboxCreateResponse, error) {
+func (s *SandboxAPIServer) Start(ctx context.Context, req *cellarv1.SandboxStartRequest) (*cellarv1.SandboxStartResponse, error) {
 	if s.raft != nil && s.raft.IsLeader() && s.control != nil {
-		return s.control.Create(WithInternalCall(ctx), req)
+		return s.control.Start(WithInternalCall(ctx), req)
 	}
-	return s.forwardCreate(ctx, req)
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).Start(ctx, req)
 }
 
 func (s *SandboxAPIServer) Stop(ctx context.Context, req *cellarv1.SandboxStopRequest) (*cellarv1.SandboxStopResponse, error) {
@@ -111,6 +117,18 @@ func (s *SandboxAPIServer) Get(ctx context.Context, req *cellarv1.SandboxGetRequ
 	return cellarv1.NewSandboxControlClient(conn).Get(ctx, req)
 }
 
+func (s *SandboxAPIServer) GetByName(ctx context.Context, req *cellarv1.SandboxGetByNameRequest) (*cellarv1.SandboxGetResponse, error) {
+	if s.control != nil {
+		return s.control.GetByName(WithInternalCall(ctx), req)
+	}
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).GetByName(ctx, req)
+}
+
 func (s *SandboxAPIServer) List(ctx context.Context, req *cellarv1.SandboxListRequest) (*cellarv1.SandboxListResponse, error) {
 	if s.control != nil {
 		return s.control.List(WithInternalCall(ctx), req)
@@ -121,18 +139,6 @@ func (s *SandboxAPIServer) List(ctx context.Context, req *cellarv1.SandboxListRe
 	}
 	defer conn.Close()
 	return cellarv1.NewSandboxControlClient(conn).List(ctx, req)
-}
-
-func (s *SandboxAPIServer) UpdateNetwork(ctx context.Context, req *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.SandboxUpdateNetworkResponse, error) {
-	if s.raft != nil && s.raft.IsLeader() && s.control != nil {
-		return s.control.UpdateNetwork(WithInternalCall(ctx), req)
-	}
-	conn, err := s.dialLeader(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-	return cellarv1.NewSandboxControlClient(conn).UpdateNetwork(ctx, req)
 }
 
 func (s *SandboxAPIServer) Logs(req *cellarv1.SandboxLogsRequest, stream cellarv1.SandboxAPI_LogsServer) error {
@@ -151,101 +157,7 @@ func (s *SandboxAPIServer) Logs(req *cellarv1.SandboxLogsRequest, stream cellarv
 	if err != nil {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	}
-	pr, pw := io.Pipe()
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- StreamRemoteLogs(stream.Context(), addr, cert, key, ca, req, pw)
-		_ = pw.Close()
-	}()
-	buf := make([]byte, 32*1024)
-	for {
-		n, rerr := pr.Read(buf)
-		if n > 0 {
-			if serr := stream.Send(&cellarv1.SandboxLogsChunk{Data: append([]byte(nil), buf[:n]...)}); serr != nil {
-				return serr
-			}
-		}
-		if rerr == io.EOF {
-			break
-		}
-		if rerr != nil {
-			return rerr
-		}
-	}
-	if e := <-errCh; e != nil && e != io.EOF {
-		return e
-	}
-	return nil
-}
-
-func (s *SandboxAPIServer) Exec(stream cellarv1.SandboxAPI_ExecServer) error {
-	first, err := stream.Recv()
-	if err != nil {
-		return err
-	}
-	start := first.GetStart()
-	if start == nil {
-		return status.Error(codes.InvalidArgument, "first message must be start")
-	}
-	sbResp, err := s.Get(stream.Context(), &cellarv1.SandboxGetRequest{SandboxId: start.SandboxId})
-	if err != nil {
-		return err
-	}
-	if sbResp.Sandbox == nil || sbResp.Sandbox.NodeId == "" {
-		return status.Error(codes.FailedPrecondition, "sandbox has no owning node")
-	}
-	addr, err := s.host.RuntimeAddr(stream.Context(), sbResp.Sandbox.NodeId)
-	if err != nil {
-		return status.Error(codes.Unavailable, err.Error())
-	}
-	cert, key, ca, err := s.host.IdentityPEMs()
-	if err != nil {
-		return status.Error(codes.FailedPrecondition, err.Error())
-	}
-	conn, err := DialRuntime(addr, cert, key, ca)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	remote, err := cellarv1.NewSandboxRuntimeClient(conn).Exec(stream.Context())
-	if err != nil {
-		return err
-	}
-	if err := remote.Send(first); err != nil {
-		return err
-	}
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			msg, err := remote.Recv()
-			if err != nil {
-				return
-			}
-			if err := stream.Send(msg); err != nil {
-				return
-			}
-			if msg.GetExit() != nil {
-				return
-			}
-		}
-	}()
-	for {
-		msg, err := stream.Recv()
-		if err == io.EOF {
-			_ = remote.CloseSend()
-			break
-		}
-		if err != nil {
-			break
-		}
-		if err := remote.Send(msg); err != nil {
-			break
-		}
-	}
-	wg.Wait()
-	return nil
+	return StreamRemoteLogs(stream.Context(), addr, cert, key, ca, req, stream.Send)
 }
 
 // RegisterSandboxAPI registers the public SandboxAPI service.

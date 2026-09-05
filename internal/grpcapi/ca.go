@@ -19,6 +19,7 @@ import (
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/raftstore"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 	"github.com/prodioslabs/cellar/internal/store"
 	"github.com/prodioslabs/cellar/internal/token"
 )
@@ -362,8 +363,12 @@ func mapStoreErr(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, store.ErrSandboxNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, store.ErrVolumeNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, store.ErrAPIKeyNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, sandbox.ErrNameExists):
+		return status.Error(codes.AlreadyExists, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
