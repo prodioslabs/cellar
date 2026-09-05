@@ -1,9 +1,0 @@
-# Keep image builds small and cache-friendly.
-.git
-bin/
-docs/
-sdk/
-examples/
-**/*_test.go
-*.md
-.cursor
