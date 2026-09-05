@@ -19,12 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SandboxControl_Create_FullMethodName        = "/cellar.v1.SandboxControl/Create"
-	SandboxControl_Stop_FullMethodName          = "/cellar.v1.SandboxControl/Stop"
-	SandboxControl_Remove_FullMethodName        = "/cellar.v1.SandboxControl/Remove"
-	SandboxControl_Get_FullMethodName           = "/cellar.v1.SandboxControl/Get"
-	SandboxControl_List_FullMethodName          = "/cellar.v1.SandboxControl/List"
-	SandboxControl_UpdateNetwork_FullMethodName = "/cellar.v1.SandboxControl/UpdateNetwork"
+	SandboxControl_Create_FullMethodName           = "/cellar.v1.SandboxControl/Create"
+	SandboxControl_Start_FullMethodName            = "/cellar.v1.SandboxControl/Start"
+	SandboxControl_Stop_FullMethodName             = "/cellar.v1.SandboxControl/Stop"
+	SandboxControl_Remove_FullMethodName           = "/cellar.v1.SandboxControl/Remove"
+	SandboxControl_Get_FullMethodName              = "/cellar.v1.SandboxControl/Get"
+	SandboxControl_GetByName_FullMethodName        = "/cellar.v1.SandboxControl/GetByName"
+	SandboxControl_List_FullMethodName             = "/cellar.v1.SandboxControl/List"
+	SandboxControl_CreateVolume_FullMethodName     = "/cellar.v1.SandboxControl/CreateVolume"
+	SandboxControl_ListVolumes_FullMethodName      = "/cellar.v1.SandboxControl/ListVolumes"
+	SandboxControl_GetVolume_FullMethodName        = "/cellar.v1.SandboxControl/GetVolume"
+	SandboxControl_GetDefaultVolume_FullMethodName = "/cellar.v1.SandboxControl/GetDefaultVolume"
+	SandboxControl_DeleteVolume_FullMethodName     = "/cellar.v1.SandboxControl/DeleteVolume"
 )
 
 // SandboxControlClient is the client API for SandboxControl service.
@@ -32,14 +38,19 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // SandboxControl is served on managers (mTLS). Leader applies Raft writes.
-// Callers must present a cluster client certificate.
 type SandboxControlClient interface {
 	Create(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error)
+	Start(ctx context.Context, in *SandboxStartRequest, opts ...grpc.CallOption) (*SandboxStartResponse, error)
 	Stop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error)
 	Remove(ctx context.Context, in *SandboxRemoveRequest, opts ...grpc.CallOption) (*SandboxRemoveResponse, error)
 	Get(ctx context.Context, in *SandboxGetRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
+	GetByName(ctx context.Context, in *SandboxGetByNameRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
 	List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
-	UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error)
+	CreateVolume(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error)
+	ListVolumes(ctx context.Context, in *VolumeListRequest, opts ...grpc.CallOption) (*VolumeListResponse, error)
+	GetVolume(ctx context.Context, in *VolumeGetRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error)
+	GetDefaultVolume(ctx context.Context, in *VolumeGetDefaultRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error)
+	DeleteVolume(ctx context.Context, in *VolumeDeleteRequest, opts ...grpc.CallOption) (*VolumeDeleteResponse, error)
 }
 
 type sandboxControlClient struct {
@@ -54,6 +65,16 @@ func (c *sandboxControlClient) Create(ctx context.Context, in *SandboxCreateRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SandboxCreateResponse)
 	err := c.cc.Invoke(ctx, SandboxControl_Create_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxControlClient) Start(ctx context.Context, in *SandboxStartRequest, opts ...grpc.CallOption) (*SandboxStartResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxStartResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_Start_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +111,16 @@ func (c *sandboxControlClient) Get(ctx context.Context, in *SandboxGetRequest, o
 	return out, nil
 }
 
+func (c *sandboxControlClient) GetByName(ctx context.Context, in *SandboxGetByNameRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxGetResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_GetByName_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sandboxControlClient) List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SandboxListResponse)
@@ -100,10 +131,50 @@ func (c *sandboxControlClient) List(ctx context.Context, in *SandboxListRequest,
 	return out, nil
 }
 
-func (c *sandboxControlClient) UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error) {
+func (c *sandboxControlClient) CreateVolume(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SandboxUpdateNetworkResponse)
-	err := c.cc.Invoke(ctx, SandboxControl_UpdateNetwork_FullMethodName, in, out, cOpts...)
+	out := new(VolumeCreateResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_CreateVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxControlClient) ListVolumes(ctx context.Context, in *VolumeListRequest, opts ...grpc.CallOption) (*VolumeListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VolumeListResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_ListVolumes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxControlClient) GetVolume(ctx context.Context, in *VolumeGetRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VolumeGetResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_GetVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxControlClient) GetDefaultVolume(ctx context.Context, in *VolumeGetDefaultRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VolumeGetResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_GetDefaultVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxControlClient) DeleteVolume(ctx context.Context, in *VolumeDeleteRequest, opts ...grpc.CallOption) (*VolumeDeleteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VolumeDeleteResponse)
+	err := c.cc.Invoke(ctx, SandboxControl_DeleteVolume_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -115,14 +186,19 @@ func (c *sandboxControlClient) UpdateNetwork(ctx context.Context, in *SandboxUpd
 // for forward compatibility.
 //
 // SandboxControl is served on managers (mTLS). Leader applies Raft writes.
-// Callers must present a cluster client certificate.
 type SandboxControlServer interface {
 	Create(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error)
+	Start(context.Context, *SandboxStartRequest) (*SandboxStartResponse, error)
 	Stop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error)
 	Remove(context.Context, *SandboxRemoveRequest) (*SandboxRemoveResponse, error)
 	Get(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error)
+	GetByName(context.Context, *SandboxGetByNameRequest) (*SandboxGetResponse, error)
 	List(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
-	UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error)
+	CreateVolume(context.Context, *VolumeCreateRequest) (*VolumeCreateResponse, error)
+	ListVolumes(context.Context, *VolumeListRequest) (*VolumeListResponse, error)
+	GetVolume(context.Context, *VolumeGetRequest) (*VolumeGetResponse, error)
+	GetDefaultVolume(context.Context, *VolumeGetDefaultRequest) (*VolumeGetResponse, error)
+	DeleteVolume(context.Context, *VolumeDeleteRequest) (*VolumeDeleteResponse, error)
 	mustEmbedUnimplementedSandboxControlServer()
 }
 
@@ -136,6 +212,9 @@ type UnimplementedSandboxControlServer struct{}
 func (UnimplementedSandboxControlServer) Create(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Create not implemented")
 }
+func (UnimplementedSandboxControlServer) Start(context.Context, *SandboxStartRequest) (*SandboxStartResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Start not implemented")
+}
 func (UnimplementedSandboxControlServer) Stop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Stop not implemented")
 }
@@ -145,11 +224,26 @@ func (UnimplementedSandboxControlServer) Remove(context.Context, *SandboxRemoveR
 func (UnimplementedSandboxControlServer) Get(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Get not implemented")
 }
+func (UnimplementedSandboxControlServer) GetByName(context.Context, *SandboxGetByNameRequest) (*SandboxGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetByName not implemented")
+}
 func (UnimplementedSandboxControlServer) List(context.Context, *SandboxListRequest) (*SandboxListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method List not implemented")
 }
-func (UnimplementedSandboxControlServer) UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateNetwork not implemented")
+func (UnimplementedSandboxControlServer) CreateVolume(context.Context, *VolumeCreateRequest) (*VolumeCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVolume not implemented")
+}
+func (UnimplementedSandboxControlServer) ListVolumes(context.Context, *VolumeListRequest) (*VolumeListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVolumes not implemented")
+}
+func (UnimplementedSandboxControlServer) GetVolume(context.Context, *VolumeGetRequest) (*VolumeGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetVolume not implemented")
+}
+func (UnimplementedSandboxControlServer) GetDefaultVolume(context.Context, *VolumeGetDefaultRequest) (*VolumeGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDefaultVolume not implemented")
+}
+func (UnimplementedSandboxControlServer) DeleteVolume(context.Context, *VolumeDeleteRequest) (*VolumeDeleteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteVolume not implemented")
 }
 func (UnimplementedSandboxControlServer) mustEmbedUnimplementedSandboxControlServer() {}
 func (UnimplementedSandboxControlServer) testEmbeddedByValue()                        {}
@@ -186,6 +280,24 @@ func _SandboxControl_Create_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SandboxControlServer).Create(ctx, req.(*SandboxCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxControl_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxStartRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxControlServer).Start(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxControl_Start_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxControlServer).Start(ctx, req.(*SandboxStartRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -244,6 +356,24 @@ func _SandboxControl_Get_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SandboxControl_GetByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxGetByNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxControlServer).GetByName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxControl_GetByName_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxControlServer).GetByName(ctx, req.(*SandboxGetByNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SandboxControl_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SandboxListRequest)
 	if err := dec(in); err != nil {
@@ -262,20 +392,92 @@ func _SandboxControl_List_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxControl_UpdateNetwork_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SandboxUpdateNetworkRequest)
+func _SandboxControl_CreateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeCreateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxControlServer).UpdateNetwork(ctx, in)
+		return srv.(SandboxControlServer).CreateVolume(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxControl_UpdateNetwork_FullMethodName,
+		FullMethod: SandboxControl_CreateVolume_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxControlServer).UpdateNetwork(ctx, req.(*SandboxUpdateNetworkRequest))
+		return srv.(SandboxControlServer).CreateVolume(ctx, req.(*VolumeCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxControl_ListVolumes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxControlServer).ListVolumes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxControl_ListVolumes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxControlServer).ListVolumes(ctx, req.(*VolumeListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxControl_GetVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxControlServer).GetVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxControl_GetVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxControlServer).GetVolume(ctx, req.(*VolumeGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxControl_GetDefaultVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeGetDefaultRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxControlServer).GetDefaultVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxControl_GetDefaultVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxControlServer).GetDefaultVolume(ctx, req.(*VolumeGetDefaultRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxControl_DeleteVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxControlServer).DeleteVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxControl_DeleteVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxControlServer).DeleteVolume(ctx, req.(*VolumeDeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -292,6 +494,10 @@ var SandboxControl_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SandboxControl_Create_Handler,
 		},
 		{
+			MethodName: "Start",
+			Handler:    _SandboxControl_Start_Handler,
+		},
+		{
 			MethodName: "Stop",
 			Handler:    _SandboxControl_Stop_Handler,
 		},
@@ -304,12 +510,32 @@ var SandboxControl_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SandboxControl_Get_Handler,
 		},
 		{
+			MethodName: "GetByName",
+			Handler:    _SandboxControl_GetByName_Handler,
+		},
+		{
 			MethodName: "List",
 			Handler:    _SandboxControl_List_Handler,
 		},
 		{
-			MethodName: "UpdateNetwork",
-			Handler:    _SandboxControl_UpdateNetwork_Handler,
+			MethodName: "CreateVolume",
+			Handler:    _SandboxControl_CreateVolume_Handler,
+		},
+		{
+			MethodName: "ListVolumes",
+			Handler:    _SandboxControl_ListVolumes_Handler,
+		},
+		{
+			MethodName: "GetVolume",
+			Handler:    _SandboxControl_GetVolume_Handler,
+		},
+		{
+			MethodName: "GetDefaultVolume",
+			Handler:    _SandboxControl_GetDefaultVolume_Handler,
+		},
+		{
+			MethodName: "DeleteVolume",
+			Handler:    _SandboxControl_DeleteVolume_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -317,62 +543,40 @@ var SandboxControl_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	SandboxAPI_Create_FullMethodName        = "/cellar.v1.SandboxAPI/Create"
-	SandboxAPI_Stop_FullMethodName          = "/cellar.v1.SandboxAPI/Stop"
-	SandboxAPI_Remove_FullMethodName        = "/cellar.v1.SandboxAPI/Remove"
-	SandboxAPI_Get_FullMethodName           = "/cellar.v1.SandboxAPI/Get"
-	SandboxAPI_List_FullMethodName          = "/cellar.v1.SandboxAPI/List"
-	SandboxAPI_UpdateNetwork_FullMethodName = "/cellar.v1.SandboxAPI/UpdateNetwork"
-	SandboxAPI_Logs_FullMethodName          = "/cellar.v1.SandboxAPI/Logs"
-	SandboxAPI_Exec_FullMethodName          = "/cellar.v1.SandboxAPI/Exec"
-	SandboxAPI_StartJob_FullMethodName      = "/cellar.v1.SandboxAPI/StartJob"
-	SandboxAPI_ListJobs_FullMethodName      = "/cellar.v1.SandboxAPI/ListJobs"
-	SandboxAPI_GetJob_FullMethodName        = "/cellar.v1.SandboxAPI/GetJob"
-	SandboxAPI_StopJob_FullMethodName       = "/cellar.v1.SandboxAPI/StopJob"
-	SandboxAPI_JobLogs_FullMethodName       = "/cellar.v1.SandboxAPI/JobLogs"
-	SandboxAPI_FsRead_FullMethodName        = "/cellar.v1.SandboxAPI/FsRead"
-	SandboxAPI_FsWrite_FullMethodName       = "/cellar.v1.SandboxAPI/FsWrite"
-	SandboxAPI_FsStat_FullMethodName        = "/cellar.v1.SandboxAPI/FsStat"
-	SandboxAPI_FsList_FullMethodName        = "/cellar.v1.SandboxAPI/FsList"
-	SandboxAPI_FsExists_FullMethodName      = "/cellar.v1.SandboxAPI/FsExists"
-	SandboxAPI_FsMkdir_FullMethodName       = "/cellar.v1.SandboxAPI/FsMkdir"
-	SandboxAPI_FsRemove_FullMethodName      = "/cellar.v1.SandboxAPI/FsRemove"
-	SandboxAPI_FsRemoveDir_FullMethodName   = "/cellar.v1.SandboxAPI/FsRemoveDir"
-	SandboxAPI_FsCopy_FullMethodName        = "/cellar.v1.SandboxAPI/FsCopy"
-	SandboxAPI_FsRename_FullMethodName      = "/cellar.v1.SandboxAPI/FsRename"
+	SandboxAPI_Create_FullMethodName           = "/cellar.v1.SandboxAPI/Create"
+	SandboxAPI_Start_FullMethodName            = "/cellar.v1.SandboxAPI/Start"
+	SandboxAPI_Stop_FullMethodName             = "/cellar.v1.SandboxAPI/Stop"
+	SandboxAPI_Remove_FullMethodName           = "/cellar.v1.SandboxAPI/Remove"
+	SandboxAPI_Get_FullMethodName              = "/cellar.v1.SandboxAPI/Get"
+	SandboxAPI_GetByName_FullMethodName        = "/cellar.v1.SandboxAPI/GetByName"
+	SandboxAPI_List_FullMethodName             = "/cellar.v1.SandboxAPI/List"
+	SandboxAPI_Logs_FullMethodName             = "/cellar.v1.SandboxAPI/Logs"
+	SandboxAPI_CreateVolume_FullMethodName     = "/cellar.v1.SandboxAPI/CreateVolume"
+	SandboxAPI_ListVolumes_FullMethodName      = "/cellar.v1.SandboxAPI/ListVolumes"
+	SandboxAPI_GetVolume_FullMethodName        = "/cellar.v1.SandboxAPI/GetVolume"
+	SandboxAPI_GetDefaultVolume_FullMethodName = "/cellar.v1.SandboxAPI/GetDefaultVolume"
+	SandboxAPI_DeleteVolume_FullMethodName     = "/cellar.v1.SandboxAPI/DeleteVolume"
 )
 
 // SandboxAPIClient is the client API for SandboxAPI service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// SandboxAPI is the public client API on managers. Authenticate with an API key
-// (authorization: Bearer cellar_… or x-api-key metadata). Non-leader managers
-// forward mutating RPCs to the Raft leader. Exec/Logs are proxied to the owning node.
+// SandboxAPI is the public client API on managers (API key auth).
 type SandboxAPIClient interface {
 	Create(ctx context.Context, in *SandboxCreateRequest, opts ...grpc.CallOption) (*SandboxCreateResponse, error)
+	Start(ctx context.Context, in *SandboxStartRequest, opts ...grpc.CallOption) (*SandboxStartResponse, error)
 	Stop(ctx context.Context, in *SandboxStopRequest, opts ...grpc.CallOption) (*SandboxStopResponse, error)
 	Remove(ctx context.Context, in *SandboxRemoveRequest, opts ...grpc.CallOption) (*SandboxRemoveResponse, error)
 	Get(ctx context.Context, in *SandboxGetRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
+	GetByName(ctx context.Context, in *SandboxGetByNameRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
 	List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
-	UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error)
 	Logs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
-	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
-	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error)
-	ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error)
-	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
-	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
-	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
-	FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error)
-	FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error)
-	FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error)
-	FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error)
-	FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error)
-	FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error)
-	FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error)
-	FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error)
-	FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error)
-	FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error)
+	CreateVolume(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error)
+	ListVolumes(ctx context.Context, in *VolumeListRequest, opts ...grpc.CallOption) (*VolumeListResponse, error)
+	GetVolume(ctx context.Context, in *VolumeGetRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error)
+	GetDefaultVolume(ctx context.Context, in *VolumeGetDefaultRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error)
+	DeleteVolume(ctx context.Context, in *VolumeDeleteRequest, opts ...grpc.CallOption) (*VolumeDeleteResponse, error)
 }
 
 type sandboxAPIClient struct {
@@ -387,6 +591,16 @@ func (c *sandboxAPIClient) Create(ctx context.Context, in *SandboxCreateRequest,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SandboxCreateResponse)
 	err := c.cc.Invoke(ctx, SandboxAPI_Create_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxAPIClient) Start(ctx context.Context, in *SandboxStartRequest, opts ...grpc.CallOption) (*SandboxStartResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxStartResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_Start_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -423,20 +637,20 @@ func (c *sandboxAPIClient) Get(ctx context.Context, in *SandboxGetRequest, opts 
 	return out, nil
 }
 
-func (c *sandboxAPIClient) List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error) {
+func (c *sandboxAPIClient) GetByName(ctx context.Context, in *SandboxGetByNameRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SandboxListResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_List_FullMethodName, in, out, cOpts...)
+	out := new(SandboxGetResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_GetByName_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxAPIClient) UpdateNetwork(ctx context.Context, in *SandboxUpdateNetworkRequest, opts ...grpc.CallOption) (*SandboxUpdateNetworkResponse, error) {
+func (c *sandboxAPIClient) List(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SandboxUpdateNetworkResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_UpdateNetwork_FullMethodName, in, out, cOpts...)
+	out := new(SandboxListResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_List_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -462,184 +676,50 @@ func (c *sandboxAPIClient) Logs(ctx context.Context, in *SandboxLogsRequest, opt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxAPI_LogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
 
-func (c *sandboxAPIClient) Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error) {
+func (c *sandboxAPIClient) CreateVolume(ctx context.Context, in *VolumeCreateRequest, opts ...grpc.CallOption) (*VolumeCreateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[1], SandboxAPI_Exec_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[SandboxExecMessage, SandboxExecMessage]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_ExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
-
-func (c *sandboxAPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StartJobResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_StartJob_FullMethodName, in, out, cOpts...)
+	out := new(VolumeCreateResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_CreateVolume_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxAPIClient) ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error) {
+func (c *sandboxAPIClient) ListVolumes(ctx context.Context, in *VolumeListRequest, opts ...grpc.CallOption) (*VolumeListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListJobsResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_ListJobs_FullMethodName, in, out, cOpts...)
+	out := new(VolumeListResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_ListVolumes_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxAPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error) {
+func (c *sandboxAPIClient) GetVolume(ctx context.Context, in *VolumeGetRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetJobResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_GetJob_FullMethodName, in, out, cOpts...)
+	out := new(VolumeGetResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_GetVolume_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxAPIClient) StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error) {
+func (c *sandboxAPIClient) GetDefaultVolume(ctx context.Context, in *VolumeGetDefaultRequest, opts ...grpc.CallOption) (*VolumeGetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StopJobResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_StopJob_FullMethodName, in, out, cOpts...)
+	out := new(VolumeGetResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_GetDefaultVolume_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxAPIClient) JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error) {
+func (c *sandboxAPIClient) DeleteVolume(ctx context.Context, in *VolumeDeleteRequest, opts ...grpc.CallOption) (*VolumeDeleteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[2], SandboxAPI_JobLogs_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[JobLogsRequest, SandboxLogsChunk]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_JobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
-
-func (c *sandboxAPIClient) FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[3], SandboxAPI_FsRead_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[FsReadRequest, FsChunk]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_FsReadClient = grpc.ServerStreamingClient[FsChunk]
-
-func (c *sandboxAPIClient) FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxAPI_ServiceDesc.Streams[4], SandboxAPI_FsWrite_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[FsWriteMessage, FsWriteResponse]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_FsWriteClient = grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse]
-
-func (c *sandboxAPIClient) FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsStatResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsStat_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxAPIClient) FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsListResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsList_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxAPIClient) FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsExistsResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsExists_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxAPIClient) FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsMkdirResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsMkdir_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxAPIClient) FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsRemoveResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsRemove_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxAPIClient) FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsRemoveDirResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsRemoveDir_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxAPIClient) FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsCopyResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsCopy_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxAPIClient) FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsRenameResponse)
-	err := c.cc.Invoke(ctx, SandboxAPI_FsRename_FullMethodName, in, out, cOpts...)
+	out := new(VolumeDeleteResponse)
+	err := c.cc.Invoke(ctx, SandboxAPI_DeleteVolume_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -650,33 +730,21 @@ func (c *sandboxAPIClient) FsRename(ctx context.Context, in *FsRenameRequest, op
 // All implementations must embed UnimplementedSandboxAPIServer
 // for forward compatibility.
 //
-// SandboxAPI is the public client API on managers. Authenticate with an API key
-// (authorization: Bearer cellar_… or x-api-key metadata). Non-leader managers
-// forward mutating RPCs to the Raft leader. Exec/Logs are proxied to the owning node.
+// SandboxAPI is the public client API on managers (API key auth).
 type SandboxAPIServer interface {
 	Create(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error)
+	Start(context.Context, *SandboxStartRequest) (*SandboxStartResponse, error)
 	Stop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error)
 	Remove(context.Context, *SandboxRemoveRequest) (*SandboxRemoveResponse, error)
 	Get(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error)
+	GetByName(context.Context, *SandboxGetByNameRequest) (*SandboxGetResponse, error)
 	List(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
-	UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error)
 	Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
-	Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
-	StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error)
-	ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error)
-	GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
-	StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
-	JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
-	FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error
-	FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error
-	FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error)
-	FsList(context.Context, *FsListRequest) (*FsListResponse, error)
-	FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error)
-	FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error)
-	FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error)
-	FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error)
-	FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error)
-	FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error)
+	CreateVolume(context.Context, *VolumeCreateRequest) (*VolumeCreateResponse, error)
+	ListVolumes(context.Context, *VolumeListRequest) (*VolumeListResponse, error)
+	GetVolume(context.Context, *VolumeGetRequest) (*VolumeGetResponse, error)
+	GetDefaultVolume(context.Context, *VolumeGetDefaultRequest) (*VolumeGetResponse, error)
+	DeleteVolume(context.Context, *VolumeDeleteRequest) (*VolumeDeleteResponse, error)
 	mustEmbedUnimplementedSandboxAPIServer()
 }
 
@@ -690,6 +758,9 @@ type UnimplementedSandboxAPIServer struct{}
 func (UnimplementedSandboxAPIServer) Create(context.Context, *SandboxCreateRequest) (*SandboxCreateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Create not implemented")
 }
+func (UnimplementedSandboxAPIServer) Start(context.Context, *SandboxStartRequest) (*SandboxStartResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Start not implemented")
+}
 func (UnimplementedSandboxAPIServer) Stop(context.Context, *SandboxStopRequest) (*SandboxStopResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Stop not implemented")
 }
@@ -699,62 +770,29 @@ func (UnimplementedSandboxAPIServer) Remove(context.Context, *SandboxRemoveReque
 func (UnimplementedSandboxAPIServer) Get(context.Context, *SandboxGetRequest) (*SandboxGetResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Get not implemented")
 }
+func (UnimplementedSandboxAPIServer) GetByName(context.Context, *SandboxGetByNameRequest) (*SandboxGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetByName not implemented")
+}
 func (UnimplementedSandboxAPIServer) List(context.Context, *SandboxListRequest) (*SandboxListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method List not implemented")
-}
-func (UnimplementedSandboxAPIServer) UpdateNetwork(context.Context, *SandboxUpdateNetworkRequest) (*SandboxUpdateNetworkResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateNetwork not implemented")
 }
 func (UnimplementedSandboxAPIServer) Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
 	return status.Error(codes.Unimplemented, "method Logs not implemented")
 }
-func (UnimplementedSandboxAPIServer) Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
-	return status.Error(codes.Unimplemented, "method Exec not implemented")
+func (UnimplementedSandboxAPIServer) CreateVolume(context.Context, *VolumeCreateRequest) (*VolumeCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVolume not implemented")
 }
-func (UnimplementedSandboxAPIServer) StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method StartJob not implemented")
+func (UnimplementedSandboxAPIServer) ListVolumes(context.Context, *VolumeListRequest) (*VolumeListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVolumes not implemented")
 }
-func (UnimplementedSandboxAPIServer) ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListJobs not implemented")
+func (UnimplementedSandboxAPIServer) GetVolume(context.Context, *VolumeGetRequest) (*VolumeGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetVolume not implemented")
 }
-func (UnimplementedSandboxAPIServer) GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetJob not implemented")
+func (UnimplementedSandboxAPIServer) GetDefaultVolume(context.Context, *VolumeGetDefaultRequest) (*VolumeGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDefaultVolume not implemented")
 }
-func (UnimplementedSandboxAPIServer) StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method StopJob not implemented")
-}
-func (UnimplementedSandboxAPIServer) JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
-	return status.Error(codes.Unimplemented, "method JobLogs not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error {
-	return status.Error(codes.Unimplemented, "method FsRead not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error {
-	return status.Error(codes.Unimplemented, "method FsWrite not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsStat not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsList(context.Context, *FsListRequest) (*FsListResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsList not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsExists not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsMkdir not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsRemove not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsRemoveDir not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsCopy not implemented")
-}
-func (UnimplementedSandboxAPIServer) FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsRename not implemented")
+func (UnimplementedSandboxAPIServer) DeleteVolume(context.Context, *VolumeDeleteRequest) (*VolumeDeleteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteVolume not implemented")
 }
 func (UnimplementedSandboxAPIServer) mustEmbedUnimplementedSandboxAPIServer() {}
 func (UnimplementedSandboxAPIServer) testEmbeddedByValue()                    {}
@@ -791,6 +829,24 @@ func _SandboxAPI_Create_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SandboxAPIServer).Create(ctx, req.(*SandboxCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxAPI_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxStartRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).Start(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_Start_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).Start(ctx, req.(*SandboxStartRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -849,6 +905,24 @@ func _SandboxAPI_Get_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SandboxAPI_GetByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxGetByNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxAPIServer).GetByName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxAPI_GetByName_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxAPIServer).GetByName(ctx, req.(*SandboxGetByNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SandboxAPI_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SandboxListRequest)
 	if err := dec(in); err != nil {
@@ -867,24 +941,6 @@ func _SandboxAPI_List_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxAPI_UpdateNetwork_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SandboxUpdateNetworkRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).UpdateNetwork(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_UpdateNetwork_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).UpdateNetwork(ctx, req.(*SandboxUpdateNetworkRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _SandboxAPI_Logs_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SandboxLogsRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -896,254 +952,92 @@ func _SandboxAPI_Logs_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxAPI_LogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
 
-func _SandboxAPI_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SandboxAPIServer).Exec(&grpc.GenericServerStream[SandboxExecMessage, SandboxExecMessage]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_ExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
-
-func _SandboxAPI_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartJobRequest)
+func _SandboxAPI_CreateVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeCreateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxAPIServer).StartJob(ctx, in)
+		return srv.(SandboxAPIServer).CreateVolume(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxAPI_StartJob_FullMethodName,
+		FullMethod: SandboxAPI_CreateVolume_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).StartJob(ctx, req.(*StartJobRequest))
+		return srv.(SandboxAPIServer).CreateVolume(ctx, req.(*VolumeCreateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxAPI_ListJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListJobsRequest)
+func _SandboxAPI_ListVolumes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeListRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxAPIServer).ListJobs(ctx, in)
+		return srv.(SandboxAPIServer).ListVolumes(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxAPI_ListJobs_FullMethodName,
+		FullMethod: SandboxAPI_ListVolumes_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).ListJobs(ctx, req.(*ListJobsRequest))
+		return srv.(SandboxAPIServer).ListVolumes(ctx, req.(*VolumeListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxAPI_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetJobRequest)
+func _SandboxAPI_GetVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeGetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxAPIServer).GetJob(ctx, in)
+		return srv.(SandboxAPIServer).GetVolume(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxAPI_GetJob_FullMethodName,
+		FullMethod: SandboxAPI_GetVolume_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).GetJob(ctx, req.(*GetJobRequest))
+		return srv.(SandboxAPIServer).GetVolume(ctx, req.(*VolumeGetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxAPI_StopJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StopJobRequest)
+func _SandboxAPI_GetDefaultVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeGetDefaultRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxAPIServer).StopJob(ctx, in)
+		return srv.(SandboxAPIServer).GetDefaultVolume(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxAPI_StopJob_FullMethodName,
+		FullMethod: SandboxAPI_GetDefaultVolume_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).StopJob(ctx, req.(*StopJobRequest))
+		return srv.(SandboxAPIServer).GetDefaultVolume(ctx, req.(*VolumeGetDefaultRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxAPI_JobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(JobLogsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(SandboxAPIServer).JobLogs(m, &grpc.GenericServerStream[JobLogsRequest, SandboxLogsChunk]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_JobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
-
-func _SandboxAPI_FsRead_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(FsReadRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(SandboxAPIServer).FsRead(m, &grpc.GenericServerStream[FsReadRequest, FsChunk]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_FsReadServer = grpc.ServerStreamingServer[FsChunk]
-
-func _SandboxAPI_FsWrite_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SandboxAPIServer).FsWrite(&grpc.GenericServerStream[FsWriteMessage, FsWriteResponse]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxAPI_FsWriteServer = grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]
-
-func _SandboxAPI_FsStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsStatRequest)
+func _SandboxAPI_DeleteVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeDeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsStat(ctx, in)
+		return srv.(SandboxAPIServer).DeleteVolume(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxAPI_FsStat_FullMethodName,
+		FullMethod: SandboxAPI_DeleteVolume_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsStat(ctx, req.(*FsStatRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxAPI_FsList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsListRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsList(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_FsList_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsList(ctx, req.(*FsListRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxAPI_FsExists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsExistsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsExists(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_FsExists_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsExists(ctx, req.(*FsExistsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxAPI_FsMkdir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsMkdirRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsMkdir(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_FsMkdir_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsMkdir(ctx, req.(*FsMkdirRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxAPI_FsRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsRemoveRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsRemove(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_FsRemove_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsRemove(ctx, req.(*FsRemoveRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxAPI_FsRemoveDir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsRemoveDirRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsRemoveDir(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_FsRemoveDir_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsRemoveDir(ctx, req.(*FsRemoveDirRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxAPI_FsCopy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsCopyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsCopy(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_FsCopy_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsCopy(ctx, req.(*FsCopyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxAPI_FsRename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsRenameRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxAPIServer).FsRename(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxAPI_FsRename_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxAPIServer).FsRename(ctx, req.(*FsRenameRequest))
+		return srv.(SandboxAPIServer).DeleteVolume(ctx, req.(*VolumeDeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1160,6 +1054,10 @@ var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SandboxAPI_Create_Handler,
 		},
 		{
+			MethodName: "Start",
+			Handler:    _SandboxAPI_Start_Handler,
+		},
+		{
 			MethodName: "Stop",
 			Handler:    _SandboxAPI_Stop_Handler,
 		},
@@ -1172,60 +1070,32 @@ var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SandboxAPI_Get_Handler,
 		},
 		{
+			MethodName: "GetByName",
+			Handler:    _SandboxAPI_GetByName_Handler,
+		},
+		{
 			MethodName: "List",
 			Handler:    _SandboxAPI_List_Handler,
 		},
 		{
-			MethodName: "UpdateNetwork",
-			Handler:    _SandboxAPI_UpdateNetwork_Handler,
+			MethodName: "CreateVolume",
+			Handler:    _SandboxAPI_CreateVolume_Handler,
 		},
 		{
-			MethodName: "StartJob",
-			Handler:    _SandboxAPI_StartJob_Handler,
+			MethodName: "ListVolumes",
+			Handler:    _SandboxAPI_ListVolumes_Handler,
 		},
 		{
-			MethodName: "ListJobs",
-			Handler:    _SandboxAPI_ListJobs_Handler,
+			MethodName: "GetVolume",
+			Handler:    _SandboxAPI_GetVolume_Handler,
 		},
 		{
-			MethodName: "GetJob",
-			Handler:    _SandboxAPI_GetJob_Handler,
+			MethodName: "GetDefaultVolume",
+			Handler:    _SandboxAPI_GetDefaultVolume_Handler,
 		},
 		{
-			MethodName: "StopJob",
-			Handler:    _SandboxAPI_StopJob_Handler,
-		},
-		{
-			MethodName: "FsStat",
-			Handler:    _SandboxAPI_FsStat_Handler,
-		},
-		{
-			MethodName: "FsList",
-			Handler:    _SandboxAPI_FsList_Handler,
-		},
-		{
-			MethodName: "FsExists",
-			Handler:    _SandboxAPI_FsExists_Handler,
-		},
-		{
-			MethodName: "FsMkdir",
-			Handler:    _SandboxAPI_FsMkdir_Handler,
-		},
-		{
-			MethodName: "FsRemove",
-			Handler:    _SandboxAPI_FsRemove_Handler,
-		},
-		{
-			MethodName: "FsRemoveDir",
-			Handler:    _SandboxAPI_FsRemoveDir_Handler,
-		},
-		{
-			MethodName: "FsCopy",
-			Handler:    _SandboxAPI_FsCopy_Handler,
-		},
-		{
-			MethodName: "FsRename",
-			Handler:    _SandboxAPI_FsRename_Handler,
+			MethodName: "DeleteVolume",
+			Handler:    _SandboxAPI_DeleteVolume_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -1233,27 +1103,6 @@ var SandboxAPI_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Logs",
 			Handler:       _SandboxAPI_Logs_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "Exec",
-			Handler:       _SandboxAPI_Exec_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "JobLogs",
-			Handler:       _SandboxAPI_JobLogs_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "FsRead",
-			Handler:       _SandboxAPI_FsRead_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "FsWrite",
-			Handler:       _SandboxAPI_FsWrite_Handler,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "sandbox.proto",
@@ -1442,52 +1291,40 @@ var RuntimeAgent_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	SandboxRuntime_Logs_FullMethodName               = "/cellar.v1.SandboxRuntime/Logs"
-	SandboxRuntime_Exec_FullMethodName               = "/cellar.v1.SandboxRuntime/Exec"
-	SandboxRuntime_ApplyNetworkPolicy_FullMethodName = "/cellar.v1.SandboxRuntime/ApplyNetworkPolicy"
-	SandboxRuntime_StartJob_FullMethodName           = "/cellar.v1.SandboxRuntime/StartJob"
-	SandboxRuntime_ListJobs_FullMethodName           = "/cellar.v1.SandboxRuntime/ListJobs"
-	SandboxRuntime_GetJob_FullMethodName             = "/cellar.v1.SandboxRuntime/GetJob"
-	SandboxRuntime_StopJob_FullMethodName            = "/cellar.v1.SandboxRuntime/StopJob"
-	SandboxRuntime_JobLogs_FullMethodName            = "/cellar.v1.SandboxRuntime/JobLogs"
-	SandboxRuntime_FsRead_FullMethodName             = "/cellar.v1.SandboxRuntime/FsRead"
-	SandboxRuntime_FsWrite_FullMethodName            = "/cellar.v1.SandboxRuntime/FsWrite"
-	SandboxRuntime_FsStat_FullMethodName             = "/cellar.v1.SandboxRuntime/FsStat"
-	SandboxRuntime_FsList_FullMethodName             = "/cellar.v1.SandboxRuntime/FsList"
-	SandboxRuntime_FsExists_FullMethodName           = "/cellar.v1.SandboxRuntime/FsExists"
-	SandboxRuntime_FsMkdir_FullMethodName            = "/cellar.v1.SandboxRuntime/FsMkdir"
-	SandboxRuntime_FsRemove_FullMethodName           = "/cellar.v1.SandboxRuntime/FsRemove"
-	SandboxRuntime_FsRemoveDir_FullMethodName        = "/cellar.v1.SandboxRuntime/FsRemoveDir"
-	SandboxRuntime_FsCopy_FullMethodName             = "/cellar.v1.SandboxRuntime/FsCopy"
-	SandboxRuntime_FsRename_FullMethodName           = "/cellar.v1.SandboxRuntime/FsRename"
+	SandboxRuntime_Logs_FullMethodName              = "/cellar.v1.SandboxRuntime/Logs"
+	SandboxRuntime_AgentRelay_FullMethodName        = "/cellar.v1.SandboxRuntime/AgentRelay"
+	SandboxRuntime_VolumeFsRead_FullMethodName      = "/cellar.v1.SandboxRuntime/VolumeFsRead"
+	SandboxRuntime_VolumeFsWrite_FullMethodName     = "/cellar.v1.SandboxRuntime/VolumeFsWrite"
+	SandboxRuntime_VolumeFsStat_FullMethodName      = "/cellar.v1.SandboxRuntime/VolumeFsStat"
+	SandboxRuntime_VolumeFsList_FullMethodName      = "/cellar.v1.SandboxRuntime/VolumeFsList"
+	SandboxRuntime_VolumeFsExists_FullMethodName    = "/cellar.v1.SandboxRuntime/VolumeFsExists"
+	SandboxRuntime_VolumeFsMkdir_FullMethodName     = "/cellar.v1.SandboxRuntime/VolumeFsMkdir"
+	SandboxRuntime_VolumeFsRemove_FullMethodName    = "/cellar.v1.SandboxRuntime/VolumeFsRemove"
+	SandboxRuntime_VolumeFsCopy_FullMethodName      = "/cellar.v1.SandboxRuntime/VolumeFsCopy"
+	SandboxRuntime_VolumeFsRename_FullMethodName    = "/cellar.v1.SandboxRuntime/VolumeFsRename"
+	SandboxRuntime_EnsureLocalVolume_FullMethodName = "/cellar.v1.SandboxRuntime/EnsureLocalVolume"
+	SandboxRuntime_DeleteLocalVolume_FullMethodName = "/cellar.v1.SandboxRuntime/DeleteLocalVolume"
 )
 
 // SandboxRuntimeClient is the client API for SandboxRuntime service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// SandboxRuntime is served on every node for logs/exec against local containers.
+// SandboxRuntime is served on every node for logs/agent relay/volume FS.
 type SandboxRuntimeClient interface {
 	Logs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
-	Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error)
-	// Applies a committed network policy to a running sandbox immediately,
-	// instead of waiting for the next reconcile tick.
-	ApplyNetworkPolicy(ctx context.Context, in *ApplyNetworkPolicyRequest, opts ...grpc.CallOption) (*ApplyNetworkPolicyResponse, error)
-	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error)
-	ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error)
-	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
-	StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error)
-	JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
-	FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error)
-	FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error)
-	FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error)
-	FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error)
-	FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error)
-	FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error)
-	FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error)
-	FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error)
-	FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error)
-	FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error)
+	AgentRelay(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentRelayChunk, AgentRelayChunk], error)
+	VolumeFsRead(ctx context.Context, in *VolumeFsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error)
+	VolumeFsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[VolumeFsWriteMessage, VolumeFsWriteResponse], error)
+	VolumeFsStat(ctx context.Context, in *VolumeFsStatRequest, opts ...grpc.CallOption) (*VolumeFsStatResponse, error)
+	VolumeFsList(ctx context.Context, in *VolumeFsListRequest, opts ...grpc.CallOption) (*VolumeFsListResponse, error)
+	VolumeFsExists(ctx context.Context, in *VolumeFsExistsRequest, opts ...grpc.CallOption) (*VolumeFsExistsResponse, error)
+	VolumeFsMkdir(ctx context.Context, in *VolumeFsMkdirRequest, opts ...grpc.CallOption) (*VolumeFsMkdirResponse, error)
+	VolumeFsRemove(ctx context.Context, in *VolumeFsRemoveRequest, opts ...grpc.CallOption) (*VolumeFsRemoveResponse, error)
+	VolumeFsCopy(ctx context.Context, in *VolumeFsCopyRequest, opts ...grpc.CallOption) (*VolumeFsCopyResponse, error)
+	VolumeFsRename(ctx context.Context, in *VolumeFsRenameRequest, opts ...grpc.CallOption) (*VolumeFsRenameResponse, error)
+	EnsureLocalVolume(ctx context.Context, in *EnsureLocalVolumeRequest, opts ...grpc.CallOption) (*EnsureLocalVolumeResponse, error)
+	DeleteLocalVolume(ctx context.Context, in *DeleteLocalVolumeRequest, opts ...grpc.CallOption) (*DeleteLocalVolumeResponse, error)
 }
 
 type sandboxRuntimeClient struct {
@@ -1517,76 +1354,26 @@ func (c *sandboxRuntimeClient) Logs(ctx context.Context, in *SandboxLogsRequest,
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxRuntime_LogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
 
-func (c *sandboxRuntimeClient) Exec(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage], error) {
+func (c *sandboxRuntimeClient) AgentRelay(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentRelayChunk, AgentRelayChunk], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[1], SandboxRuntime_Exec_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[1], SandboxRuntime_AgentRelay_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[SandboxExecMessage, SandboxExecMessage]{ClientStream: stream}
+	x := &grpc.GenericClientStream[AgentRelayChunk, AgentRelayChunk]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_ExecClient = grpc.BidiStreamingClient[SandboxExecMessage, SandboxExecMessage]
+type SandboxRuntime_AgentRelayClient = grpc.BidiStreamingClient[AgentRelayChunk, AgentRelayChunk]
 
-func (c *sandboxRuntimeClient) ApplyNetworkPolicy(ctx context.Context, in *ApplyNetworkPolicyRequest, opts ...grpc.CallOption) (*ApplyNetworkPolicyResponse, error) {
+func (c *sandboxRuntimeClient) VolumeFsRead(ctx context.Context, in *VolumeFsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ApplyNetworkPolicyResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_ApplyNetworkPolicy_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[2], SandboxRuntime_VolumeFsRead_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *sandboxRuntimeClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StartJobResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_StartJob_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxRuntimeClient) ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListJobsResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_ListJobs_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxRuntimeClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetJobResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_GetJob_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxRuntimeClient) StopJob(ctx context.Context, in *StopJobRequest, opts ...grpc.CallOption) (*StopJobResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StopJobResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_StopJob_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sandboxRuntimeClient) JobLogs(ctx context.Context, in *JobLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[2], SandboxRuntime_JobLogs_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[JobLogsRequest, SandboxLogsChunk]{ClientStream: stream}
+	x := &grpc.GenericClientStream[VolumeFsReadRequest, FsChunk]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -1597,114 +1384,105 @@ func (c *sandboxRuntimeClient) JobLogs(ctx context.Context, in *JobLogsRequest, 
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_JobLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
+type SandboxRuntime_VolumeFsReadClient = grpc.ServerStreamingClient[FsChunk]
 
-func (c *sandboxRuntimeClient) FsRead(ctx context.Context, in *FsReadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FsChunk], error) {
+func (c *sandboxRuntimeClient) VolumeFsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[VolumeFsWriteMessage, VolumeFsWriteResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[3], SandboxRuntime_FsRead_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[3], SandboxRuntime_VolumeFsWrite_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[FsReadRequest, FsChunk]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+	x := &grpc.GenericClientStream[VolumeFsWriteMessage, VolumeFsWriteResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_FsReadClient = grpc.ServerStreamingClient[FsChunk]
+type SandboxRuntime_VolumeFsWriteClient = grpc.ClientStreamingClient[VolumeFsWriteMessage, VolumeFsWriteResponse]
 
-func (c *sandboxRuntimeClient) FsWrite(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse], error) {
+func (c *sandboxRuntimeClient) VolumeFsStat(ctx context.Context, in *VolumeFsStatRequest, opts ...grpc.CallOption) (*VolumeFsStatResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SandboxRuntime_ServiceDesc.Streams[4], SandboxRuntime_FsWrite_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[FsWriteMessage, FsWriteResponse]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_FsWriteClient = grpc.ClientStreamingClient[FsWriteMessage, FsWriteResponse]
-
-func (c *sandboxRuntimeClient) FsStat(ctx context.Context, in *FsStatRequest, opts ...grpc.CallOption) (*FsStatResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsStatResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsStat_FullMethodName, in, out, cOpts...)
+	out := new(VolumeFsStatResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_VolumeFsStat_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxRuntimeClient) FsList(ctx context.Context, in *FsListRequest, opts ...grpc.CallOption) (*FsListResponse, error) {
+func (c *sandboxRuntimeClient) VolumeFsList(ctx context.Context, in *VolumeFsListRequest, opts ...grpc.CallOption) (*VolumeFsListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsListResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsList_FullMethodName, in, out, cOpts...)
+	out := new(VolumeFsListResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_VolumeFsList_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxRuntimeClient) FsExists(ctx context.Context, in *FsExistsRequest, opts ...grpc.CallOption) (*FsExistsResponse, error) {
+func (c *sandboxRuntimeClient) VolumeFsExists(ctx context.Context, in *VolumeFsExistsRequest, opts ...grpc.CallOption) (*VolumeFsExistsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsExistsResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsExists_FullMethodName, in, out, cOpts...)
+	out := new(VolumeFsExistsResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_VolumeFsExists_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxRuntimeClient) FsMkdir(ctx context.Context, in *FsMkdirRequest, opts ...grpc.CallOption) (*FsMkdirResponse, error) {
+func (c *sandboxRuntimeClient) VolumeFsMkdir(ctx context.Context, in *VolumeFsMkdirRequest, opts ...grpc.CallOption) (*VolumeFsMkdirResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsMkdirResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsMkdir_FullMethodName, in, out, cOpts...)
+	out := new(VolumeFsMkdirResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_VolumeFsMkdir_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxRuntimeClient) FsRemove(ctx context.Context, in *FsRemoveRequest, opts ...grpc.CallOption) (*FsRemoveResponse, error) {
+func (c *sandboxRuntimeClient) VolumeFsRemove(ctx context.Context, in *VolumeFsRemoveRequest, opts ...grpc.CallOption) (*VolumeFsRemoveResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsRemoveResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsRemove_FullMethodName, in, out, cOpts...)
+	out := new(VolumeFsRemoveResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_VolumeFsRemove_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxRuntimeClient) FsRemoveDir(ctx context.Context, in *FsRemoveDirRequest, opts ...grpc.CallOption) (*FsRemoveDirResponse, error) {
+func (c *sandboxRuntimeClient) VolumeFsCopy(ctx context.Context, in *VolumeFsCopyRequest, opts ...grpc.CallOption) (*VolumeFsCopyResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsRemoveDirResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsRemoveDir_FullMethodName, in, out, cOpts...)
+	out := new(VolumeFsCopyResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_VolumeFsCopy_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxRuntimeClient) FsCopy(ctx context.Context, in *FsCopyRequest, opts ...grpc.CallOption) (*FsCopyResponse, error) {
+func (c *sandboxRuntimeClient) VolumeFsRename(ctx context.Context, in *VolumeFsRenameRequest, opts ...grpc.CallOption) (*VolumeFsRenameResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsCopyResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsCopy_FullMethodName, in, out, cOpts...)
+	out := new(VolumeFsRenameResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_VolumeFsRename_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *sandboxRuntimeClient) FsRename(ctx context.Context, in *FsRenameRequest, opts ...grpc.CallOption) (*FsRenameResponse, error) {
+func (c *sandboxRuntimeClient) EnsureLocalVolume(ctx context.Context, in *EnsureLocalVolumeRequest, opts ...grpc.CallOption) (*EnsureLocalVolumeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(FsRenameResponse)
-	err := c.cc.Invoke(ctx, SandboxRuntime_FsRename_FullMethodName, in, out, cOpts...)
+	out := new(EnsureLocalVolumeResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_EnsureLocalVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxRuntimeClient) DeleteLocalVolume(ctx context.Context, in *DeleteLocalVolumeRequest, opts ...grpc.CallOption) (*DeleteLocalVolumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteLocalVolumeResponse)
+	err := c.cc.Invoke(ctx, SandboxRuntime_DeleteLocalVolume_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1715,28 +1493,21 @@ func (c *sandboxRuntimeClient) FsRename(ctx context.Context, in *FsRenameRequest
 // All implementations must embed UnimplementedSandboxRuntimeServer
 // for forward compatibility.
 //
-// SandboxRuntime is served on every node for logs/exec against local containers.
+// SandboxRuntime is served on every node for logs/agent relay/volume FS.
 type SandboxRuntimeServer interface {
 	Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
-	Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error
-	// Applies a committed network policy to a running sandbox immediately,
-	// instead of waiting for the next reconcile tick.
-	ApplyNetworkPolicy(context.Context, *ApplyNetworkPolicyRequest) (*ApplyNetworkPolicyResponse, error)
-	StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error)
-	ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error)
-	GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
-	StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error)
-	JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
-	FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error
-	FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error
-	FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error)
-	FsList(context.Context, *FsListRequest) (*FsListResponse, error)
-	FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error)
-	FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error)
-	FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error)
-	FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error)
-	FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error)
-	FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error)
+	AgentRelay(grpc.BidiStreamingServer[AgentRelayChunk, AgentRelayChunk]) error
+	VolumeFsRead(*VolumeFsReadRequest, grpc.ServerStreamingServer[FsChunk]) error
+	VolumeFsWrite(grpc.ClientStreamingServer[VolumeFsWriteMessage, VolumeFsWriteResponse]) error
+	VolumeFsStat(context.Context, *VolumeFsStatRequest) (*VolumeFsStatResponse, error)
+	VolumeFsList(context.Context, *VolumeFsListRequest) (*VolumeFsListResponse, error)
+	VolumeFsExists(context.Context, *VolumeFsExistsRequest) (*VolumeFsExistsResponse, error)
+	VolumeFsMkdir(context.Context, *VolumeFsMkdirRequest) (*VolumeFsMkdirResponse, error)
+	VolumeFsRemove(context.Context, *VolumeFsRemoveRequest) (*VolumeFsRemoveResponse, error)
+	VolumeFsCopy(context.Context, *VolumeFsCopyRequest) (*VolumeFsCopyResponse, error)
+	VolumeFsRename(context.Context, *VolumeFsRenameRequest) (*VolumeFsRenameResponse, error)
+	EnsureLocalVolume(context.Context, *EnsureLocalVolumeRequest) (*EnsureLocalVolumeResponse, error)
+	DeleteLocalVolume(context.Context, *DeleteLocalVolumeRequest) (*DeleteLocalVolumeResponse, error)
 	mustEmbedUnimplementedSandboxRuntimeServer()
 }
 
@@ -1750,56 +1521,41 @@ type UnimplementedSandboxRuntimeServer struct{}
 func (UnimplementedSandboxRuntimeServer) Logs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
 	return status.Error(codes.Unimplemented, "method Logs not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) Exec(grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]) error {
-	return status.Error(codes.Unimplemented, "method Exec not implemented")
+func (UnimplementedSandboxRuntimeServer) AgentRelay(grpc.BidiStreamingServer[AgentRelayChunk, AgentRelayChunk]) error {
+	return status.Error(codes.Unimplemented, "method AgentRelay not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) ApplyNetworkPolicy(context.Context, *ApplyNetworkPolicyRequest) (*ApplyNetworkPolicyResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ApplyNetworkPolicy not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsRead(*VolumeFsReadRequest, grpc.ServerStreamingServer[FsChunk]) error {
+	return status.Error(codes.Unimplemented, "method VolumeFsRead not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method StartJob not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsWrite(grpc.ClientStreamingServer[VolumeFsWriteMessage, VolumeFsWriteResponse]) error {
+	return status.Error(codes.Unimplemented, "method VolumeFsWrite not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListJobs not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsStat(context.Context, *VolumeFsStatRequest) (*VolumeFsStatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VolumeFsStat not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetJob not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsList(context.Context, *VolumeFsListRequest) (*VolumeFsListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VolumeFsList not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) StopJob(context.Context, *StopJobRequest) (*StopJobResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method StopJob not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsExists(context.Context, *VolumeFsExistsRequest) (*VolumeFsExistsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VolumeFsExists not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) JobLogs(*JobLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
-	return status.Error(codes.Unimplemented, "method JobLogs not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsMkdir(context.Context, *VolumeFsMkdirRequest) (*VolumeFsMkdirResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VolumeFsMkdir not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) FsRead(*FsReadRequest, grpc.ServerStreamingServer[FsChunk]) error {
-	return status.Error(codes.Unimplemented, "method FsRead not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsRemove(context.Context, *VolumeFsRemoveRequest) (*VolumeFsRemoveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VolumeFsRemove not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) FsWrite(grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]) error {
-	return status.Error(codes.Unimplemented, "method FsWrite not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsCopy(context.Context, *VolumeFsCopyRequest) (*VolumeFsCopyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VolumeFsCopy not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) FsStat(context.Context, *FsStatRequest) (*FsStatResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsStat not implemented")
+func (UnimplementedSandboxRuntimeServer) VolumeFsRename(context.Context, *VolumeFsRenameRequest) (*VolumeFsRenameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VolumeFsRename not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) FsList(context.Context, *FsListRequest) (*FsListResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsList not implemented")
+func (UnimplementedSandboxRuntimeServer) EnsureLocalVolume(context.Context, *EnsureLocalVolumeRequest) (*EnsureLocalVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EnsureLocalVolume not implemented")
 }
-func (UnimplementedSandboxRuntimeServer) FsExists(context.Context, *FsExistsRequest) (*FsExistsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsExists not implemented")
-}
-func (UnimplementedSandboxRuntimeServer) FsMkdir(context.Context, *FsMkdirRequest) (*FsMkdirResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsMkdir not implemented")
-}
-func (UnimplementedSandboxRuntimeServer) FsRemove(context.Context, *FsRemoveRequest) (*FsRemoveResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsRemove not implemented")
-}
-func (UnimplementedSandboxRuntimeServer) FsRemoveDir(context.Context, *FsRemoveDirRequest) (*FsRemoveDirResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsRemoveDir not implemented")
-}
-func (UnimplementedSandboxRuntimeServer) FsCopy(context.Context, *FsCopyRequest) (*FsCopyResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsCopy not implemented")
-}
-func (UnimplementedSandboxRuntimeServer) FsRename(context.Context, *FsRenameRequest) (*FsRenameResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method FsRename not implemented")
+func (UnimplementedSandboxRuntimeServer) DeleteLocalVolume(context.Context, *DeleteLocalVolumeRequest) (*DeleteLocalVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteLocalVolume not implemented")
 }
 func (UnimplementedSandboxRuntimeServer) mustEmbedUnimplementedSandboxRuntimeServer() {}
 func (UnimplementedSandboxRuntimeServer) testEmbeddedByValue()                        {}
@@ -1833,272 +1589,189 @@ func _SandboxRuntime_Logs_Handler(srv interface{}, stream grpc.ServerStream) err
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxRuntime_LogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
 
-func _SandboxRuntime_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SandboxRuntimeServer).Exec(&grpc.GenericServerStream[SandboxExecMessage, SandboxExecMessage]{ServerStream: stream})
+func _SandboxRuntime_AgentRelay_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SandboxRuntimeServer).AgentRelay(&grpc.GenericServerStream[AgentRelayChunk, AgentRelayChunk]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_ExecServer = grpc.BidiStreamingServer[SandboxExecMessage, SandboxExecMessage]
+type SandboxRuntime_AgentRelayServer = grpc.BidiStreamingServer[AgentRelayChunk, AgentRelayChunk]
 
-func _SandboxRuntime_ApplyNetworkPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ApplyNetworkPolicyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).ApplyNetworkPolicy(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxRuntime_ApplyNetworkPolicy_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).ApplyNetworkPolicy(ctx, req.(*ApplyNetworkPolicyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxRuntime_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartJobRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).StartJob(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxRuntime_StartJob_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).StartJob(ctx, req.(*StartJobRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxRuntime_ListJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListJobsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).ListJobs(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxRuntime_ListJobs_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).ListJobs(ctx, req.(*ListJobsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxRuntime_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetJobRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).GetJob(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxRuntime_GetJob_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).GetJob(ctx, req.(*GetJobRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxRuntime_StopJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StopJobRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).StopJob(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SandboxRuntime_StopJob_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).StopJob(ctx, req.(*StopJobRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SandboxRuntime_JobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(JobLogsRequest)
+func _SandboxRuntime_VolumeFsRead_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(VolumeFsReadRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(SandboxRuntimeServer).JobLogs(m, &grpc.GenericServerStream[JobLogsRequest, SandboxLogsChunk]{ServerStream: stream})
+	return srv.(SandboxRuntimeServer).VolumeFsRead(m, &grpc.GenericServerStream[VolumeFsReadRequest, FsChunk]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_JobLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
+type SandboxRuntime_VolumeFsReadServer = grpc.ServerStreamingServer[FsChunk]
 
-func _SandboxRuntime_FsRead_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(FsReadRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(SandboxRuntimeServer).FsRead(m, &grpc.GenericServerStream[FsReadRequest, FsChunk]{ServerStream: stream})
+func _SandboxRuntime_VolumeFsWrite_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SandboxRuntimeServer).VolumeFsWrite(&grpc.GenericServerStream[VolumeFsWriteMessage, VolumeFsWriteResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_FsReadServer = grpc.ServerStreamingServer[FsChunk]
+type SandboxRuntime_VolumeFsWriteServer = grpc.ClientStreamingServer[VolumeFsWriteMessage, VolumeFsWriteResponse]
 
-func _SandboxRuntime_FsWrite_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SandboxRuntimeServer).FsWrite(&grpc.GenericServerStream[FsWriteMessage, FsWriteResponse]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SandboxRuntime_FsWriteServer = grpc.ClientStreamingServer[FsWriteMessage, FsWriteResponse]
-
-func _SandboxRuntime_FsStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsStatRequest)
+func _SandboxRuntime_VolumeFsStat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeFsStatRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsStat(ctx, in)
+		return srv.(SandboxRuntimeServer).VolumeFsStat(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsStat_FullMethodName,
+		FullMethod: SandboxRuntime_VolumeFsStat_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsStat(ctx, req.(*FsStatRequest))
+		return srv.(SandboxRuntimeServer).VolumeFsStat(ctx, req.(*VolumeFsStatRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxRuntime_FsList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsListRequest)
+func _SandboxRuntime_VolumeFsList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeFsListRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsList(ctx, in)
+		return srv.(SandboxRuntimeServer).VolumeFsList(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsList_FullMethodName,
+		FullMethod: SandboxRuntime_VolumeFsList_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsList(ctx, req.(*FsListRequest))
+		return srv.(SandboxRuntimeServer).VolumeFsList(ctx, req.(*VolumeFsListRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxRuntime_FsExists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsExistsRequest)
+func _SandboxRuntime_VolumeFsExists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeFsExistsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsExists(ctx, in)
+		return srv.(SandboxRuntimeServer).VolumeFsExists(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsExists_FullMethodName,
+		FullMethod: SandboxRuntime_VolumeFsExists_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsExists(ctx, req.(*FsExistsRequest))
+		return srv.(SandboxRuntimeServer).VolumeFsExists(ctx, req.(*VolumeFsExistsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxRuntime_FsMkdir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsMkdirRequest)
+func _SandboxRuntime_VolumeFsMkdir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeFsMkdirRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsMkdir(ctx, in)
+		return srv.(SandboxRuntimeServer).VolumeFsMkdir(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsMkdir_FullMethodName,
+		FullMethod: SandboxRuntime_VolumeFsMkdir_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsMkdir(ctx, req.(*FsMkdirRequest))
+		return srv.(SandboxRuntimeServer).VolumeFsMkdir(ctx, req.(*VolumeFsMkdirRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxRuntime_FsRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsRemoveRequest)
+func _SandboxRuntime_VolumeFsRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeFsRemoveRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsRemove(ctx, in)
+		return srv.(SandboxRuntimeServer).VolumeFsRemove(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsRemove_FullMethodName,
+		FullMethod: SandboxRuntime_VolumeFsRemove_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsRemove(ctx, req.(*FsRemoveRequest))
+		return srv.(SandboxRuntimeServer).VolumeFsRemove(ctx, req.(*VolumeFsRemoveRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxRuntime_FsRemoveDir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsRemoveDirRequest)
+func _SandboxRuntime_VolumeFsCopy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeFsCopyRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsRemoveDir(ctx, in)
+		return srv.(SandboxRuntimeServer).VolumeFsCopy(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsRemoveDir_FullMethodName,
+		FullMethod: SandboxRuntime_VolumeFsCopy_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsRemoveDir(ctx, req.(*FsRemoveDirRequest))
+		return srv.(SandboxRuntimeServer).VolumeFsCopy(ctx, req.(*VolumeFsCopyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxRuntime_FsCopy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsCopyRequest)
+func _SandboxRuntime_VolumeFsRename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VolumeFsRenameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsCopy(ctx, in)
+		return srv.(SandboxRuntimeServer).VolumeFsRename(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsCopy_FullMethodName,
+		FullMethod: SandboxRuntime_VolumeFsRename_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsCopy(ctx, req.(*FsCopyRequest))
+		return srv.(SandboxRuntimeServer).VolumeFsRename(ctx, req.(*VolumeFsRenameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SandboxRuntime_FsRename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(FsRenameRequest)
+func _SandboxRuntime_EnsureLocalVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EnsureLocalVolumeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SandboxRuntimeServer).FsRename(ctx, in)
+		return srv.(SandboxRuntimeServer).EnsureLocalVolume(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SandboxRuntime_FsRename_FullMethodName,
+		FullMethod: SandboxRuntime_EnsureLocalVolume_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SandboxRuntimeServer).FsRename(ctx, req.(*FsRenameRequest))
+		return srv.(SandboxRuntimeServer).EnsureLocalVolume(ctx, req.(*EnsureLocalVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxRuntime_DeleteLocalVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteLocalVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxRuntimeServer).DeleteLocalVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxRuntime_DeleteLocalVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxRuntimeServer).DeleteLocalVolume(ctx, req.(*DeleteLocalVolumeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2111,56 +1784,40 @@ var SandboxRuntime_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*SandboxRuntimeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ApplyNetworkPolicy",
-			Handler:    _SandboxRuntime_ApplyNetworkPolicy_Handler,
+			MethodName: "VolumeFsStat",
+			Handler:    _SandboxRuntime_VolumeFsStat_Handler,
 		},
 		{
-			MethodName: "StartJob",
-			Handler:    _SandboxRuntime_StartJob_Handler,
+			MethodName: "VolumeFsList",
+			Handler:    _SandboxRuntime_VolumeFsList_Handler,
 		},
 		{
-			MethodName: "ListJobs",
-			Handler:    _SandboxRuntime_ListJobs_Handler,
+			MethodName: "VolumeFsExists",
+			Handler:    _SandboxRuntime_VolumeFsExists_Handler,
 		},
 		{
-			MethodName: "GetJob",
-			Handler:    _SandboxRuntime_GetJob_Handler,
+			MethodName: "VolumeFsMkdir",
+			Handler:    _SandboxRuntime_VolumeFsMkdir_Handler,
 		},
 		{
-			MethodName: "StopJob",
-			Handler:    _SandboxRuntime_StopJob_Handler,
+			MethodName: "VolumeFsRemove",
+			Handler:    _SandboxRuntime_VolumeFsRemove_Handler,
 		},
 		{
-			MethodName: "FsStat",
-			Handler:    _SandboxRuntime_FsStat_Handler,
+			MethodName: "VolumeFsCopy",
+			Handler:    _SandboxRuntime_VolumeFsCopy_Handler,
 		},
 		{
-			MethodName: "FsList",
-			Handler:    _SandboxRuntime_FsList_Handler,
+			MethodName: "VolumeFsRename",
+			Handler:    _SandboxRuntime_VolumeFsRename_Handler,
 		},
 		{
-			MethodName: "FsExists",
-			Handler:    _SandboxRuntime_FsExists_Handler,
+			MethodName: "EnsureLocalVolume",
+			Handler:    _SandboxRuntime_EnsureLocalVolume_Handler,
 		},
 		{
-			MethodName: "FsMkdir",
-			Handler:    _SandboxRuntime_FsMkdir_Handler,
-		},
-		{
-			MethodName: "FsRemove",
-			Handler:    _SandboxRuntime_FsRemove_Handler,
-		},
-		{
-			MethodName: "FsRemoveDir",
-			Handler:    _SandboxRuntime_FsRemoveDir_Handler,
-		},
-		{
-			MethodName: "FsCopy",
-			Handler:    _SandboxRuntime_FsCopy_Handler,
-		},
-		{
-			MethodName: "FsRename",
-			Handler:    _SandboxRuntime_FsRename_Handler,
+			MethodName: "DeleteLocalVolume",
+			Handler:    _SandboxRuntime_DeleteLocalVolume_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -2170,24 +1827,19 @@ var SandboxRuntime_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 		{
-			StreamName:    "Exec",
-			Handler:       _SandboxRuntime_Exec_Handler,
+			StreamName:    "AgentRelay",
+			Handler:       _SandboxRuntime_AgentRelay_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "JobLogs",
-			Handler:       _SandboxRuntime_JobLogs_Handler,
+			StreamName:    "VolumeFsRead",
+			Handler:       _SandboxRuntime_VolumeFsRead_Handler,
 			ServerStreams: true,
 		},
 		{
-			StreamName:    "FsRead",
-			Handler:       _SandboxRuntime_FsRead_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "FsWrite",
-			Handler:       _SandboxRuntime_FsWrite_Handler,
+			StreamName:    "VolumeFsWrite",
+			Handler:       _SandboxRuntime_VolumeFsWrite_Handler,
 			ClientStreams: true,
 		},
 	},

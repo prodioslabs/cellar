@@ -1792,37 +1792,22 @@ const file_control_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"=\n" +
 	"\x12NodeUpdateResponse\x12'\n" +
-	"\x04node\x18\x01 \x01(\v2\x13.cellar.v1.NodeInfoR\x04node2\xd6\x15\n" +
+	"\x04node\x18\x01 \x01(\v2\x13.cellar.v1.NodeInfoR\x04node2\xf1\f\n" +
 	"\aControl\x127\n" +
 	"\x04Init\x12\x16.cellar.v1.InitRequest\x1a\x17.cellar.v1.InitResponse\x127\n" +
 	"\x04Join\x12\x16.cellar.v1.JoinRequest\x1a\x17.cellar.v1.JoinResponse\x12:\n" +
 	"\x05Leave\x12\x17.cellar.v1.LeaveRequest\x1a\x18.cellar.v1.LeaveResponse\x12F\n" +
 	"\tJoinToken\x12\x1b.cellar.v1.JoinTokenRequest\x1a\x1c.cellar.v1.JoinTokenResponse\x12=\n" +
 	"\x06Status\x12\x18.cellar.v1.StatusRequest\x1a\x19.cellar.v1.StatusResponse\x12R\n" +
-	"\rSandboxCreate\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12L\n" +
+	"\rSandboxCreate\x12\x1f.cellar.v1.SandboxCreateRequest\x1a .cellar.v1.SandboxCreateResponse\x12O\n" +
+	"\fSandboxStart\x12\x1e.cellar.v1.SandboxStartRequest\x1a\x1f.cellar.v1.SandboxStartResponse\x12L\n" +
 	"\vSandboxStop\x12\x1d.cellar.v1.SandboxStopRequest\x1a\x1e.cellar.v1.SandboxStopResponse\x12R\n" +
 	"\rSandboxRemove\x12\x1f.cellar.v1.SandboxRemoveRequest\x1a .cellar.v1.SandboxRemoveResponse\x12I\n" +
 	"\n" +
-	"SandboxGet\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12g\n" +
-	"\x14SandboxUpdateNetwork\x12&.cellar.v1.SandboxUpdateNetworkRequest\x1a'.cellar.v1.SandboxUpdateNetworkResponse\x12L\n" +
+	"SandboxGet\x12\x1c.cellar.v1.SandboxGetRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12U\n" +
+	"\x10SandboxGetByName\x12\".cellar.v1.SandboxGetByNameRequest\x1a\x1d.cellar.v1.SandboxGetResponse\x12L\n" +
 	"\vSandboxList\x12\x1d.cellar.v1.SandboxListRequest\x1a\x1e.cellar.v1.SandboxListResponse\x12K\n" +
 	"\vSandboxLogs\x12\x1d.cellar.v1.SandboxLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12O\n" +
-	"\vSandboxExec\x12\x1d.cellar.v1.SandboxExecMessage\x1a\x1d.cellar.v1.SandboxExecMessage(\x010\x01\x12J\n" +
-	"\x0fSandboxStartJob\x12\x1a.cellar.v1.StartJobRequest\x1a\x1b.cellar.v1.StartJobResponse\x12J\n" +
-	"\x0fSandboxListJobs\x12\x1a.cellar.v1.ListJobsRequest\x1a\x1b.cellar.v1.ListJobsResponse\x12D\n" +
-	"\rSandboxGetJob\x12\x18.cellar.v1.GetJobRequest\x1a\x19.cellar.v1.GetJobResponse\x12G\n" +
-	"\x0eSandboxStopJob\x12\x19.cellar.v1.StopJobRequest\x1a\x1a.cellar.v1.StopJobResponse\x12J\n" +
-	"\x0eSandboxJobLogs\x12\x19.cellar.v1.JobLogsRequest\x1a\x1b.cellar.v1.SandboxLogsChunk0\x01\x12?\n" +
-	"\rSandboxFsRead\x12\x18.cellar.v1.FsReadRequest\x1a\x12.cellar.v1.FsChunk0\x01\x12I\n" +
-	"\x0eSandboxFsWrite\x12\x19.cellar.v1.FsWriteMessage\x1a\x1a.cellar.v1.FsWriteResponse(\x01\x12D\n" +
-	"\rSandboxFsStat\x12\x18.cellar.v1.FsStatRequest\x1a\x19.cellar.v1.FsStatResponse\x12D\n" +
-	"\rSandboxFsList\x12\x18.cellar.v1.FsListRequest\x1a\x19.cellar.v1.FsListResponse\x12J\n" +
-	"\x0fSandboxFsExists\x12\x1a.cellar.v1.FsExistsRequest\x1a\x1b.cellar.v1.FsExistsResponse\x12G\n" +
-	"\x0eSandboxFsMkdir\x12\x19.cellar.v1.FsMkdirRequest\x1a\x1a.cellar.v1.FsMkdirResponse\x12J\n" +
-	"\x0fSandboxFsRemove\x12\x1a.cellar.v1.FsRemoveRequest\x1a\x1b.cellar.v1.FsRemoveResponse\x12S\n" +
-	"\x12SandboxFsRemoveDir\x12\x1d.cellar.v1.FsRemoveDirRequest\x1a\x1e.cellar.v1.FsRemoveDirResponse\x12D\n" +
-	"\rSandboxFsCopy\x12\x18.cellar.v1.FsCopyRequest\x1a\x19.cellar.v1.FsCopyResponse\x12J\n" +
-	"\x0fSandboxFsRename\x12\x1a.cellar.v1.FsRenameRequest\x1a\x1b.cellar.v1.FsRenameResponse\x12O\n" +
 	"\fAPIKeyCreate\x12\x1e.cellar.v1.APIKeyCreateRequest\x1a\x1f.cellar.v1.APIKeyCreateResponse\x12I\n" +
 	"\n" +
 	"APIKeyList\x12\x1c.cellar.v1.APIKeyListRequest\x1a\x1d.cellar.v1.APIKeyListResponse\x12O\n" +
@@ -1851,82 +1836,53 @@ func file_control_proto_rawDescGZIP() []byte {
 
 var file_control_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_control_proto_goTypes = []any{
-	(*InitRequest)(nil),                  // 0: cellar.v1.InitRequest
-	(*InitResponse)(nil),                 // 1: cellar.v1.InitResponse
-	(*JoinRequest)(nil),                  // 2: cellar.v1.JoinRequest
-	(*JoinResponse)(nil),                 // 3: cellar.v1.JoinResponse
-	(*JoinTokenRequest)(nil),             // 4: cellar.v1.JoinTokenRequest
-	(*JoinTokenResponse)(nil),            // 5: cellar.v1.JoinTokenResponse
-	(*LeaveRequest)(nil),                 // 6: cellar.v1.LeaveRequest
-	(*LeaveResponse)(nil),                // 7: cellar.v1.LeaveResponse
-	(*StatusRequest)(nil),                // 8: cellar.v1.StatusRequest
-	(*StatusResponse)(nil),               // 9: cellar.v1.StatusResponse
-	(*APIKeyCreateRequest)(nil),          // 10: cellar.v1.APIKeyCreateRequest
-	(*APIKeyCreateResponse)(nil),         // 11: cellar.v1.APIKeyCreateResponse
-	(*APIKeyListRequest)(nil),            // 12: cellar.v1.APIKeyListRequest
-	(*APIKeyInfo)(nil),                   // 13: cellar.v1.APIKeyInfo
-	(*APIKeyListResponse)(nil),           // 14: cellar.v1.APIKeyListResponse
-	(*APIKeyDeleteRequest)(nil),          // 15: cellar.v1.APIKeyDeleteRequest
-	(*APIKeyDeleteResponse)(nil),         // 16: cellar.v1.APIKeyDeleteResponse
-	(*NodeInfo)(nil),                     // 17: cellar.v1.NodeInfo
-	(*NodeListRequest)(nil),              // 18: cellar.v1.NodeListRequest
-	(*NodeListResponse)(nil),             // 19: cellar.v1.NodeListResponse
-	(*NodeInspectRequest)(nil),           // 20: cellar.v1.NodeInspectRequest
-	(*NodeInspectResponse)(nil),          // 21: cellar.v1.NodeInspectResponse
-	(*NodePromoteRequest)(nil),           // 22: cellar.v1.NodePromoteRequest
-	(*NodePromoteResponse)(nil),          // 23: cellar.v1.NodePromoteResponse
-	(*NodeDemoteRequest)(nil),            // 24: cellar.v1.NodeDemoteRequest
-	(*NodeDemoteResponse)(nil),           // 25: cellar.v1.NodeDemoteResponse
-	(*NodeRemoveRequest)(nil),            // 26: cellar.v1.NodeRemoveRequest
-	(*NodeRemoveResponse)(nil),           // 27: cellar.v1.NodeRemoveResponse
-	(*NodeUpdateRequest)(nil),            // 28: cellar.v1.NodeUpdateRequest
-	(*NodeUpdateResponse)(nil),           // 29: cellar.v1.NodeUpdateResponse
-	nil,                                  // 30: cellar.v1.NodeInfo.LabelsEntry
-	nil,                                  // 31: cellar.v1.NodeUpdateRequest.LabelAddEntry
-	(*SandboxCreateRequest)(nil),         // 32: cellar.v1.SandboxCreateRequest
-	(*SandboxStopRequest)(nil),           // 33: cellar.v1.SandboxStopRequest
-	(*SandboxRemoveRequest)(nil),         // 34: cellar.v1.SandboxRemoveRequest
-	(*SandboxGetRequest)(nil),            // 35: cellar.v1.SandboxGetRequest
-	(*SandboxUpdateNetworkRequest)(nil),  // 36: cellar.v1.SandboxUpdateNetworkRequest
-	(*SandboxListRequest)(nil),           // 37: cellar.v1.SandboxListRequest
-	(*SandboxLogsRequest)(nil),           // 38: cellar.v1.SandboxLogsRequest
-	(*SandboxExecMessage)(nil),           // 39: cellar.v1.SandboxExecMessage
-	(*StartJobRequest)(nil),              // 40: cellar.v1.StartJobRequest
-	(*ListJobsRequest)(nil),              // 41: cellar.v1.ListJobsRequest
-	(*GetJobRequest)(nil),                // 42: cellar.v1.GetJobRequest
-	(*StopJobRequest)(nil),               // 43: cellar.v1.StopJobRequest
-	(*JobLogsRequest)(nil),               // 44: cellar.v1.JobLogsRequest
-	(*FsReadRequest)(nil),                // 45: cellar.v1.FsReadRequest
-	(*FsWriteMessage)(nil),               // 46: cellar.v1.FsWriteMessage
-	(*FsStatRequest)(nil),                // 47: cellar.v1.FsStatRequest
-	(*FsListRequest)(nil),                // 48: cellar.v1.FsListRequest
-	(*FsExistsRequest)(nil),              // 49: cellar.v1.FsExistsRequest
-	(*FsMkdirRequest)(nil),               // 50: cellar.v1.FsMkdirRequest
-	(*FsRemoveRequest)(nil),              // 51: cellar.v1.FsRemoveRequest
-	(*FsRemoveDirRequest)(nil),           // 52: cellar.v1.FsRemoveDirRequest
-	(*FsCopyRequest)(nil),                // 53: cellar.v1.FsCopyRequest
-	(*FsRenameRequest)(nil),              // 54: cellar.v1.FsRenameRequest
-	(*SandboxCreateResponse)(nil),        // 55: cellar.v1.SandboxCreateResponse
-	(*SandboxStopResponse)(nil),          // 56: cellar.v1.SandboxStopResponse
-	(*SandboxRemoveResponse)(nil),        // 57: cellar.v1.SandboxRemoveResponse
-	(*SandboxGetResponse)(nil),           // 58: cellar.v1.SandboxGetResponse
-	(*SandboxUpdateNetworkResponse)(nil), // 59: cellar.v1.SandboxUpdateNetworkResponse
-	(*SandboxListResponse)(nil),          // 60: cellar.v1.SandboxListResponse
-	(*SandboxLogsChunk)(nil),             // 61: cellar.v1.SandboxLogsChunk
-	(*StartJobResponse)(nil),             // 62: cellar.v1.StartJobResponse
-	(*ListJobsResponse)(nil),             // 63: cellar.v1.ListJobsResponse
-	(*GetJobResponse)(nil),               // 64: cellar.v1.GetJobResponse
-	(*StopJobResponse)(nil),              // 65: cellar.v1.StopJobResponse
-	(*FsChunk)(nil),                      // 66: cellar.v1.FsChunk
-	(*FsWriteResponse)(nil),              // 67: cellar.v1.FsWriteResponse
-	(*FsStatResponse)(nil),               // 68: cellar.v1.FsStatResponse
-	(*FsListResponse)(nil),               // 69: cellar.v1.FsListResponse
-	(*FsExistsResponse)(nil),             // 70: cellar.v1.FsExistsResponse
-	(*FsMkdirResponse)(nil),              // 71: cellar.v1.FsMkdirResponse
-	(*FsRemoveResponse)(nil),             // 72: cellar.v1.FsRemoveResponse
-	(*FsRemoveDirResponse)(nil),          // 73: cellar.v1.FsRemoveDirResponse
-	(*FsCopyResponse)(nil),               // 74: cellar.v1.FsCopyResponse
-	(*FsRenameResponse)(nil),             // 75: cellar.v1.FsRenameResponse
+	(*InitRequest)(nil),             // 0: cellar.v1.InitRequest
+	(*InitResponse)(nil),            // 1: cellar.v1.InitResponse
+	(*JoinRequest)(nil),             // 2: cellar.v1.JoinRequest
+	(*JoinResponse)(nil),            // 3: cellar.v1.JoinResponse
+	(*JoinTokenRequest)(nil),        // 4: cellar.v1.JoinTokenRequest
+	(*JoinTokenResponse)(nil),       // 5: cellar.v1.JoinTokenResponse
+	(*LeaveRequest)(nil),            // 6: cellar.v1.LeaveRequest
+	(*LeaveResponse)(nil),           // 7: cellar.v1.LeaveResponse
+	(*StatusRequest)(nil),           // 8: cellar.v1.StatusRequest
+	(*StatusResponse)(nil),          // 9: cellar.v1.StatusResponse
+	(*APIKeyCreateRequest)(nil),     // 10: cellar.v1.APIKeyCreateRequest
+	(*APIKeyCreateResponse)(nil),    // 11: cellar.v1.APIKeyCreateResponse
+	(*APIKeyListRequest)(nil),       // 12: cellar.v1.APIKeyListRequest
+	(*APIKeyInfo)(nil),              // 13: cellar.v1.APIKeyInfo
+	(*APIKeyListResponse)(nil),      // 14: cellar.v1.APIKeyListResponse
+	(*APIKeyDeleteRequest)(nil),     // 15: cellar.v1.APIKeyDeleteRequest
+	(*APIKeyDeleteResponse)(nil),    // 16: cellar.v1.APIKeyDeleteResponse
+	(*NodeInfo)(nil),                // 17: cellar.v1.NodeInfo
+	(*NodeListRequest)(nil),         // 18: cellar.v1.NodeListRequest
+	(*NodeListResponse)(nil),        // 19: cellar.v1.NodeListResponse
+	(*NodeInspectRequest)(nil),      // 20: cellar.v1.NodeInspectRequest
+	(*NodeInspectResponse)(nil),     // 21: cellar.v1.NodeInspectResponse
+	(*NodePromoteRequest)(nil),      // 22: cellar.v1.NodePromoteRequest
+	(*NodePromoteResponse)(nil),     // 23: cellar.v1.NodePromoteResponse
+	(*NodeDemoteRequest)(nil),       // 24: cellar.v1.NodeDemoteRequest
+	(*NodeDemoteResponse)(nil),      // 25: cellar.v1.NodeDemoteResponse
+	(*NodeRemoveRequest)(nil),       // 26: cellar.v1.NodeRemoveRequest
+	(*NodeRemoveResponse)(nil),      // 27: cellar.v1.NodeRemoveResponse
+	(*NodeUpdateRequest)(nil),       // 28: cellar.v1.NodeUpdateRequest
+	(*NodeUpdateResponse)(nil),      // 29: cellar.v1.NodeUpdateResponse
+	nil,                             // 30: cellar.v1.NodeInfo.LabelsEntry
+	nil,                             // 31: cellar.v1.NodeUpdateRequest.LabelAddEntry
+	(*SandboxCreateRequest)(nil),    // 32: cellar.v1.SandboxCreateRequest
+	(*SandboxStartRequest)(nil),     // 33: cellar.v1.SandboxStartRequest
+	(*SandboxStopRequest)(nil),      // 34: cellar.v1.SandboxStopRequest
+	(*SandboxRemoveRequest)(nil),    // 35: cellar.v1.SandboxRemoveRequest
+	(*SandboxGetRequest)(nil),       // 36: cellar.v1.SandboxGetRequest
+	(*SandboxGetByNameRequest)(nil), // 37: cellar.v1.SandboxGetByNameRequest
+	(*SandboxListRequest)(nil),      // 38: cellar.v1.SandboxListRequest
+	(*SandboxLogsRequest)(nil),      // 39: cellar.v1.SandboxLogsRequest
+	(*SandboxCreateResponse)(nil),   // 40: cellar.v1.SandboxCreateResponse
+	(*SandboxStartResponse)(nil),    // 41: cellar.v1.SandboxStartResponse
+	(*SandboxStopResponse)(nil),     // 42: cellar.v1.SandboxStopResponse
+	(*SandboxRemoveResponse)(nil),   // 43: cellar.v1.SandboxRemoveResponse
+	(*SandboxGetResponse)(nil),      // 44: cellar.v1.SandboxGetResponse
+	(*SandboxListResponse)(nil),     // 45: cellar.v1.SandboxListResponse
+	(*SandboxLogsChunk)(nil),        // 46: cellar.v1.SandboxLogsChunk
 }
 var file_control_proto_depIdxs = []int32{
 	13, // 0: cellar.v1.APIKeyListResponse.keys:type_name -> cellar.v1.APIKeyInfo
@@ -1941,76 +1897,46 @@ var file_control_proto_depIdxs = []int32{
 	4,  // 9: cellar.v1.Control.JoinToken:input_type -> cellar.v1.JoinTokenRequest
 	8,  // 10: cellar.v1.Control.Status:input_type -> cellar.v1.StatusRequest
 	32, // 11: cellar.v1.Control.SandboxCreate:input_type -> cellar.v1.SandboxCreateRequest
-	33, // 12: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
-	34, // 13: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
-	35, // 14: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
-	36, // 15: cellar.v1.Control.SandboxUpdateNetwork:input_type -> cellar.v1.SandboxUpdateNetworkRequest
-	37, // 16: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
-	38, // 17: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
-	39, // 18: cellar.v1.Control.SandboxExec:input_type -> cellar.v1.SandboxExecMessage
-	40, // 19: cellar.v1.Control.SandboxStartJob:input_type -> cellar.v1.StartJobRequest
-	41, // 20: cellar.v1.Control.SandboxListJobs:input_type -> cellar.v1.ListJobsRequest
-	42, // 21: cellar.v1.Control.SandboxGetJob:input_type -> cellar.v1.GetJobRequest
-	43, // 22: cellar.v1.Control.SandboxStopJob:input_type -> cellar.v1.StopJobRequest
-	44, // 23: cellar.v1.Control.SandboxJobLogs:input_type -> cellar.v1.JobLogsRequest
-	45, // 24: cellar.v1.Control.SandboxFsRead:input_type -> cellar.v1.FsReadRequest
-	46, // 25: cellar.v1.Control.SandboxFsWrite:input_type -> cellar.v1.FsWriteMessage
-	47, // 26: cellar.v1.Control.SandboxFsStat:input_type -> cellar.v1.FsStatRequest
-	48, // 27: cellar.v1.Control.SandboxFsList:input_type -> cellar.v1.FsListRequest
-	49, // 28: cellar.v1.Control.SandboxFsExists:input_type -> cellar.v1.FsExistsRequest
-	50, // 29: cellar.v1.Control.SandboxFsMkdir:input_type -> cellar.v1.FsMkdirRequest
-	51, // 30: cellar.v1.Control.SandboxFsRemove:input_type -> cellar.v1.FsRemoveRequest
-	52, // 31: cellar.v1.Control.SandboxFsRemoveDir:input_type -> cellar.v1.FsRemoveDirRequest
-	53, // 32: cellar.v1.Control.SandboxFsCopy:input_type -> cellar.v1.FsCopyRequest
-	54, // 33: cellar.v1.Control.SandboxFsRename:input_type -> cellar.v1.FsRenameRequest
-	10, // 34: cellar.v1.Control.APIKeyCreate:input_type -> cellar.v1.APIKeyCreateRequest
-	12, // 35: cellar.v1.Control.APIKeyList:input_type -> cellar.v1.APIKeyListRequest
-	15, // 36: cellar.v1.Control.APIKeyDelete:input_type -> cellar.v1.APIKeyDeleteRequest
-	18, // 37: cellar.v1.Control.NodeList:input_type -> cellar.v1.NodeListRequest
-	20, // 38: cellar.v1.Control.NodeInspect:input_type -> cellar.v1.NodeInspectRequest
-	22, // 39: cellar.v1.Control.NodePromote:input_type -> cellar.v1.NodePromoteRequest
-	24, // 40: cellar.v1.Control.NodeDemote:input_type -> cellar.v1.NodeDemoteRequest
-	26, // 41: cellar.v1.Control.NodeRemove:input_type -> cellar.v1.NodeRemoveRequest
-	28, // 42: cellar.v1.Control.NodeUpdate:input_type -> cellar.v1.NodeUpdateRequest
-	1,  // 43: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
-	3,  // 44: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
-	7,  // 45: cellar.v1.Control.Leave:output_type -> cellar.v1.LeaveResponse
-	5,  // 46: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
-	9,  // 47: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
-	55, // 48: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
-	56, // 49: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
-	57, // 50: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
-	58, // 51: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
-	59, // 52: cellar.v1.Control.SandboxUpdateNetwork:output_type -> cellar.v1.SandboxUpdateNetworkResponse
-	60, // 53: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
-	61, // 54: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
-	39, // 55: cellar.v1.Control.SandboxExec:output_type -> cellar.v1.SandboxExecMessage
-	62, // 56: cellar.v1.Control.SandboxStartJob:output_type -> cellar.v1.StartJobResponse
-	63, // 57: cellar.v1.Control.SandboxListJobs:output_type -> cellar.v1.ListJobsResponse
-	64, // 58: cellar.v1.Control.SandboxGetJob:output_type -> cellar.v1.GetJobResponse
-	65, // 59: cellar.v1.Control.SandboxStopJob:output_type -> cellar.v1.StopJobResponse
-	61, // 60: cellar.v1.Control.SandboxJobLogs:output_type -> cellar.v1.SandboxLogsChunk
-	66, // 61: cellar.v1.Control.SandboxFsRead:output_type -> cellar.v1.FsChunk
-	67, // 62: cellar.v1.Control.SandboxFsWrite:output_type -> cellar.v1.FsWriteResponse
-	68, // 63: cellar.v1.Control.SandboxFsStat:output_type -> cellar.v1.FsStatResponse
-	69, // 64: cellar.v1.Control.SandboxFsList:output_type -> cellar.v1.FsListResponse
-	70, // 65: cellar.v1.Control.SandboxFsExists:output_type -> cellar.v1.FsExistsResponse
-	71, // 66: cellar.v1.Control.SandboxFsMkdir:output_type -> cellar.v1.FsMkdirResponse
-	72, // 67: cellar.v1.Control.SandboxFsRemove:output_type -> cellar.v1.FsRemoveResponse
-	73, // 68: cellar.v1.Control.SandboxFsRemoveDir:output_type -> cellar.v1.FsRemoveDirResponse
-	74, // 69: cellar.v1.Control.SandboxFsCopy:output_type -> cellar.v1.FsCopyResponse
-	75, // 70: cellar.v1.Control.SandboxFsRename:output_type -> cellar.v1.FsRenameResponse
-	11, // 71: cellar.v1.Control.APIKeyCreate:output_type -> cellar.v1.APIKeyCreateResponse
-	14, // 72: cellar.v1.Control.APIKeyList:output_type -> cellar.v1.APIKeyListResponse
-	16, // 73: cellar.v1.Control.APIKeyDelete:output_type -> cellar.v1.APIKeyDeleteResponse
-	19, // 74: cellar.v1.Control.NodeList:output_type -> cellar.v1.NodeListResponse
-	21, // 75: cellar.v1.Control.NodeInspect:output_type -> cellar.v1.NodeInspectResponse
-	23, // 76: cellar.v1.Control.NodePromote:output_type -> cellar.v1.NodePromoteResponse
-	25, // 77: cellar.v1.Control.NodeDemote:output_type -> cellar.v1.NodeDemoteResponse
-	27, // 78: cellar.v1.Control.NodeRemove:output_type -> cellar.v1.NodeRemoveResponse
-	29, // 79: cellar.v1.Control.NodeUpdate:output_type -> cellar.v1.NodeUpdateResponse
-	43, // [43:80] is the sub-list for method output_type
-	6,  // [6:43] is the sub-list for method input_type
+	33, // 12: cellar.v1.Control.SandboxStart:input_type -> cellar.v1.SandboxStartRequest
+	34, // 13: cellar.v1.Control.SandboxStop:input_type -> cellar.v1.SandboxStopRequest
+	35, // 14: cellar.v1.Control.SandboxRemove:input_type -> cellar.v1.SandboxRemoveRequest
+	36, // 15: cellar.v1.Control.SandboxGet:input_type -> cellar.v1.SandboxGetRequest
+	37, // 16: cellar.v1.Control.SandboxGetByName:input_type -> cellar.v1.SandboxGetByNameRequest
+	38, // 17: cellar.v1.Control.SandboxList:input_type -> cellar.v1.SandboxListRequest
+	39, // 18: cellar.v1.Control.SandboxLogs:input_type -> cellar.v1.SandboxLogsRequest
+	10, // 19: cellar.v1.Control.APIKeyCreate:input_type -> cellar.v1.APIKeyCreateRequest
+	12, // 20: cellar.v1.Control.APIKeyList:input_type -> cellar.v1.APIKeyListRequest
+	15, // 21: cellar.v1.Control.APIKeyDelete:input_type -> cellar.v1.APIKeyDeleteRequest
+	18, // 22: cellar.v1.Control.NodeList:input_type -> cellar.v1.NodeListRequest
+	20, // 23: cellar.v1.Control.NodeInspect:input_type -> cellar.v1.NodeInspectRequest
+	22, // 24: cellar.v1.Control.NodePromote:input_type -> cellar.v1.NodePromoteRequest
+	24, // 25: cellar.v1.Control.NodeDemote:input_type -> cellar.v1.NodeDemoteRequest
+	26, // 26: cellar.v1.Control.NodeRemove:input_type -> cellar.v1.NodeRemoveRequest
+	28, // 27: cellar.v1.Control.NodeUpdate:input_type -> cellar.v1.NodeUpdateRequest
+	1,  // 28: cellar.v1.Control.Init:output_type -> cellar.v1.InitResponse
+	3,  // 29: cellar.v1.Control.Join:output_type -> cellar.v1.JoinResponse
+	7,  // 30: cellar.v1.Control.Leave:output_type -> cellar.v1.LeaveResponse
+	5,  // 31: cellar.v1.Control.JoinToken:output_type -> cellar.v1.JoinTokenResponse
+	9,  // 32: cellar.v1.Control.Status:output_type -> cellar.v1.StatusResponse
+	40, // 33: cellar.v1.Control.SandboxCreate:output_type -> cellar.v1.SandboxCreateResponse
+	41, // 34: cellar.v1.Control.SandboxStart:output_type -> cellar.v1.SandboxStartResponse
+	42, // 35: cellar.v1.Control.SandboxStop:output_type -> cellar.v1.SandboxStopResponse
+	43, // 36: cellar.v1.Control.SandboxRemove:output_type -> cellar.v1.SandboxRemoveResponse
+	44, // 37: cellar.v1.Control.SandboxGet:output_type -> cellar.v1.SandboxGetResponse
+	44, // 38: cellar.v1.Control.SandboxGetByName:output_type -> cellar.v1.SandboxGetResponse
+	45, // 39: cellar.v1.Control.SandboxList:output_type -> cellar.v1.SandboxListResponse
+	46, // 40: cellar.v1.Control.SandboxLogs:output_type -> cellar.v1.SandboxLogsChunk
+	11, // 41: cellar.v1.Control.APIKeyCreate:output_type -> cellar.v1.APIKeyCreateResponse
+	14, // 42: cellar.v1.Control.APIKeyList:output_type -> cellar.v1.APIKeyListResponse
+	16, // 43: cellar.v1.Control.APIKeyDelete:output_type -> cellar.v1.APIKeyDeleteResponse
+	19, // 44: cellar.v1.Control.NodeList:output_type -> cellar.v1.NodeListResponse
+	21, // 45: cellar.v1.Control.NodeInspect:output_type -> cellar.v1.NodeInspectResponse
+	23, // 46: cellar.v1.Control.NodePromote:output_type -> cellar.v1.NodePromoteResponse
+	25, // 47: cellar.v1.Control.NodeDemote:output_type -> cellar.v1.NodeDemoteResponse
+	27, // 48: cellar.v1.Control.NodeRemove:output_type -> cellar.v1.NodeRemoveResponse
+	29, // 49: cellar.v1.Control.NodeUpdate:output_type -> cellar.v1.NodeUpdateResponse
+	28, // [28:50] is the sub-list for method output_type
+	6,  // [6:28] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name

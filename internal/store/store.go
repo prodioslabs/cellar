@@ -21,6 +21,10 @@ var (
 	ErrNodeNotFound = errors.New("node not found")
 	// ErrSandboxNotFound indicates a sandbox record is missing.
 	ErrSandboxNotFound = errors.New("sandbox not found")
+	// ErrVolumeNotFound indicates a volume record is missing.
+	ErrVolumeNotFound = errors.New("volume not found")
+	// ErrNameExists indicates a sandbox or volume name is already taken.
+	ErrNameExists = errors.New("name already exists")
 	// ErrAPIKeyNotFound indicates an API key record is missing.
 	ErrAPIKeyNotFound = errors.New("api key not found")
 	// ErrNotLeader indicates the node is not the Raft leader.
@@ -85,8 +89,16 @@ type Store interface {
 	SaveSandbox(ctx context.Context, sb *sandbox.Sandbox) error
 	DeleteSandbox(ctx context.Context, id string) error
 	GetSandbox(ctx context.Context, id string) (*sandbox.Sandbox, error)
+	GetSandboxByName(ctx context.Context, name string) (*sandbox.Sandbox, error)
 	ListSandboxes(ctx context.Context) ([]*sandbox.Sandbox, error)
 	ListSandboxesByNode(ctx context.Context, nodeID string) ([]*sandbox.Sandbox, error)
+
+	SaveVolume(ctx context.Context, v *sandbox.Volume) error
+	DeleteVolume(ctx context.Context, id string) error
+	GetVolume(ctx context.Context, id string) (*sandbox.Volume, error)
+	GetVolumeByName(ctx context.Context, name string) (*sandbox.Volume, error)
+	GetDefaultVolume(ctx context.Context) (*sandbox.Volume, error)
+	ListVolumes(ctx context.Context) ([]*sandbox.Volume, error)
 
 	SaveAPIKey(ctx context.Context, key *apikey.Key) error
 	DeleteAPIKey(ctx context.Context, id string) error

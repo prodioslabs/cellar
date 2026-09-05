@@ -21,6 +21,8 @@ const (
 	opDeletePeer     = "delete_peer"
 	opSaveSandbox    = "save_sandbox"
 	opDeleteSandbox  = "delete_sandbox"
+	opSaveVolume     = "save_volume"
+	opDeleteVolume   = "delete_volume"
 	opSaveAPIKey     = "save_api_key"
 	opDeleteAPIKey   = "delete_api_key"
 
@@ -71,6 +73,14 @@ type saveSandboxPayload struct {
 }
 
 type deleteSandboxPayload struct {
+	ID string `json:"id"`
+}
+
+type saveVolumePayload struct {
+	Volume *sandbox.Volume `json:"volume"`
+}
+
+type deleteVolumePayload struct {
 	ID string `json:"id"`
 }
 

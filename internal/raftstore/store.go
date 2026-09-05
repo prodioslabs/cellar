@@ -497,6 +497,12 @@ func (s *Store) GetSandbox(ctx context.Context, id string) (*sandbox.Sandbox, er
 	return s.fsm.getSandbox(id)
 }
 
+// GetSandboxByName returns a sandbox by org-scoped name.
+func (s *Store) GetSandboxByName(ctx context.Context, name string) (*sandbox.Sandbox, error) {
+	_ = ctx
+	return s.fsm.getSandboxByName(name)
+}
+
 // ListSandboxes returns all sandboxes.
 func (s *Store) ListSandboxes(ctx context.Context) ([]*sandbox.Sandbox, error) {
 	_ = ctx
@@ -507,6 +513,62 @@ func (s *Store) ListSandboxes(ctx context.Context) ([]*sandbox.Sandbox, error) {
 func (s *Store) ListSandboxesByNode(ctx context.Context, nodeID string) ([]*sandbox.Sandbox, error) {
 	_ = ctx
 	return s.fsm.listSandboxesByNode(nodeID), nil
+}
+
+// SaveVolume replicates a volume object.
+func (s *Store) SaveVolume(ctx context.Context, v *sandbox.Volume) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if v == nil || v.ID == "" {
+		return fmt.Errorf("volume is required")
+	}
+	data, err := encodeCommand(opSaveVolume, saveVolumePayload{Volume: v})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// DeleteVolume removes a volume from the FSM.
+func (s *Store) DeleteVolume(ctx context.Context, id string) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if id == "" {
+		return fmt.Errorf("volume id is required")
+	}
+	data, err := encodeCommand(opDeleteVolume, deleteVolumePayload{ID: id})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// GetVolume returns a volume by id.
+func (s *Store) GetVolume(ctx context.Context, id string) (*sandbox.Volume, error) {
+	_ = ctx
+	return s.fsm.getVolume(id)
+}
+
+// GetVolumeByName returns a named volume.
+func (s *Store) GetVolumeByName(ctx context.Context, name string) (*sandbox.Volume, error) {
+	_ = ctx
+	return s.fsm.getVolumeByName(name)
+}
+
+// GetDefaultVolume returns the org default volume.
+func (s *Store) GetDefaultVolume(ctx context.Context) (*sandbox.Volume, error) {
+	_ = ctx
+	return s.fsm.getDefaultVolume()
+}
+
+// ListVolumes returns all volumes.
+func (s *Store) ListVolumes(ctx context.Context) ([]*sandbox.Volume, error) {
+	_ = ctx
+	return s.fsm.listVolumes(), nil
 }
 
 // SaveAPIKey replicates an API key record (hash only).

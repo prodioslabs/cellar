@@ -9,70 +9,42 @@ import (
 
 func TestValidateSpec(t *testing.T) {
 	err := sandbox.ValidateSpec(sandbox.Spec{})
-	if err == nil || !strings.Contains(err.Error(), "image or runtime is required") {
-		t.Fatalf("expected image or runtime required, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "name is required") {
+		t.Fatalf("expected name required, got %v", err)
 	}
 	err = sandbox.ValidateSpec(sandbox.Spec{
-		Image: "alpine",
-		Network: sandbox.NetworkPolicy{
-			Mode: sandbox.NetworkAllowlist,
-			Rules: []sandbox.NetworkRule{{Hosts: []string{"example.com"}, Ports: []uint32{443}}},
-		},
+		Name:      "demo",
+		Image:     sandbox.OCIImage("alpine:3.20"),
+		Resources: sandbox.Resources{VCPUs: 1, MemoryMiB: 512},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestValidateSpecRuntime(t *testing.T) {
-	err := sandbox.ValidateSpec(sandbox.Spec{Runtime: "node-26"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = sandbox.ValidateSpec(sandbox.Spec{Image: "alpine", Runtime: "node-26"})
-	if err == nil || !strings.Contains(err.Error(), "not both") {
-		t.Fatalf("expected not both error, got %v", err)
-	}
-	err = sandbox.ValidateSpec(sandbox.Spec{Runtime: "node-99"})
-	if err == nil || !strings.Contains(err.Error(), "unknown runtime") {
-		t.Fatalf("expected unknown runtime, got %v", err)
-	}
-	// Resolved pair (normalize already filled image) is OK.
-	err = sandbox.ValidateSpec(sandbox.Spec{Image: "node:26-alpine", Runtime: "node-26"})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestNormalizeSpec(t *testing.T) {
-	s := sandbox.NormalizeSpec(sandbox.Spec{Image: "busybox"})
-	if s.Runtime != "" {
-		t.Fatalf("runtime=%q", s.Runtime)
+	s := sandbox.NormalizeSpec(sandbox.Spec{
+		Name:  "demo",
+		Image: sandbox.RootfsSource{Reference: "busybox"},
+	})
+	if s.Image.Type != "oci" {
+		t.Fatalf("type=%q", s.Image.Type)
 	}
-	if s.Network.Mode != sandbox.NetworkNone {
-		t.Fatalf("mode=%q", s.Network.Mode)
+	if s.Resources.VCPUs != 1 || s.Resources.MemoryMiB != 512 {
+		t.Fatalf("resources=%+v", s.Resources)
 	}
-}
-
-func TestNormalizeSpecRuntime(t *testing.T) {
-	s := sandbox.NormalizeSpec(sandbox.Spec{Runtime: "python-3.13"})
-	if s.Image != "astral/uv:python3.13-alpine" {
-		t.Fatalf("image=%q", s.Image)
-	}
-	if s.Runtime != "python-3.13" {
-		t.Fatalf("runtime=%q", s.Runtime)
+	if s.Slug != "demo" {
+		t.Fatalf("slug=%q", s.Slug)
 	}
 }
 
-func TestNormalizeSpecLegacyOCIRuntime(t *testing.T) {
-	for _, legacy := range []string{"runsc", "runc"} {
-		s := sandbox.NormalizeSpec(sandbox.Spec{Image: "alpine", Runtime: legacy})
-		if s.Runtime != "" {
-			t.Fatalf("expected legacy %q cleared, got %q", legacy, s.Runtime)
-		}
-		if s.Image != "alpine" {
-			t.Fatalf("image=%q", s.Image)
-		}
+func TestApplyLanguagePreset(t *testing.T) {
+	s, err := sandbox.ApplyLanguagePreset(sandbox.Spec{Name: "x"}, "node-26")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Image.Reference != "node:26-alpine" {
+		t.Fatalf("image=%q", s.Image.Reference)
 	}
 }
 
@@ -91,5 +63,16 @@ func TestResolveImage(t *testing.T) {
 		if got != want {
 			t.Fatalf("%s: got %q want %q", id, got, want)
 		}
+	}
+}
+
+func TestHasHostMounts(t *testing.T) {
+	s := sandbox.Spec{Mounts: []sandbox.VolumeMount{{Type: "named", Name: "v", Guest: "/data"}}}
+	if s.HasHostMounts() {
+		t.Fatal("named should not pin host mounts")
+	}
+	s.Mounts = []sandbox.VolumeMount{{Type: "bind", Host: "/tmp", Guest: "/data"}}
+	if !s.HasHostMounts() {
+		t.Fatal("bind should pin")
 	}
 }

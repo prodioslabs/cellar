@@ -10,6 +10,15 @@ import (
 	"github.com/prodioslabs/cellar/internal/scheduler"
 )
 
+func testSpec(mounts ...sandbox.VolumeMount) sandbox.Spec {
+	return sandbox.Spec{
+		Name:      "sb",
+		Image:     sandbox.OCIImage("alpine"),
+		Resources: sandbox.Resources{VCPUs: 1, MemoryMiB: 512},
+		Mounts:    mounts,
+	}
+}
+
 func TestPlanVacateHeartbeatReassignsRunning(t *testing.T) {
 	now := time.Now().UTC()
 	deadHB := now.Add(-(scheduler.HeartbeatEvictAfter + time.Second))
@@ -21,13 +30,13 @@ func TestPlanVacateHeartbeatReassignsRunning(t *testing.T) {
 		{
 			ID: "sb1", NodeID: "dead", DesiredState: sandbox.DesiredRunning,
 			AssignmentGeneration: 1,
-			Spec:                 sandbox.Spec{Image: "alpine"},
-			Status:               sandbox.Status{Phase: sandbox.PhaseRunning, ContainerID: "c1"},
+			Spec:                 testSpec(),
+			Status:               sandbox.Status{Phase: sandbox.PhaseRunning, LocalName: "c1"},
 		},
 		{
 			ID: "sb-stopped", NodeID: "dead", DesiredState: sandbox.DesiredStopped,
 			AssignmentGeneration: 1,
-			Spec:                 sandbox.Spec{Image: "alpine"},
+			Spec:                 testSpec(),
 		},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
@@ -47,8 +56,8 @@ func TestPlanVacateHeartbeatReassignsRunning(t *testing.T) {
 	if d.Sandbox.Status.Phase != sandbox.PhasePending {
 		t.Fatalf("phase=%s", d.Sandbox.Status.Phase)
 	}
-	if d.Sandbox.Status.ContainerID != "" {
-		t.Fatal("container id should be cleared")
+	if d.Sandbox.Status.LocalName != "" {
+		t.Fatal("local name should be cleared")
 	}
 	if !strings.Contains(d.Sandbox.Status.Message, "rescheduled") {
 		t.Fatalf("message=%q", d.Sandbox.Status.Message)
@@ -65,7 +74,7 @@ func TestPlanVacateHeartbeatNoTargetIsNoop(t *testing.T) {
 		{ID: "dead", Membership: node.MembershipAccepted, RuntimeHeartbeatAt: deadHB},
 	}
 	sbs := []*sandbox.Sandbox{
-		{ID: "sb1", NodeID: "dead", DesiredState: sandbox.DesiredRunning, Spec: sandbox.Spec{Image: "alpine"}},
+		{ID: "sb1", NodeID: "dead", DesiredState: sandbox.DesiredRunning, Spec: testSpec()},
 	}
 	if got := scheduler.PlanVacate(nodes, sbs, now, nil); len(got) != 0 {
 		t.Fatalf("expected no decisions, got %d", len(got))
@@ -83,10 +92,11 @@ func TestPlanVacateHeartbeatHostMountsFail(t *testing.T) {
 		{
 			ID: "sb1", NodeID: "dead", DesiredState: sandbox.DesiredRunning,
 			AssignmentGeneration: 3,
-			Spec: sandbox.Spec{
-				Image:  "alpine",
-				Mounts: []sandbox.Mount{{Source: "/host", Target: "/mnt"}},
-			},
+			Spec: testSpec(sandbox.VolumeMount{
+				Type:  "bind",
+				Host:  "/host",
+				Guest: "/mnt",
+			}),
 		},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
@@ -123,7 +133,7 @@ func TestPlanVacateRespectsQuarantineExclude(t *testing.T) {
 		{ID: "live", Membership: node.MembershipAccepted, RuntimeHeartbeatAt: now},
 	}
 	sbs := []*sandbox.Sandbox{
-		{ID: "sb1", NodeID: "dead", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: sandbox.Spec{Image: "alpine"}},
+		{ID: "sb1", NodeID: "dead", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: testSpec()},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, map[string]struct{}{"quarantined": {}})
 	if len(decisions) != 1 || decisions[0].Sandbox.NodeID != "live" {
@@ -140,8 +150,8 @@ func TestPlanVacateSpreadsAcrossTargets(t *testing.T) {
 		{ID: "b", Membership: node.MembershipAccepted, RuntimeHeartbeatAt: now},
 	}
 	sbs := []*sandbox.Sandbox{
-		{ID: "1", NodeID: "dead", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: sandbox.Spec{Image: "alpine"}},
-		{ID: "2", NodeID: "dead", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: sandbox.Spec{Image: "alpine"}},
+		{ID: "1", NodeID: "dead", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: testSpec()},
+		{ID: "2", NodeID: "dead", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: testSpec()},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
 	if len(decisions) != 2 {
@@ -166,8 +176,8 @@ func TestPlanVacateDrainReassigns(t *testing.T) {
 		{
 			ID: "sb1", NodeID: "draining", DesiredState: sandbox.DesiredRunning,
 			AssignmentGeneration: 1,
-			Spec:                 sandbox.Spec{Image: "alpine"},
-			Status:               sandbox.Status{Phase: sandbox.PhaseRunning, ContainerID: "c1"},
+			Spec:                 testSpec(),
+			Status:               sandbox.Status{Phase: sandbox.PhaseRunning, LocalName: "c1"},
 		},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
@@ -181,7 +191,7 @@ func TestPlanVacateDrainReassigns(t *testing.T) {
 	if d.Sandbox.NodeID != "live" || d.Sandbox.AssignmentGeneration != 2 {
 		t.Fatalf("got node=%s gen=%d", d.Sandbox.NodeID, d.Sandbox.AssignmentGeneration)
 	}
-	if d.Sandbox.Status.Phase != sandbox.PhasePending || d.Sandbox.Status.ContainerID != "" {
+	if d.Sandbox.Status.Phase != sandbox.PhasePending || d.Sandbox.Status.LocalName != "" {
 		t.Fatalf("status=%+v", d.Sandbox.Status)
 	}
 	if !strings.Contains(d.Sandbox.Status.Message, "draining") {
@@ -199,10 +209,11 @@ func TestPlanVacateDrainLeavesHostMounts(t *testing.T) {
 		{
 			ID: "sb1", NodeID: "draining", DesiredState: sandbox.DesiredRunning,
 			AssignmentGeneration: 2,
-			Spec: sandbox.Spec{
-				Image:  "alpine",
-				Mounts: []sandbox.Mount{{Source: "/host", Target: "/mnt"}},
-			},
+			Spec: testSpec(sandbox.VolumeMount{
+				Type:  "bind",
+				Host:  "/host",
+				Guest: "/mnt",
+			}),
 			Status: sandbox.Status{Phase: sandbox.PhaseRunning},
 		},
 	}
@@ -218,10 +229,10 @@ func TestPlanVacatePauseDoesNotVacate(t *testing.T) {
 		{ID: "live", Membership: node.MembershipAccepted, RuntimeHeartbeatAt: now},
 	}
 	sbs := []*sandbox.Sandbox{
-		{ID: "sb1", NodeID: "paused", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: sandbox.Spec{Image: "alpine"}},
+		{ID: "sb1", NodeID: "paused", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: testSpec()},
 	}
 	if got := scheduler.PlanVacate(nodes, sbs, now, nil); len(got) != 0 {
-		t.Fatalf("pause must not vacate, got %+v", got)
+		t.Fatalf("pause must not vacate, got %d", len(got))
 	}
 }
 
@@ -236,10 +247,11 @@ func TestPlanVacateDeadDrainIsHeartbeat(t *testing.T) {
 		{
 			ID: "sb1", NodeID: "dead", DesiredState: sandbox.DesiredRunning,
 			AssignmentGeneration: 3,
-			Spec: sandbox.Spec{
-				Image:  "alpine",
-				Mounts: []sandbox.Mount{{Source: "/host", Target: "/mnt"}},
-			},
+			Spec: testSpec(sandbox.VolumeMount{
+				Type:  "bind",
+				Host:  "/host",
+				Guest: "/mnt",
+			}),
 		},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
@@ -267,8 +279,8 @@ func TestPlanVacateGoneReassigns(t *testing.T) {
 		{
 			ID: "sb1", NodeID: "deleted", DesiredState: sandbox.DesiredRunning,
 			AssignmentGeneration: 1,
-			Spec:                 sandbox.Spec{Image: "alpine"},
-			Status:               sandbox.Status{Phase: sandbox.PhaseRunning, ContainerID: "c1"},
+			Spec:                 testSpec(),
+			Status:               sandbox.Status{Phase: sandbox.PhaseRunning, LocalName: "c1"},
 		},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
@@ -299,10 +311,11 @@ func TestPlanVacateGoneHostMountsFail(t *testing.T) {
 		{
 			ID: "sb1", NodeID: "deleted", DesiredState: sandbox.DesiredRunning,
 			AssignmentGeneration: 4,
-			Spec: sandbox.Spec{
-				Image:  "alpine",
-				Mounts: []sandbox.Mount{{Source: "/host", Target: "/mnt"}},
-			},
+			Spec: testSpec(sandbox.VolumeMount{
+				Type:  "bind",
+				Host:  "/host",
+				Guest: "/mnt",
+			}),
 		},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
@@ -323,7 +336,7 @@ func TestPlanVacateDrainNoTargetIsNoop(t *testing.T) {
 		{ID: "draining", Membership: node.MembershipAccepted, Availability: node.AvailabilityDrain, RuntimeHeartbeatAt: now},
 	}
 	sbs := []*sandbox.Sandbox{
-		{ID: "sb1", NodeID: "draining", DesiredState: sandbox.DesiredRunning, Spec: sandbox.Spec{Image: "alpine"}},
+		{ID: "sb1", NodeID: "draining", DesiredState: sandbox.DesiredRunning, Spec: testSpec()},
 	}
 	if got := scheduler.PlanVacate(nodes, sbs, now, nil); len(got) != 0 {
 		t.Fatalf("expected no decisions, got %d", len(got))
@@ -338,8 +351,8 @@ func TestPlanVacateDrainDoesNotSelectDrainedPeer(t *testing.T) {
 		{ID: "live", Membership: node.MembershipAccepted, RuntimeHeartbeatAt: now},
 	}
 	sbs := []*sandbox.Sandbox{
-		{ID: "1", NodeID: "draining", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: sandbox.Spec{Image: "alpine"}},
-		{ID: "2", NodeID: "draining", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: sandbox.Spec{Image: "alpine"}},
+		{ID: "1", NodeID: "draining", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: testSpec()},
+		{ID: "2", NodeID: "draining", DesiredState: sandbox.DesiredRunning, AssignmentGeneration: 1, Spec: testSpec()},
 	}
 	decisions := scheduler.PlanVacate(nodes, sbs, now, nil)
 	if len(decisions) != 2 {

@@ -5,43 +5,38 @@ package cellar.v1;
 option go_package = "github.com/prodioslabs/cellar/api/gen;cellarv1";
 
 // SandboxControl is served on managers (mTLS). Leader applies Raft writes.
-// Callers must present a cluster client certificate.
 service SandboxControl {
   rpc Create(SandboxCreateRequest) returns (SandboxCreateResponse);
+  rpc Start(SandboxStartRequest) returns (SandboxStartResponse);
   rpc Stop(SandboxStopRequest) returns (SandboxStopResponse);
   rpc Remove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
   rpc Get(SandboxGetRequest) returns (SandboxGetResponse);
+  rpc GetByName(SandboxGetByNameRequest) returns (SandboxGetResponse);
   rpc List(SandboxListRequest) returns (SandboxListResponse);
-  rpc UpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
+
+  rpc CreateVolume(VolumeCreateRequest) returns (VolumeCreateResponse);
+  rpc ListVolumes(VolumeListRequest) returns (VolumeListResponse);
+  rpc GetVolume(VolumeGetRequest) returns (VolumeGetResponse);
+  rpc GetDefaultVolume(VolumeGetDefaultRequest) returns (VolumeGetResponse);
+  rpc DeleteVolume(VolumeDeleteRequest) returns (VolumeDeleteResponse);
 }
 
-// SandboxAPI is the public client API on managers. Authenticate with an API key
-// (authorization: Bearer cellar_… or x-api-key metadata). Non-leader managers
-// forward mutating RPCs to the Raft leader. Exec/Logs are proxied to the owning node.
+// SandboxAPI is the public client API on managers (API key auth).
 service SandboxAPI {
   rpc Create(SandboxCreateRequest) returns (SandboxCreateResponse);
+  rpc Start(SandboxStartRequest) returns (SandboxStartResponse);
   rpc Stop(SandboxStopRequest) returns (SandboxStopResponse);
   rpc Remove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
   rpc Get(SandboxGetRequest) returns (SandboxGetResponse);
+  rpc GetByName(SandboxGetByNameRequest) returns (SandboxGetResponse);
   rpc List(SandboxListRequest) returns (SandboxListResponse);
-  rpc UpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
   rpc Logs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
-  rpc Exec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
-  rpc StartJob(StartJobRequest) returns (StartJobResponse);
-  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
-  rpc GetJob(GetJobRequest) returns (GetJobResponse);
-  rpc StopJob(StopJobRequest) returns (StopJobResponse);
-  rpc JobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
-  rpc FsRead(FsReadRequest) returns (stream FsChunk);
-  rpc FsWrite(stream FsWriteMessage) returns (FsWriteResponse);
-  rpc FsStat(FsStatRequest) returns (FsStatResponse);
-  rpc FsList(FsListRequest) returns (FsListResponse);
-  rpc FsExists(FsExistsRequest) returns (FsExistsResponse);
-  rpc FsMkdir(FsMkdirRequest) returns (FsMkdirResponse);
-  rpc FsRemove(FsRemoveRequest) returns (FsRemoveResponse);
-  rpc FsRemoveDir(FsRemoveDirRequest) returns (FsRemoveDirResponse);
-  rpc FsCopy(FsCopyRequest) returns (FsCopyResponse);
-  rpc FsRename(FsRenameRequest) returns (FsRenameResponse);
+
+  rpc CreateVolume(VolumeCreateRequest) returns (VolumeCreateResponse);
+  rpc ListVolumes(VolumeListRequest) returns (VolumeListResponse);
+  rpc GetVolume(VolumeGetRequest) returns (VolumeGetResponse);
+  rpc GetDefaultVolume(VolumeGetDefaultRequest) returns (VolumeGetResponse);
+  rpc DeleteVolume(VolumeDeleteRequest) returns (VolumeDeleteResponse);
 }
 
 // RuntimeAgent is served on managers. Nodes report heartbeats and status.
@@ -51,111 +46,41 @@ service RuntimeAgent {
   rpc ListNodeSandboxes(ListNodeSandboxesRequest) returns (ListNodeSandboxesResponse);
 }
 
-// SandboxRuntime is served on every node for logs/exec against local containers.
+// SandboxRuntime is served on every node for logs/agent relay/volume FS.
 service SandboxRuntime {
   rpc Logs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
-  rpc Exec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
-  // Applies a committed network policy to a running sandbox immediately,
-  // instead of waiting for the next reconcile tick.
-  rpc ApplyNetworkPolicy(ApplyNetworkPolicyRequest) returns (ApplyNetworkPolicyResponse);
-  rpc StartJob(StartJobRequest) returns (StartJobResponse);
-  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
-  rpc GetJob(GetJobRequest) returns (GetJobResponse);
-  rpc StopJob(StopJobRequest) returns (StopJobResponse);
-  rpc JobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
-  rpc FsRead(FsReadRequest) returns (stream FsChunk);
-  rpc FsWrite(stream FsWriteMessage) returns (FsWriteResponse);
-  rpc FsStat(FsStatRequest) returns (FsStatResponse);
-  rpc FsList(FsListRequest) returns (FsListResponse);
-  rpc FsExists(FsExistsRequest) returns (FsExistsResponse);
-  rpc FsMkdir(FsMkdirRequest) returns (FsMkdirResponse);
-  rpc FsRemove(FsRemoveRequest) returns (FsRemoveResponse);
-  rpc FsRemoveDir(FsRemoveDirRequest) returns (FsRemoveDirResponse);
-  rpc FsCopy(FsCopyRequest) returns (FsCopyResponse);
-  rpc FsRename(FsRenameRequest) returns (FsRenameResponse);
+  rpc AgentRelay(stream AgentRelayChunk) returns (stream AgentRelayChunk);
+
+  rpc VolumeFsRead(VolumeFsReadRequest) returns (stream FsChunk);
+  rpc VolumeFsWrite(stream VolumeFsWriteMessage) returns (VolumeFsWriteResponse);
+  rpc VolumeFsStat(VolumeFsStatRequest) returns (VolumeFsStatResponse);
+  rpc VolumeFsList(VolumeFsListRequest) returns (VolumeFsListResponse);
+  rpc VolumeFsExists(VolumeFsExistsRequest) returns (VolumeFsExistsResponse);
+  rpc VolumeFsMkdir(VolumeFsMkdirRequest) returns (VolumeFsMkdirResponse);
+  rpc VolumeFsRemove(VolumeFsRemoveRequest) returns (VolumeFsRemoveResponse);
+  rpc VolumeFsCopy(VolumeFsCopyRequest) returns (VolumeFsCopyResponse);
+  rpc VolumeFsRename(VolumeFsRenameRequest) returns (VolumeFsRenameResponse);
+
+  rpc EnsureLocalVolume(EnsureLocalVolumeRequest) returns (EnsureLocalVolumeResponse);
+  rpc DeleteLocalVolume(DeleteLocalVolumeRequest) returns (DeleteLocalVolumeResponse);
 }
 
-message Mount {
-  string source = 1;
-  string target = 2;
-  bool read_only = 3;
-}
-
-message Resources {
-  int64 cpu_nano_cores = 1;
-  int64 memory_bytes = 2;
-}
-
-message NetworkRule {
-  repeated string hosts = 1;
-  repeated uint32 ports = 2;
-  repeated string protocols = 3;
-}
-
-message DNSPolicy {
-  string mode = 1; // none | allowlist | denylist
-  repeated string names = 2;
-}
-
-message NetworkPolicy {
-  string mode = 1; // none | allowlist | denylist | blockall | allowall
-  DNSPolicy dns = 2;
-  repeated NetworkRule rules = 3;
-  // Network limits (translated to mode/rules server-side; not stored).
-  // At most one of network_allow_list, domain_allow_list, block_all, or
-  // allow_all may be set, and none may combine with structured mode/rules/dns.
-  // Empty strings count as unset.
-  string network_allow_list = 4; // comma-separated IPv4 CIDRs, max 10
-  string domain_allow_list = 5;  // comma-separated domains / *.wildcards, max 20
-  optional bool block_all = 6;   // true = blockall; false alone = allowall (compat)
-  // Opt-in curated package/git/AI allowlist. Alone (no other limit, mode
-  // empty/none) implies block_all so those hosts are reachable.
-  bool essential_services = 7;
-  optional bool allow_all = 8; // true = allowall (full open with egress topology)
-}
-
-message SandboxSpec {
-  string image = 1; // custom image; XOR with runtime
-  repeated string command = 2;
-  repeated string args = 3;
-  repeated string env = 4;
-  string working_dir = 5;
-  repeated Mount mounts = 6;
-  Resources resources = 7;
-  NetworkPolicy network = 8;
-  string runtime = 9; // language preset (node-26, bun-1.3, python-3.13, go-1.26)
-}
-
-message SandboxStatus {
-  string phase = 1;
-  string container_id = 2;
-  int32 exit_code = 3;
-  string message = 4;
-  int64 started_at_unix_nano = 5;
-  int64 finished_at_unix_nano = 6;
-  int64 updated_at_unix_nano = 7;
-}
-
-message Sandbox {
-  string id = 1;
-  SandboxSpec spec = 2;
-  string node_id = 3;
-  string desired_state = 4;
-  SandboxStatus status = 5;
-  int64 created_at_unix_nano = 6;
-  int64 updated_at_unix_nano = 7;
-  // Monotonic assignment epoch; incremented when node_id changes. Workers must
-  // echo this on UpdateSandboxStatus so a returning owner cannot overwrite a
-  // rescheduled sandbox (fencing token).
-  int64 assignment_generation = 8;
-}
-
+// SpecJSON carries the msb-cloud Spec as JSON bytes (snake_case wire).
 message SandboxCreateRequest {
-  SandboxSpec spec = 1;
+  bytes spec_json = 1;
   string sandbox_id = 2; // optional; generated if empty
+  bool start = 3;
 }
 
 message SandboxCreateResponse {
+  Sandbox sandbox = 1;
+}
+
+message SandboxStartRequest {
+  string sandbox_id = 1;
+}
+
+message SandboxStartResponse {
   Sandbox sandbox = 1;
 }
 
@@ -177,30 +102,48 @@ message SandboxGetRequest {
   string sandbox_id = 1;
 }
 
+message SandboxGetByNameRequest {
+  string name = 1;
+}
+
 message SandboxGetResponse {
   Sandbox sandbox = 1;
 }
 
-message SandboxUpdateNetworkRequest {
-  string sandbox_id = 1;
-  NetworkPolicy network = 2;
+message SandboxListRequest {
+  string cursor = 1;
+  uint32 limit = 2;
+  string labels_json = 3; // optional JSON object filter
 }
-
-message SandboxUpdateNetworkResponse {
-  Sandbox sandbox = 1;
-}
-
-message ApplyNetworkPolicyRequest {
-  string sandbox_id = 1;
-  NetworkPolicy network = 2;
-}
-
-message ApplyNetworkPolicyResponse {}
-
-message SandboxListRequest {}
 
 message SandboxListResponse {
   repeated Sandbox sandboxes = 1;
+  string next_cursor = 2;
+}
+
+// Sandbox is the control-plane object. Spec is opaque JSON matching cloud Spec.
+message Sandbox {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  bytes spec_json = 4;
+  string node_id = 5;
+  string desired_state = 6;
+  SandboxStatus status = 7;
+  bool ephemeral = 8;
+  bytes labels_json = 9;
+  int64 created_at_unix_nano = 10;
+  int64 updated_at_unix_nano = 11;
+  int64 assignment_generation = 12;
+}
+
+message SandboxStatus {
+  string phase = 1;
+  string local_name = 2;
+  string message = 3;
+  int64 started_at_unix_nano = 4;
+  int64 stopped_at_unix_nano = 5;
+  int64 updated_at_unix_nano = 6;
 }
 
 message RuntimeHeartbeatRequest {
@@ -210,19 +153,17 @@ message RuntimeHeartbeatRequest {
 }
 
 message RuntimeHeartbeatResponse {
-  repeated Sandbox assigned = 1; // sandboxes currently assigned to this node
-  string desired_role = 2;       // store role; node applies promote/demote when mismatched
-  bool removed = 3;              // node record deleted from cluster; wipe local identity
-  string leader_grpc = 4;        // current Raft leader gRPC address
-  repeated string manager_addrs = 5; // known manager gRPC addresses for failover
+  repeated Sandbox assigned = 1;
+  string desired_role = 2;
+  bool removed = 3;
+  string leader_grpc = 4;
+  repeated string manager_addrs = 5;
 }
 
 message UpdateSandboxStatusRequest {
   string sandbox_id = 1;
   SandboxStatus status = 2;
-  string container_id = 3;
-  // Must match Sandbox.assignment_generation; rejected when stale after reschedule.
-  int64 assignment_generation = 4;
+  int64 assignment_generation = 3;
 }
 
 message UpdateSandboxStatusResponse {}
@@ -238,131 +179,83 @@ message ListNodeSandboxesResponse {
 message SandboxLogsRequest {
   string sandbox_id = 1;
   bool follow = 2;
-  int64 tail = 3; // lines; 0 = all
-  bool timestamps = 4;
+  string sources = 3; // comma-separated: stdout,stderr,system,output
+  string last_event_id = 4;
 }
 
 message SandboxLogsChunk {
+  string id = 1;
+  string source = 2;
+  int64 ts_unix_nano = 3;
+  string text = 4;
+}
+
+message AgentRelayChunk {
   bytes data = 1;
 }
 
-// Bidirectional exec: first client message must set start; then stdin chunks.
-// Server sends stdout/stderr/exit.
-message SandboxExecMessage {
-  oneof payload {
-    SandboxExecStart start = 1;
-    bytes stdin = 2;
-    bytes stdout = 3;
-    bytes stderr = 4;
-    SandboxExecExit exit = 5;
-    bool stdin_closed = 6;
-  }
-}
-
-message SandboxExecStart {
-  string sandbox_id = 1;
-  repeated string command = 2;
-  bool tty = 3;
-  bool stdin = 4;
-}
-
-message SandboxExecExit {
-  int32 exit_code = 1;
-  string error = 2;
-}
-
-message StartJobRequest {
-  string sandbox_id = 1;
-  repeated string command = 2;
-}
-
-message StartJobResponse {
-  string job_id = 1;
-}
-
-message ListJobsRequest {
-  string sandbox_id = 1;
-}
-
-message JobInfo {
+message Volume {
   string id = 1;
-  repeated string command = 2;
-  string phase = 3; // running | exited | unknown
-  int32 exit_code = 4;
-  int64 started_at_unix_nano = 5;
+  string name = 2;
+  string kind = 3;
+  string status = 4;
+  string node_id = 5;
+  optional uint64 used_bytes = 6;
+  optional uint64 capacity_bytes = 7;
+  optional uint32 capacity_gib = 8;
+  bytes labels_json = 9;
+  int64 created_at_unix_nano = 10;
+  int64 updated_at_unix_nano = 11;
 }
 
-message ListJobsResponse {
-  repeated JobInfo jobs = 1;
+message VolumeCreateRequest {
+  string name = 1;
+  optional uint32 capacity_gib = 2;
+  bytes labels_json = 3;
 }
 
-message GetJobRequest {
-  string sandbox_id = 1;
-  string job_id = 2;
+message VolumeCreateResponse {
+  Volume volume = 1;
 }
 
-message GetJobResponse {
-  JobInfo job = 1;
+message VolumeListRequest {}
+
+message VolumeListResponse {
+  repeated Volume volumes = 1;
 }
 
-message StopJobRequest {
-  string sandbox_id = 1;
-  string job_id = 2;
-  int32 timeout_sec = 3;
+message VolumeGetRequest {
+  string volume_id = 1;
 }
 
-message StopJobResponse {}
+message VolumeGetDefaultRequest {}
 
-message JobLogsRequest {
-  string sandbox_id = 1;
-  string job_id = 2;
-  bool follow = 3;
+message VolumeGetResponse {
+  Volume volume = 1;
 }
 
-message FsReadRequest {
-  string sandbox_id = 1;
-  string path = 2;
+message VolumeDeleteRequest {
+  string volume_id = 1;
+}
+
+message VolumeDeleteResponse {
+  string message = 1;
 }
 
 message FsChunk {
   bytes data = 1;
 }
 
-message FsWriteMessage {
-  oneof payload {
-    FsWriteStart start = 1;
-    bytes data = 2;
-  }
-}
-
-message FsWriteStart {
-  string sandbox_id = 1;
-  string path = 2;
-}
-
-message FsWriteResponse {}
-
-message FsStatRequest {
-  string sandbox_id = 1;
-  string path = 2;
-}
-
 message FsMetadata {
-  string kind = 1; // file | directory | symlink | other
+  string kind = 1;
   int64 size = 2;
   uint32 mode = 3;
   bool readonly = 4;
-  int64 modified_unix_nano = 5; // 0 = unavailable
-  int64 created_unix_nano = 6;  // 0 = unavailable
-}
-
-message FsStatResponse {
-  FsMetadata metadata = 1;
-}
-
-message FsListRequest {
-  string sandbox_id = 1;
-  string path = 2;
+  uint32 uid = 5;
+  uint32 gid = 6;
+  int64 modified_unix_nano = 7;
+  int64 created_unix_nano = 8;
+  string path = 9;
 }
 
 message FsEntry {
@@ -373,52 +266,94 @@ message FsEntry {
   int64 modified_unix_nano = 5;
 }
 
-message FsListResponse {
+message VolumeFsReadRequest {
+  string volume_id = 1;
+  string path = 2;
+}
+
+message VolumeFsWriteStart {
+  string volume_id = 1;
+  string path = 2;
+}
+
+message VolumeFsWriteMessage {
+  oneof payload {
+    VolumeFsWriteStart start = 1;
+    bytes data = 2;
+  }
+}
+
+message VolumeFsWriteResponse {}
+
+message VolumeFsStatRequest {
+  string volume_id = 1;
+  string path = 2;
+}
+
+message VolumeFsStatResponse {
+  FsMetadata metadata = 1;
+}
+
+message VolumeFsListRequest {
+  string volume_id = 1;
+  string path = 2;
+}
+
+message VolumeFsListResponse {
   repeated FsEntry entries = 1;
 }
 
-message FsExistsRequest {
-  string sandbox_id = 1;
+message VolumeFsExistsRequest {
+  string volume_id = 1;
   string path = 2;
 }
 
-message FsExistsResponse {
+message VolumeFsExistsResponse {
   bool exists = 1;
 }
 
-message FsMkdirRequest {
-  string sandbox_id = 1;
+message VolumeFsMkdirRequest {
+  string volume_id = 1;
   string path = 2;
 }
 
-message FsMkdirResponse {}
+message VolumeFsMkdirResponse {}
 
-message FsRemoveRequest {
-  string sandbox_id = 1;
+message VolumeFsRemoveRequest {
+  string volume_id = 1;
   string path = 2;
+  bool recursive = 3;
 }
 
-message FsRemoveResponse {}
+message VolumeFsRemoveResponse {}
 
-message FsRemoveDirRequest {
-  string sandbox_id = 1;
-  string path = 2;
-}
-
-message FsRemoveDirResponse {}
-
-message FsCopyRequest {
-  string sandbox_id = 1;
+message VolumeFsCopyRequest {
+  string volume_id = 1;
   string from = 2;
   string to = 3;
 }
 
-message FsCopyResponse {}
+message VolumeFsCopyResponse {}
 
-message FsRenameRequest {
-  string sandbox_id = 1;
+message VolumeFsRenameRequest {
+  string volume_id = 1;
   string from = 2;
   string to = 3;
 }
 
-message FsRenameResponse {}
+message VolumeFsRenameResponse {}
+
+message EnsureLocalVolumeRequest {
+  string volume_id = 1;
+  string name = 2;
+  optional uint32 capacity_gib = 3;
+}
+
+message EnsureLocalVolumeResponse {}
+
+message DeleteLocalVolumeRequest {
+  string volume_id = 1;
+  string name = 2;
+}
+
+message DeleteLocalVolumeResponse {}

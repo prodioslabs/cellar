@@ -19,21 +19,27 @@ import (
 
 // FSM is the in-memory Raft state machine holding Cluster.RootCA, nodes, and peers.
 type FSM struct {
-	mu        sync.RWMutex
-	cluster   *store.Cluster
-	nodes     map[string]*node.Node
-	peers     map[string]PeerInfo
-	sandboxes map[string]*sandbox.Sandbox
-	apiKeys   map[string]*apikey.Key // by id
+	mu           sync.RWMutex
+	cluster      *store.Cluster
+	nodes        map[string]*node.Node
+	peers        map[string]PeerInfo
+	sandboxes    map[string]*sandbox.Sandbox
+	sandboxNames map[string]string // name -> id
+	volumes      map[string]*sandbox.Volume
+	volumeNames  map[string]string // name -> id (named only)
+	apiKeys      map[string]*apikey.Key // by id
 }
 
 // NewFSM creates an empty FSM.
 func NewFSM() *FSM {
 	return &FSM{
-		nodes:     make(map[string]*node.Node),
-		peers:     make(map[string]PeerInfo),
-		sandboxes: make(map[string]*sandbox.Sandbox),
-		apiKeys:   make(map[string]*apikey.Key),
+		nodes:        make(map[string]*node.Node),
+		peers:        make(map[string]PeerInfo),
+		sandboxes:    make(map[string]*sandbox.Sandbox),
+		sandboxNames: make(map[string]string),
+		volumes:      make(map[string]*sandbox.Volume),
+		volumeNames:  make(map[string]string),
+		apiKeys:      make(map[string]*apikey.Key),
 	}
 }
 
@@ -64,6 +70,10 @@ func (f *FSM) Apply(l *raft.Log) interface{} {
 		return f.applySaveSandbox(cmd.Payload)
 	case opDeleteSandbox:
 		return f.applyDeleteSandbox(cmd.Payload)
+	case opSaveVolume:
+		return f.applySaveVolume(cmd.Payload)
+	case opDeleteVolume:
+		return f.applyDeleteVolume(cmd.Payload)
 	case opSaveAPIKey:
 		return f.applySaveAPIKey(cmd.Payload)
 	case opDeleteAPIKey:
@@ -234,6 +244,21 @@ func (f *FSM) applySaveSandbox(raw json.RawMessage) interface{} {
 	if p.Sandbox == nil || p.Sandbox.ID == "" {
 		return fmt.Errorf("sandbox is required")
 	}
+	name := p.Sandbox.Name
+	if name == "" {
+		name = p.Sandbox.Spec.Name
+	}
+	if name != "" {
+		if existingID, ok := f.sandboxNames[name]; ok && existingID != p.Sandbox.ID {
+			return store.ErrNameExists
+		}
+		// Drop old name mapping if renamed.
+		if old, ok := f.sandboxes[p.Sandbox.ID]; ok && old.Name != "" && old.Name != name {
+			delete(f.sandboxNames, old.Name)
+		}
+		f.sandboxNames[name] = p.Sandbox.ID
+		p.Sandbox.Name = name
+	}
 	f.sandboxes[p.Sandbox.ID] = sandbox.Clone(p.Sandbox)
 	return nil
 }
@@ -246,10 +271,54 @@ func (f *FSM) applyDeleteSandbox(raw json.RawMessage) interface{} {
 	if p.ID == "" {
 		return fmt.Errorf("sandbox id is required")
 	}
-	if _, ok := f.sandboxes[p.ID]; !ok {
+	sb, ok := f.sandboxes[p.ID]
+	if !ok {
 		return store.ErrSandboxNotFound
 	}
+	if sb.Name != "" {
+		delete(f.sandboxNames, sb.Name)
+	}
 	delete(f.sandboxes, p.ID)
+	return nil
+}
+
+func (f *FSM) applySaveVolume(raw json.RawMessage) interface{} {
+	var p saveVolumePayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.Volume == nil || p.Volume.ID == "" {
+		return fmt.Errorf("volume is required")
+	}
+	if p.Volume.Kind == sandbox.VolumeKindNamed && p.Volume.Name != "" {
+		if existingID, ok := f.volumeNames[p.Volume.Name]; ok && existingID != p.Volume.ID {
+			return store.ErrNameExists
+		}
+		if old, ok := f.volumes[p.Volume.ID]; ok && old.Name != "" && old.Name != p.Volume.Name {
+			delete(f.volumeNames, old.Name)
+		}
+		f.volumeNames[p.Volume.Name] = p.Volume.ID
+	}
+	f.volumes[p.Volume.ID] = sandbox.CloneVolume(p.Volume)
+	return nil
+}
+
+func (f *FSM) applyDeleteVolume(raw json.RawMessage) interface{} {
+	var p deleteVolumePayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.ID == "" {
+		return fmt.Errorf("volume id is required")
+	}
+	v, ok := f.volumes[p.ID]
+	if !ok {
+		return store.ErrVolumeNotFound
+	}
+	if v.Name != "" {
+		delete(f.volumeNames, v.Name)
+	}
+	delete(f.volumes, p.ID)
 	return nil
 }
 
@@ -289,6 +358,7 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 		nodes:     make(map[string]*node.Node, len(f.nodes)),
 		peers:     make(map[string]PeerInfo, len(f.peers)),
 		sandboxes: make(map[string]*sandbox.Sandbox, len(f.sandboxes)),
+		volumes:   make(map[string]*sandbox.Volume, len(f.volumes)),
 		apiKeys:   make(map[string]*apikey.Key, len(f.apiKeys)),
 	}
 	if f.cluster != nil {
@@ -306,6 +376,9 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	}
 	for id, sb := range f.sandboxes {
 		snap.sandboxes[id] = sandbox.Clone(sb)
+	}
+	for id, v := range f.volumes {
+		snap.volumes[id] = sandbox.CloneVolume(v)
 	}
 	for id, k := range f.apiKeys {
 		snap.apiKeys[id] = apikey.Clone(k)
@@ -335,11 +408,28 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 		peers[id] = p
 	}
 	sandboxes := make(map[string]*sandbox.Sandbox, len(snap.Sandboxes))
+	sandboxNames := make(map[string]string)
 	for id, sb := range snap.Sandboxes {
 		if sb == nil {
 			continue
 		}
-		sandboxes[id] = sandbox.Clone(sb)
+		cp := sandbox.Clone(sb)
+		sandboxes[id] = cp
+		if cp.Name != "" {
+			sandboxNames[cp.Name] = id
+		}
+	}
+	volumes := make(map[string]*sandbox.Volume, len(snap.Volumes))
+	volumeNames := make(map[string]string)
+	for id, v := range snap.Volumes {
+		if v == nil {
+			continue
+		}
+		cp := sandbox.CloneVolume(v)
+		volumes[id] = cp
+		if cp.Kind == sandbox.VolumeKindNamed && cp.Name != "" {
+			volumeNames[cp.Name] = id
+		}
 	}
 	apiKeys := make(map[string]*apikey.Key, len(snap.APIKeys))
 	for id, k := range snap.APIKeys {
@@ -395,6 +485,9 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	f.nodes = nodes
 	f.peers = peers
 	f.sandboxes = sandboxes
+	f.sandboxNames = sandboxNames
+	f.volumes = volumes
+	f.volumeNames = volumeNames
 	f.apiKeys = apiKeys
 	return nil
 }
@@ -404,6 +497,7 @@ type persistedSnapshot struct {
 	Nodes     map[string]*node.Node       `json:"nodes,omitempty"`
 	Peers     map[string]PeerInfo         `json:"peers,omitempty"`
 	Sandboxes map[string]*sandbox.Sandbox `json:"sandboxes,omitempty"`
+	Volumes   map[string]*sandbox.Volume  `json:"volumes,omitempty"`
 	APIKeys   map[string]*apikey.Key      `json:"api_keys,omitempty"`
 	// Legacy fields
 	CertPEM       []byte              `json:"cert_pem,omitempty"`
@@ -424,6 +518,7 @@ type fsmSnapshot struct {
 	nodes     map[string]*node.Node
 	peers     map[string]PeerInfo
 	sandboxes map[string]*sandbox.Sandbox
+	volumes   map[string]*sandbox.Volume
 	apiKeys   map[string]*apikey.Key
 }
 
@@ -433,6 +528,7 @@ func (s *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 		Nodes:     s.nodes,
 		Peers:     s.peers,
 		Sandboxes: s.sandboxes,
+		Volumes:   s.volumes,
 		APIKeys:   s.apiKeys,
 	})
 	if err != nil {
@@ -532,6 +628,20 @@ func (f *FSM) getSandbox(id string) (*sandbox.Sandbox, error) {
 	return sandbox.Clone(sb), nil
 }
 
+func (f *FSM) getSandboxByName(name string) (*sandbox.Sandbox, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	id, ok := f.sandboxNames[name]
+	if !ok {
+		return nil, store.ErrSandboxNotFound
+	}
+	sb, ok := f.sandboxes[id]
+	if !ok {
+		return nil, store.ErrSandboxNotFound
+	}
+	return sandbox.Clone(sb), nil
+}
+
 func (f *FSM) listSandboxes() []*sandbox.Sandbox {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -550,6 +660,51 @@ func (f *FSM) listSandboxesByNode(nodeID string) []*sandbox.Sandbox {
 		if sb.NodeID == nodeID {
 			out = append(out, sandbox.Clone(sb))
 		}
+	}
+	return out
+}
+
+func (f *FSM) getVolume(id string) (*sandbox.Volume, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	v, ok := f.volumes[id]
+	if !ok {
+		return nil, store.ErrVolumeNotFound
+	}
+	return sandbox.CloneVolume(v), nil
+}
+
+func (f *FSM) getVolumeByName(name string) (*sandbox.Volume, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	id, ok := f.volumeNames[name]
+	if !ok {
+		return nil, store.ErrVolumeNotFound
+	}
+	v, ok := f.volumes[id]
+	if !ok {
+		return nil, store.ErrVolumeNotFound
+	}
+	return sandbox.CloneVolume(v), nil
+}
+
+func (f *FSM) getDefaultVolume() (*sandbox.Volume, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	for _, v := range f.volumes {
+		if v.Kind == sandbox.VolumeKindDefault {
+			return sandbox.CloneVolume(v), nil
+		}
+	}
+	return nil, store.ErrVolumeNotFound
+}
+
+func (f *FSM) listVolumes() []*sandbox.Volume {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	out := make([]*sandbox.Volume, 0, len(f.volumes))
+	for _, v := range f.volumes {
+		out = append(out, sandbox.CloneVolume(v))
 	}
 	return out
 }

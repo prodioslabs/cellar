@@ -32,7 +32,11 @@ func TestToFromProtoAssignmentGeneration(t *testing.T) {
 		ID:                   "x",
 		DesiredState:         sandbox.DesiredRunning,
 		AssignmentGeneration: 7,
-		Spec:                 sandbox.Spec{Image: "alpine"},
+		Spec: sandbox.Spec{
+			Name:      "x",
+			Image:     sandbox.OCIImage("alpine"),
+			Resources: sandbox.Resources{VCPUs: 1, MemoryMiB: 512},
+		},
 	}
 	p := sandbox.ToProto(sb)
 	if p.GetAssignmentGeneration() != 7 {

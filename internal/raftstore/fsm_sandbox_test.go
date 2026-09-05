@@ -14,9 +14,14 @@ func TestSandboxSaveDelete(t *testing.T) {
 	fsm := NewFSM()
 	sb := &sandbox.Sandbox{
 		ID:           "sb1",
+		Name:         "sb1",
 		DesiredState: sandbox.DesiredRunning,
-		Spec:         sandbox.Spec{Image: "alpine"},
-		Status:       sandbox.Status{Phase: sandbox.PhasePending},
+		Spec: sandbox.Spec{
+			Name:      "sb1",
+			Image:     sandbox.OCIImage("alpine"),
+			Resources: sandbox.Resources{VCPUs: 1, MemoryMiB: 512},
+		},
+		Status: sandbox.Status{Phase: sandbox.PhasePending},
 	}
 	data, err := encodeCommand(opSaveSandbox, saveSandboxPayload{Sandbox: sb})
 	if err != nil {
@@ -29,8 +34,8 @@ func TestSandboxSaveDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Spec.Image != "alpine" {
-		t.Fatalf("image=%q", got.Spec.Image)
+	if got.Spec.ImageReference() != "alpine" {
+		t.Fatalf("image=%q", got.Spec.ImageReference())
 	}
 	del, err := encodeCommand(opDeleteSandbox, deleteSandboxPayload{ID: "sb1"})
 	if err != nil {

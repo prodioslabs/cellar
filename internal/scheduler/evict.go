@@ -84,7 +84,7 @@ func PlanVacate(nodes []*node.Node, sandboxes []*sandbox.Sandbox, now time.Time,
 			continue
 		}
 
-		if len(cur.Spec.Mounts) > 0 {
+		if cur.Spec.HasHostMounts() {
 			if reason == ReasonDrain {
 				// Node is still live; leave bind-mounted sandboxes in place.
 				continue

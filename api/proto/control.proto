@@ -16,28 +16,13 @@ service Control {
 
   // Sandbox ops (forwarded to a manager / leader when needed).
   rpc SandboxCreate(SandboxCreateRequest) returns (SandboxCreateResponse);
+  rpc SandboxStart(SandboxStartRequest) returns (SandboxStartResponse);
   rpc SandboxStop(SandboxStopRequest) returns (SandboxStopResponse);
   rpc SandboxRemove(SandboxRemoveRequest) returns (SandboxRemoveResponse);
   rpc SandboxGet(SandboxGetRequest) returns (SandboxGetResponse);
-  rpc SandboxUpdateNetwork(SandboxUpdateNetworkRequest) returns (SandboxUpdateNetworkResponse);
+  rpc SandboxGetByName(SandboxGetByNameRequest) returns (SandboxGetResponse);
   rpc SandboxList(SandboxListRequest) returns (SandboxListResponse);
   rpc SandboxLogs(SandboxLogsRequest) returns (stream SandboxLogsChunk);
-  rpc SandboxExec(stream SandboxExecMessage) returns (stream SandboxExecMessage);
-  rpc SandboxStartJob(StartJobRequest) returns (StartJobResponse);
-  rpc SandboxListJobs(ListJobsRequest) returns (ListJobsResponse);
-  rpc SandboxGetJob(GetJobRequest) returns (GetJobResponse);
-  rpc SandboxStopJob(StopJobRequest) returns (StopJobResponse);
-  rpc SandboxJobLogs(JobLogsRequest) returns (stream SandboxLogsChunk);
-  rpc SandboxFsRead(FsReadRequest) returns (stream FsChunk);
-  rpc SandboxFsWrite(stream FsWriteMessage) returns (FsWriteResponse);
-  rpc SandboxFsStat(FsStatRequest) returns (FsStatResponse);
-  rpc SandboxFsList(FsListRequest) returns (FsListResponse);
-  rpc SandboxFsExists(FsExistsRequest) returns (FsExistsResponse);
-  rpc SandboxFsMkdir(FsMkdirRequest) returns (FsMkdirResponse);
-  rpc SandboxFsRemove(FsRemoveRequest) returns (FsRemoveResponse);
-  rpc SandboxFsRemoveDir(FsRemoveDirRequest) returns (FsRemoveDirResponse);
-  rpc SandboxFsCopy(FsCopyRequest) returns (FsCopyResponse);
-  rpc SandboxFsRename(FsRenameRequest) returns (FsRenameResponse);
 
   // API key management (local unix socket; writes require Raft leader).
   rpc APIKeyCreate(APIKeyCreateRequest) returns (APIKeyCreateResponse);
