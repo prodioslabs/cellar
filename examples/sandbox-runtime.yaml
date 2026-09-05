@@ -1,6 +1,0 @@
-# Language runtime preset (resolves to node:26-alpine) with npm registry egress.
-# Usage: cellar sandbox create -f examples/sandbox-runtime.yaml
-id: demo-node
-runtime: node-26
-network:
-  domain_allow_list: registry.npmjs.org

@@ -1,6 +1,0 @@
-# Block all outbound traffic (egress topology kept so policy can change live).
-# Usage: cellar sandbox create -f examples/sandbox-block-all.yaml
-id: demo-blocked
-image: alpine
-network:
-  block_all: true

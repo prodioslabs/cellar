@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
-	"github.com/prodioslabs/cellar/internal/daemon"
+	"github.com/prodioslabs/cellar/internal/paths"
 	"github.com/prodioslabs/cellar/internal/version"
 )
 
@@ -41,7 +41,7 @@ Start cellard first, then use init / join / leave / join-token / status.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.PersistentFlags().StringVar(&socketPath, "socket", daemon.DefaultSocket, "path to cellard control socket")
+	root.PersistentFlags().StringVar(&socketPath, "socket", paths.DefaultSocket, "path to cellard control socket")
 
 	root.AddCommand(newInitCmd())
 	root.AddCommand(newJoinCmd())
@@ -55,7 +55,7 @@ Start cellard first, then use init / join / leave / join-token / status.`,
 }
 
 func dial() (cellarv1.ControlClient, func(), error) {
-	conn, err := daemon.DialLocal(socketPath)
+	conn, err := paths.DialLocal(socketPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("dial cellard: %w", err)
 	}

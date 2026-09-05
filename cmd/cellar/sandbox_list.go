@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
 var sandboxListProtoJSON = protojson.MarshalOptions{
@@ -60,6 +61,13 @@ func matchAny(want []string, got string) bool {
 	return false
 }
 
+func sandboxImageRef(sb *cellarv1.Sandbox) string {
+	if sb == nil {
+		return ""
+	}
+	return sandbox.FromProto(sb).Spec.ImageReference()
+}
+
 func applySandboxFilters(sandboxes []*cellarv1.Sandbox, f sandboxListFilter) []*cellarv1.Sandbox {
 	if len(f.phases) == 0 && len(f.desireds) == 0 && len(f.images) == 0 {
 		return sandboxes
@@ -72,7 +80,7 @@ func applySandboxFilters(sandboxes []*cellarv1.Sandbox, f sandboxListFilter) []*
 		if !matchAny(f.desireds, sb.GetDesiredState()) {
 			continue
 		}
-		if !matchAny(f.images, sb.GetSpec().GetImage()) {
+		if !matchAny(f.images, sandboxImageRef(sb)) {
 			continue
 		}
 		out = append(out, sb)
@@ -119,25 +127,17 @@ func resolveNodeIDPrefix(nodes []*cellarv1.NodeInfo, idOrPrefix string) (string,
 	}
 }
 
-func shortContainerID(id string) string {
-	return shortNodeID(id)
-}
-
 func writeSandboxTable(w io.Writer, sandboxes []*cellarv1.Sandbox) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNODE\tCONTAINER\tDESIRED\tPHASE\tIMAGE")
+	fmt.Fprintln(tw, "ID\tNAME\tNODE\tDESIRED\tPHASE\tIMAGE")
 	for _, sb := range sandboxes {
-		image := sb.GetSpec().GetImage()
-		if image == "" {
-			image = sb.GetSpec().GetRuntime()
-		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			sb.GetId(),
+			sb.GetName(),
 			shortNodeID(sb.GetNodeId()),
-			shortContainerID(sb.GetStatus().GetContainerId()),
 			sb.GetDesiredState(),
 			sb.GetStatus().GetPhase(),
-			image,
+			sandboxImageRef(sb),
 		)
 	}
 	return tw.Flush()

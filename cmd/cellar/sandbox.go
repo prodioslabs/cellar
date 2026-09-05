@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
 func newSandboxCmd() *cobra.Command {
@@ -19,84 +21,60 @@ func newSandboxCmd() *cobra.Command {
 		Short: "Manage cluster sandboxes",
 	}
 	cmd.AddCommand(newSandboxCreateCmd())
+	cmd.AddCommand(newSandboxStartCmd())
 	cmd.AddCommand(newSandboxStopCmd())
 	cmd.AddCommand(newSandboxRemoveCmd())
 	cmd.AddCommand(newSandboxGetCmd())
-	cmd.AddCommand(newSandboxNetworkCmd())
 	cmd.AddCommand(newSandboxListCmd())
 	cmd.AddCommand(newSandboxLogsCmd())
-	cmd.AddCommand(newSandboxExecCmd())
-	cmd.AddCommand(newSandboxJobCmd())
-	cmd.AddCommand(newSandboxFsCmd())
 	return cmd
 }
 
 func newSandboxCreateCmd() *cobra.Command {
 	var (
-		file              string
-		image             string
-		runtime           string
-		name              string
-		env               []string
-		mounts            []string
-		workdir           string
-		memory            int64
-		cpus              float64
-		networkAllowList  string
-		domainAllowList   string
-		networkBlockAll   bool
-		networkAllowAll   bool
-		essentialServices bool
+		name      string
+		image     string
+		runtime   string
+		memoryMiB uint32
+		vcpus     uint8
+		start     bool
 	)
 	cmd := &cobra.Command{
-		Use:   "create (--image <image> | --runtime <runtime> | -f <file>)",
+		Use:   "create (--image <image> | --runtime <runtime>)",
 		Short: "Create and schedule a sandbox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var req *cellarv1.SandboxCreateRequest
-			if file != "" {
-				if err := rejectCreateFlagsWithFile(cmd); err != nil {
-					return err
-				}
-				var err error
-				req, err = loadSandboxCreateFile(file)
-				if err != nil {
-					return err
-				}
-			} else {
-				if image == "" && runtime == "" {
-					return fmt.Errorf("--image or --runtime is required (or use -f <file>)")
-				}
-				if image != "" && runtime != "" {
-					return fmt.Errorf("specify --image or --runtime, not both")
-				}
-				netPol, err := buildCreateNetworkPolicy(cmd, networkAllowList, domainAllowList, networkBlockAll, networkAllowAll, essentialServices)
-				if err != nil {
-					return err
-				}
-				spec := &cellarv1.SandboxSpec{
-					Image:      image,
-					Runtime:    runtime,
-					Env:        env,
-					WorkingDir: workdir,
-					Resources: &cellarv1.Resources{
-						MemoryBytes:  memory,
-						CpuNanoCores: int64(cpus * 1e9),
-					},
-					Network: netPol,
-				}
-				for _, m := range mounts {
-					parts := strings.SplitN(m, ":", 3)
-					if len(parts) < 2 {
-						return fmt.Errorf("invalid mount %q (want src:dst[:ro])", m)
-					}
-					ro := len(parts) == 3 && parts[2] == "ro"
-					spec.Mounts = append(spec.Mounts, &cellarv1.Mount{
-						Source:   parts[0],
-						Target:   parts[1],
-						ReadOnly: ro,
-					})
-				}
-				req = &cellarv1.SandboxCreateRequest{Spec: spec, SandboxId: name}
+			if strings.TrimSpace(name) == "" {
+				return fmt.Errorf("--name is required")
+			}
+			if image == "" && runtime == "" {
+				return fmt.Errorf("--image or --runtime is required")
+			}
+			if image != "" && runtime != "" {
+				return fmt.Errorf("specify --image or --runtime, not both")
+			}
+
+			spec := sandbox.Spec{
+				Name: name,
+				Resources: sandbox.Resources{
+					VCPUs:     vcpus,
+					MemoryMiB: memoryMiB,
+				},
+			}
+			if image != "" {
+				spec.Image = sandbox.OCIImage(image)
+			}
+			var err error
+			spec, err = sandbox.ApplyLanguagePreset(spec, runtime)
+			if err != nil {
+				return err
+			}
+			spec = sandbox.NormalizeSpec(spec)
+			if err := sandbox.ValidateSpec(spec); err != nil {
+				return err
+			}
+			specJSON, err := sandbox.SpecToJSON(spec)
+			if err != nil {
+				return err
 			}
 
 			client, closeFn, err := dial()
@@ -107,96 +85,50 @@ func newSandboxCreateCmd() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
 			defer cancel()
-			resp, err := client.SandboxCreate(ctx, req)
+			resp, err := client.SandboxCreate(ctx, &cellarv1.SandboxCreateRequest{
+				SpecJson: specJSON,
+				Start:    start,
+			})
 			if err != nil {
 				return err
 			}
-			fmt.Printf("sandbox %s created (node=%s phase=%s)\n",
-				resp.Sandbox.Id, resp.Sandbox.NodeId, resp.Sandbox.Status.GetPhase())
+			fmt.Printf("sandbox %s created (name=%s node=%s phase=%s)\n",
+				resp.Sandbox.Id, resp.Sandbox.Name, resp.Sandbox.NodeId, resp.Sandbox.Status.GetPhase())
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&file, "file", "f", "", "YAML file with sandbox create config")
-	cmd.Flags().StringVar(&image, "image", "", "container image")
+	cmd.Flags().StringVar(&name, "name", "", "sandbox name (required)")
+	cmd.Flags().StringVar(&image, "image", "", "OCI image reference")
 	cmd.Flags().StringVar(&runtime, "runtime", "", "language runtime preset (node-26, bun-1.3, python-3.13, go-1.26)")
-	cmd.Flags().StringVar(&name, "id", "", "optional sandbox id")
-	cmd.Flags().StringArrayVar(&env, "env", nil, "KEY=VALUE")
-	cmd.Flags().StringArrayVar(&mounts, "mount", nil, "src:dst[:ro]")
-	cmd.Flags().StringVar(&workdir, "workdir", "", "working directory")
-	cmd.Flags().Int64Var(&memory, "memory", 0, "memory bytes")
-	cmd.Flags().Float64Var(&cpus, "cpus", 0, "CPU limit (e.g. 0.5)")
-	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (max 10)")
-	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (max 20)")
-	cmd.Flags().BoolVar(&networkBlockAll, "network-block-all", false, "block all outbound traffic (keeps egress topology)")
-	cmd.Flags().BoolVar(&networkAllowAll, "network-allow-all", false, "allow all outbound traffic (keeps egress topology)")
-	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains (alone implies --network-block-all)")
+	cmd.Flags().Uint32Var(&memoryMiB, "memory-mib", 512, "memory limit in MiB")
+	cmd.Flags().Uint8Var(&vcpus, "vcpus", 1, "number of vCPUs")
+	cmd.Flags().BoolVar(&start, "start", false, "start the sandbox after create")
+	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
-// buildCreateNetworkPolicy builds a NetworkPolicy from flat network-limit flags.
-// With no limits set, the sandbox has no external network (mode none).
-// --essential-services alone implies --network-block-all.
-func buildCreateNetworkPolicy(cmd *cobra.Command, networkAllowList, domainAllowList string, networkBlockAll, networkAllowAll, essentialServices bool) (*cellarv1.NetworkPolicy, error) {
-	limitsSet := (cmd.Flags().Changed("network-allow-list") && strings.TrimSpace(networkAllowList) != "") ||
-		(cmd.Flags().Changed("domain-allow-list") && strings.TrimSpace(domainAllowList) != "") ||
-		cmd.Flags().Changed("network-block-all") ||
-		(cmd.Flags().Changed("network-allow-all") && networkAllowAll)
-	if !limitsSet {
-		if essentialServices {
-			v := true
-			return &cellarv1.NetworkPolicy{BlockAll: &v, EssentialServices: true}, nil
-		}
-		return &cellarv1.NetworkPolicy{Mode: "none"}, nil
+func newSandboxStartCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "start <sandbox-id>",
+		Short: "Start a sandbox",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, closeFn, err := dial()
+			if err != nil {
+				return err
+			}
+			defer closeFn()
+			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+			defer cancel()
+			resp, err := client.SandboxStart(ctx, &cellarv1.SandboxStartRequest{SandboxId: args[0]})
+			if err != nil {
+				return err
+			}
+			fmt.Printf("sandbox %s started (phase=%s)\n",
+				resp.Sandbox.Id, resp.Sandbox.Status.GetPhase())
+			return nil
+		},
 	}
-	limitCount := 0
-	if strings.TrimSpace(networkAllowList) != "" {
-		limitCount++
-	}
-	if strings.TrimSpace(domainAllowList) != "" {
-		limitCount++
-	}
-	if cmd.Flags().Changed("network-block-all") {
-		limitCount++
-	}
-	if cmd.Flags().Changed("network-allow-all") && networkAllowAll {
-		limitCount++
-	}
-	if limitCount > 1 {
-		return nil, fmt.Errorf("--network-allow-list, --domain-allow-list, --network-block-all, and --network-allow-all are mutually exclusive")
-	}
-	np := &cellarv1.NetworkPolicy{
-		NetworkAllowList:  strings.TrimSpace(networkAllowList),
-		DomainAllowList:   strings.TrimSpace(domainAllowList),
-		EssentialServices: essentialServices,
-	}
-	if cmd.Flags().Changed("network-block-all") {
-		v := networkBlockAll
-		np.BlockAll = &v
-	}
-	if cmd.Flags().Changed("network-allow-all") && networkAllowAll {
-		v := true
-		np.AllowAll = &v
-	}
-	return np, nil
-}
-
-// rejectCreateFlagsWithFile errors if any create flag other than --file was set.
-func rejectCreateFlagsWithFile(cmd *cobra.Command) error {
-	exclusive := []string{
-		"image", "runtime", "id", "env", "mount",
-		"workdir", "memory", "cpus",
-		"network-allow-list", "domain-allow-list", "network-block-all", "network-allow-all", "essential-services",
-	}
-	var set []string
-	for _, name := range exclusive {
-		if cmd.Flags().Changed(name) {
-			set = append(set, "--"+name)
-		}
-	}
-	if len(set) > 0 {
-		return fmt.Errorf("cannot combine --file with %s", strings.Join(set, ", "))
-	}
-	return nil
 }
 
 func newSandboxStopCmd() *cobra.Command {
@@ -237,103 +169,6 @@ func newSandboxRemoveCmd() *cobra.Command {
 	}
 }
 
-func newSandboxNetworkCmd() *cobra.Command {
-	var (
-		networkAllowList  string
-		domainAllowList   string
-		networkBlockAll   bool
-		networkAllowAll   bool
-		essentialServices bool
-	)
-	cmd := &cobra.Command{
-		Use:   "network <sandbox-id>",
-		Short: "Replace the network policy of a running sandbox",
-		Long: "Replace the network policy of a running sandbox. Takes effect immediately, " +
-			"closing established connections the new policy no longer allows.\n\n" +
-			"Set one of --network-allow-list, --domain-allow-list, --network-block-all, " +
-			"--network-allow-all, or --essential-services (mutually exclusive among the " +
-			"first four). --essential-services alone implies --network-block-all and allows " +
-			"curated package/git/AI domains; with an allowlist it adds those domains on top.\n\n" +
-			"Sandboxes created with no network (mode none) cannot gain egress later; recreate them instead. " +
-			"blockall/allowall keep egress topology and may be toggled live.",
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			netPol, err := buildUpdateNetworkPolicy(cmd, networkAllowList, domainAllowList, networkBlockAll, networkAllowAll, essentialServices)
-			if err != nil {
-				return err
-			}
-
-			client, closeFn, err := dial()
-			if err != nil {
-				return err
-			}
-			defer closeFn()
-			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
-			defer cancel()
-			resp, err := client.SandboxUpdateNetwork(ctx, &cellarv1.SandboxUpdateNetworkRequest{
-				SandboxId: args[0],
-				Network:   netPol,
-			})
-			if err != nil {
-				return err
-			}
-			fmt.Printf("sandbox %s network policy updated (mode=%s)\n",
-				resp.Sandbox.Id, resp.Sandbox.Spec.GetNetwork().GetMode())
-			return nil
-		},
-	}
-	cmd.Flags().StringVar(&networkAllowList, "network-allow-list", "", "comma-separated IPv4 CIDRs (max 10)")
-	cmd.Flags().StringVar(&domainAllowList, "domain-allow-list", "", "comma-separated domains / *.wildcards (max 20)")
-	cmd.Flags().BoolVar(&networkBlockAll, "network-block-all", false, "block all outbound (true) or open allowall (false)")
-	cmd.Flags().BoolVar(&networkAllowAll, "network-allow-all", false, "allow all outbound traffic (keeps egress topology)")
-	cmd.Flags().BoolVar(&essentialServices, "essential-services", false, "allow curated package/git/AI domains (alone implies --network-block-all)")
-	return cmd
-}
-
-func buildUpdateNetworkPolicy(cmd *cobra.Command, networkAllowList, domainAllowList string, networkBlockAll, networkAllowAll, essentialServices bool) (*cellarv1.NetworkPolicy, error) {
-	limitsSet := (cmd.Flags().Changed("network-allow-list") && strings.TrimSpace(networkAllowList) != "") ||
-		(cmd.Flags().Changed("domain-allow-list") && strings.TrimSpace(domainAllowList) != "") ||
-		cmd.Flags().Changed("network-block-all") ||
-		(cmd.Flags().Changed("network-allow-all") && networkAllowAll)
-	if !limitsSet {
-		if essentialServices {
-			v := true
-			return &cellarv1.NetworkPolicy{BlockAll: &v, EssentialServices: true}, nil
-		}
-		return nil, fmt.Errorf("set --network-allow-list, --domain-allow-list, --network-block-all, --network-allow-all, or --essential-services")
-	}
-	limitCount := 0
-	if strings.TrimSpace(networkAllowList) != "" {
-		limitCount++
-	}
-	if strings.TrimSpace(domainAllowList) != "" {
-		limitCount++
-	}
-	if cmd.Flags().Changed("network-block-all") {
-		limitCount++
-	}
-	if cmd.Flags().Changed("network-allow-all") && networkAllowAll {
-		limitCount++
-	}
-	if limitCount > 1 {
-		return nil, fmt.Errorf("--network-allow-list, --domain-allow-list, --network-block-all, and --network-allow-all are mutually exclusive")
-	}
-	np := &cellarv1.NetworkPolicy{
-		NetworkAllowList:  strings.TrimSpace(networkAllowList),
-		DomainAllowList:   strings.TrimSpace(domainAllowList),
-		EssentialServices: essentialServices,
-	}
-	if cmd.Flags().Changed("network-block-all") {
-		v := networkBlockAll
-		np.BlockAll = &v
-	}
-	if cmd.Flags().Changed("network-allow-all") && networkAllowAll {
-		v := true
-		np.AllowAll = &v
-	}
-	return np, nil
-}
-
 func newSandboxGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "inspect <sandbox-id>",
@@ -351,17 +186,17 @@ func newSandboxGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			sb := resp.Sandbox
-			fmt.Printf("id:       %s\n", sb.Id)
-			fmt.Printf("node:     %s\n", sb.NodeId)
+			sb := sandbox.FromProto(resp.Sandbox)
+			fmt.Printf("id:       %s\n", sb.ID)
+			fmt.Printf("name:     %s\n", sb.Name)
+			fmt.Printf("node:     %s\n", sb.NodeID)
 			fmt.Printf("desired:  %s\n", sb.DesiredState)
-			fmt.Printf("phase:    %s\n", sb.Status.GetPhase())
-			fmt.Printf("image:    %s\n", sb.Spec.GetImage())
-			if sb.Spec.GetRuntime() != "" {
-				fmt.Printf("runtime:  %s\n", sb.Spec.GetRuntime())
+			fmt.Printf("phase:    %s\n", sb.Status.Phase)
+			if ref := sb.Spec.ImageReference(); ref != "" {
+				fmt.Printf("image:    %s\n", ref)
 			}
-			fmt.Printf("container: %s\n", sb.Status.GetContainerId())
-			if sb.Status.GetMessage() != "" {
+			fmt.Printf("local:    %s\n", sb.Status.LocalName)
+			if sb.Status.Message != "" {
 				fmt.Printf("message:  %s\n", sb.Status.Message)
 			}
 			return nil
@@ -448,7 +283,7 @@ func newSandboxListCmd() *cobra.Command {
 
 func newSandboxLogsCmd() *cobra.Command {
 	var follow bool
-	var tail int64
+	var sources string
 	cmd := &cobra.Command{
 		Use:   "logs <sandbox-id>",
 		Short: "Stream sandbox logs",
@@ -462,7 +297,7 @@ func newSandboxLogsCmd() *cobra.Command {
 			stream, err := client.SandboxLogs(cmd.Context(), &cellarv1.SandboxLogsRequest{
 				SandboxId: args[0],
 				Follow:    follow,
-				Tail:      tail,
+				Sources:   sources,
 			})
 			if err != nil {
 				return err
@@ -475,206 +310,20 @@ func newSandboxLogsCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				_, _ = os.Stdout.Write(chunk.Data)
+				if chunk.Text != "" {
+					_, _ = io.WriteString(os.Stdout, chunk.Text)
+					if !strings.HasSuffix(chunk.Text, "\n") {
+						_, _ = io.WriteString(os.Stdout, "\n")
+					}
+					continue
+				}
+				// Fallback: encode the chunk as JSON if text is empty.
+				b, _ := json.Marshal(chunk)
+				_, _ = os.Stdout.Write(append(b, '\n'))
 			}
 		},
 	}
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow log output")
-	cmd.Flags().Int64Var(&tail, "tail", 0, "number of lines from the end (0=all)")
-	return cmd
-}
-
-func newSandboxExecCmd() *cobra.Command {
-	var tty, detach bool
-	cmd := &cobra.Command{
-		Use:   "exec <sandbox-id> -- <command> [args...]",
-		Short: "Run a command in a sandbox",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			command := args[1:]
-			if len(command) == 0 {
-				return fmt.Errorf("command required after sandbox id")
-			}
-			client, closeFn, err := dial()
-			if err != nil {
-				return err
-			}
-			defer closeFn()
-			if detach {
-				resp, err := client.SandboxStartJob(cmd.Context(), &cellarv1.StartJobRequest{
-					SandboxId: args[0],
-					Command:   command,
-				})
-				if err != nil {
-					return err
-				}
-				fmt.Println(resp.JobId)
-				return nil
-			}
-			stream, err := client.SandboxExec(cmd.Context())
-			if err != nil {
-				return err
-			}
-			if err := stream.Send(&cellarv1.SandboxExecMessage{
-				Payload: &cellarv1.SandboxExecMessage_Start{Start: &cellarv1.SandboxExecStart{
-					SandboxId: args[0],
-					Command:   command,
-					Tty:       tty,
-					Stdin:     false,
-				}},
-			}); err != nil {
-				return err
-			}
-			_ = stream.CloseSend()
-			for {
-				msg, err := stream.Recv()
-				if err == io.EOF {
-					return nil
-				}
-				if err != nil {
-					return err
-				}
-				if b := msg.GetStdout(); len(b) > 0 {
-					_, _ = os.Stdout.Write(b)
-				}
-				if b := msg.GetStderr(); len(b) > 0 {
-					_, _ = os.Stderr.Write(b)
-				}
-				if ex := msg.GetExit(); ex != nil {
-					if ex.Error != "" {
-						return fmt.Errorf("%s", ex.Error)
-					}
-					if ex.ExitCode != 0 {
-						os.Exit(int(ex.ExitCode))
-					}
-					return nil
-				}
-			}
-		},
-	}
-	cmd.Flags().BoolVarP(&tty, "tty", "t", false, "allocate a pseudo-TTY")
-	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "run in background and print job id")
-	return cmd
-}
-
-func newSandboxJobCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "job",
-		Short: "Manage background jobs in a sandbox",
-	}
-	cmd.AddCommand(newSandboxJobListCmd())
-	cmd.AddCommand(newSandboxJobStopCmd())
-	cmd.AddCommand(newSandboxJobLogsCmd())
-	cmd.AddCommand(newSandboxJobGetCmd())
-	return cmd
-}
-
-func newSandboxJobListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "ls <sandbox-id>",
-		Short: "List background jobs",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, closeFn, err := dial()
-			if err != nil {
-				return err
-			}
-			defer closeFn()
-			resp, err := client.SandboxListJobs(cmd.Context(), &cellarv1.ListJobsRequest{SandboxId: args[0]})
-			if err != nil {
-				return err
-			}
-			fmt.Printf("%-18s %-10s %-8s %s\n", "JOB", "PHASE", "EXIT", "COMMAND")
-			for _, j := range resp.Jobs {
-				fmt.Printf("%-18s %-10s %-8d %s\n", j.Id, j.Phase, j.ExitCode, strings.Join(j.Command, " "))
-			}
-			return nil
-		},
-	}
-}
-
-func newSandboxJobGetCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "inspect <sandbox-id> <job-id>",
-		Short: "Inspect a background job",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, closeFn, err := dial()
-			if err != nil {
-				return err
-			}
-			defer closeFn()
-			resp, err := client.SandboxGetJob(cmd.Context(), &cellarv1.GetJobRequest{
-				SandboxId: args[0],
-				JobId:     args[1],
-			})
-			if err != nil {
-				return err
-			}
-			j := resp.Job
-			fmt.Printf("id:      %s\nphase:   %s\nexit:    %d\ncommand: %s\n",
-				j.Id, j.Phase, j.ExitCode, strings.Join(j.Command, " "))
-			return nil
-		},
-	}
-}
-
-func newSandboxJobStopCmd() *cobra.Command {
-	var timeout int32
-	cmd := &cobra.Command{
-		Use:   "stop <sandbox-id> <job-id>",
-		Short: "Stop a background job",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, closeFn, err := dial()
-			if err != nil {
-				return err
-			}
-			defer closeFn()
-			_, err = client.SandboxStopJob(cmd.Context(), &cellarv1.StopJobRequest{
-				SandboxId:  args[0],
-				JobId:      args[1],
-				TimeoutSec: timeout,
-			})
-			return err
-		},
-	}
-	cmd.Flags().Int32Var(&timeout, "timeout", 10, "seconds to wait before SIGKILL")
-	return cmd
-}
-
-func newSandboxJobLogsCmd() *cobra.Command {
-	var follow bool
-	cmd := &cobra.Command{
-		Use:   "logs <sandbox-id> <job-id>",
-		Short: "Show background job logs",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, closeFn, err := dial()
-			if err != nil {
-				return err
-			}
-			defer closeFn()
-			stream, err := client.SandboxJobLogs(cmd.Context(), &cellarv1.JobLogsRequest{
-				SandboxId: args[0],
-				JobId:     args[1],
-				Follow:    follow,
-			})
-			if err != nil {
-				return err
-			}
-			for {
-				chunk, err := stream.Recv()
-				if err == io.EOF {
-					return nil
-				}
-				if err != nil {
-					return err
-				}
-				_, _ = os.Stdout.Write(chunk.Data)
-			}
-		},
-	}
-	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "follow log output")
+	cmd.Flags().StringVar(&sources, "sources", "", "comma-separated log sources (stdout,stderr,system,output)")
 	return cmd
 }

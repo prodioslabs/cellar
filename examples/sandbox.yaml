@@ -1,5 +1,8 @@
-# Isolated alpine sandbox (no external network).
-# cellar-agent is injected as PID 1; use `cellar sandbox exec` to run commands.
-# Usage: cellar sandbox create -f examples/sandbox.yaml
-id: demo-alpine
-image: alpine
+# Minimal sandbox create example (CLI uses flags; YAML file create was removed).
+# Prefer official microsandbox SDKs against cellar-gateway for apps.
+
+name: demo
+image: alpine:3.20
+resources:
+  vcpus: 1
+  memory_mib: 512

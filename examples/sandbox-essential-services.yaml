@@ -1,6 +1,0 @@
-# Curated package/git/AI domains only (implies block_all).
-# Usage: cellar sandbox create -f examples/sandbox-essential-services.yaml
-id: demo-essentials
-image: alpine
-network:
-  essential_services: true

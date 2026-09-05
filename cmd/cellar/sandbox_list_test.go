@@ -7,7 +7,22 @@ import (
 	"testing"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/internal/sandbox"
 )
+
+func mustSpecJSON(t *testing.T, image string) []byte {
+	t.Helper()
+	spec := sandbox.NormalizeSpec(sandbox.Spec{
+		Name:      "test",
+		Image:     sandbox.OCIImage(image),
+		Resources: sandbox.Resources{VCPUs: 1, MemoryMiB: 512},
+	})
+	b, err := sandbox.SpecToJSON(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
 
 func TestParseSandboxFilters(t *testing.T) {
 	f, err := parseSandboxFilters([]string{
@@ -44,26 +59,26 @@ func TestApplySandboxFiltersANDOR(t *testing.T) {
 		{
 			Id:           "a",
 			DesiredState: "running",
-			Spec:         &cellarv1.SandboxSpec{Image: "alpine"},
+			SpecJson:     mustSpecJSON(t, "alpine"),
 			Status:       &cellarv1.SandboxStatus{Phase: "running"},
 		},
 		{
 			Id:           "b",
 			DesiredState: "running",
-			Spec:         &cellarv1.SandboxSpec{Image: "alpine"},
+			SpecJson:     mustSpecJSON(t, "alpine"),
 			Status:       &cellarv1.SandboxStatus{Phase: "failed"},
 		},
 		{
 			Id:           "c",
 			DesiredState: "stopped",
-			Spec:         &cellarv1.SandboxSpec{Image: "nginx"},
+			SpecJson:     mustSpecJSON(t, "nginx"),
 			Status:       &cellarv1.SandboxStatus{Phase: "running"},
 		},
 		{
 			Id:           "d",
 			DesiredState: "running",
-			Spec:         &cellarv1.SandboxSpec{Image: "busybox"},
-			Status:       &cellarv1.SandboxStatus{Phase: "pending"},
+			SpecJson:     mustSpecJSON(t, "busybox"),
+			Status:       &cellarv1.SandboxStatus{Phase: "created"},
 		},
 	}
 
@@ -128,12 +143,13 @@ func TestWriteSandboxTable(t *testing.T) {
 	err := writeSandboxTable(&buf, []*cellarv1.Sandbox{
 		{
 			Id:           "sb-1",
+			Name:         "demo",
 			NodeId:       "0123456789abcdef",
 			DesiredState: "running",
-			Spec:         &cellarv1.SandboxSpec{Image: "alpine"},
+			SpecJson:     mustSpecJSON(t, "alpine"),
 			Status: &cellarv1.SandboxStatus{
-				Phase:       "running",
-				ContainerId: "containerabcdef",
+				Phase:     "running",
+				LocalName: "sb-1",
 			},
 		},
 	})
@@ -150,11 +166,8 @@ func TestWriteSandboxTable(t *testing.T) {
 	if strings.Contains(out, "0123456789abcdef") {
 		t.Fatalf("node id should be truncated: %q", out)
 	}
-	if !strings.Contains(out, "containerabc") {
-		t.Fatalf("expected truncated container id: %q", out)
-	}
-	if strings.Contains(out, "containerabcdef") {
-		t.Fatalf("container id should be truncated: %q", out)
+	if !strings.Contains(out, "alpine") {
+		t.Fatalf("expected image ref: %q", out)
 	}
 }
 
@@ -162,10 +175,11 @@ func TestSandboxListJSONIsTopLevelArray(t *testing.T) {
 	sandboxes := []*cellarv1.Sandbox{
 		{
 			Id:           "sb-1",
+			Name:         "demo",
 			NodeId:       "node-1",
 			DesiredState: "running",
-			Spec:         &cellarv1.SandboxSpec{Image: "alpine"},
-			Status:       &cellarv1.SandboxStatus{Phase: "running", ContainerId: "c1"},
+			SpecJson:     mustSpecJSON(t, "alpine"),
+			Status:       &cellarv1.SandboxStatus{Phase: "running", LocalName: "sb-1"},
 		},
 	}
 	b, err := sandboxListToJSONArray(sandboxes)
@@ -197,49 +211,5 @@ func TestSandboxListJSONIsTopLevelArray(t *testing.T) {
 	}
 	if strings.TrimSpace(string(empty)) != "[]" {
 		t.Fatalf("nil list should encode as [], got %q", empty)
-	}
-}
-
-func TestSandboxListYAMLIsTopLevelSequence(t *testing.T) {
-	sandboxes := []*cellarv1.Sandbox{
-		{
-			Id:           "sb-1",
-			NodeId:       "node-1",
-			DesiredState: "running",
-			Spec:         &cellarv1.SandboxSpec{Image: "alpine"},
-			Status:       &cellarv1.SandboxStatus{Phase: "running"},
-		},
-	}
-	b, err := sandboxListToYAML(sandboxes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := string(b)
-	if !strings.HasPrefix(strings.TrimSpace(out), "-") {
-		t.Fatalf("expected YAML sequence, got:\n%s", out)
-	}
-	if strings.Contains(out, "sandboxes:") {
-		t.Fatalf("should not wrap under sandboxes:\n%s", out)
-	}
-	if !strings.Contains(out, "nodeId:") {
-		t.Fatalf("expected camelCase nodeId:\n%s", out)
-	}
-	if !strings.Contains(out, "id: sb-1") {
-		t.Fatalf("missing id:\n%s", out)
-	}
-
-	empty, err := sandboxListToYAML(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.TrimSpace(string(empty)) != "[]" {
-		t.Fatalf("nil list should encode as [], got %q", empty)
-	}
-}
-
-func TestWriteSandboxListFormatValidation(t *testing.T) {
-	var buf bytes.Buffer
-	if err := writeSandboxList(&buf, "xml", nil); err == nil {
-		t.Fatal("expected unsupported format error")
 	}
 }

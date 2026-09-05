@@ -1,7 +1,0 @@
-# Allowlisted egress for HTTPS to example.com.
-# cellar-agent is injected as PID 1; use `cellar sandbox exec` to run commands.
-# Usage: cellar sandbox create -f examples/sandbox-allowlist.yaml
-id: demo-curl
-image: curlimages/curl
-network:
-  domain_allow_list: example.com
