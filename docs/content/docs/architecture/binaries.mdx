@@ -3,8 +3,8 @@ title: Binaries
 description: cellard, cellar, and cellar-gateway roles
 ---
 
-| Binary           | Role                                                                                                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via microsandbox (CGO + KVM).   |
-| `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                       |
-| `cellar-gateway` | HTTP/JSON front door (Gin). Runs beside `cellard` on manager or worker hosts; proxies to manager `SandboxAPI` with the caller’s API key. Default listen `:8080`.          |
+| Binary           | Role                                                                                                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cellard`        | Always-on node daemon (manager or worker). Local control over a unix socket; remote gRPC on `:17946` after `init`/`join`. Runs sandboxes via microsandbox (CGO + KVM). |
+| `cellar`         | CLI client (`init`, `join`, `join-token`, `status`, `api-key …`, `node …`, `sandbox …`) talking to local `cellard`.                                                    |
+| `cellar-gateway` | HTTP/JSON front door (Gin). Runs beside `cellard` on manager or worker hosts; proxies to manager `SandboxAPI` with the caller’s API key. Default listen `:8080`.       |
