@@ -1,6 +1,8 @@
 /bin/
 /dist/
 /release-extras/
+/.gopath/
+/.gocache/
 
 # Data directories
 data-*/
