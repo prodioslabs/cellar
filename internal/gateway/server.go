@@ -24,11 +24,15 @@ func New(cfg Config, up Upstream) (*Server, error) {
 		return nil, err
 	}
 	if up == nil {
+		resolver := &DataDirResolver{
+			DataDir:    cfg.DataDir,
+			SocketPath: cfg.SocketPath,
+			Overrides:  cfg.Upstreams,
+		}
 		up = &GRPCUpstream{
-			Resolver: &DataDirResolver{
-				DataDir:   cfg.DataDir,
-				Overrides: cfg.Upstreams,
-			},
+			Resolver: resolver,
+			Identity: resolver,
+			Runtime:  resolver,
 		}
 	}
 	gin.SetMode(gin.ReleaseMode)
@@ -50,28 +54,35 @@ func (s *Server) routes() {
 
 	v1 := s.eng.Group("/v1")
 	{
-		v1.POST("/sandboxes", s.handleCreate)
-		v1.GET("/sandboxes", s.handleList)
-		v1.GET("/sandboxes/:id", s.handleGet)
-		v1.DELETE("/sandboxes/:id", s.handleDelete)
-		v1.POST("/sandboxes/:id/stop", s.handleStop)
-		v1.PUT("/sandboxes/:id/network", s.handleUpdateNetwork)
-		v1.GET("/sandboxes/:id/logs", s.handleLogs)
-		v1.POST("/sandboxes/:id/exec", s.handleExec)
-		v1.GET("/sandboxes/:id/jobs", s.handleListJobs)
-		v1.GET("/sandboxes/:id/jobs/:jobId", s.handleGetJob)
-		v1.DELETE("/sandboxes/:id/jobs/:jobId", s.handleStopJob)
-		v1.GET("/sandboxes/:id/jobs/:jobId/logs", s.handleJobLogs)
-		v1.GET("/sandboxes/:id/fs/content", s.handleFsGetContent)
-		v1.PUT("/sandboxes/:id/fs/content", s.handleFsPutContent)
-		v1.GET("/sandboxes/:id/fs/stat", s.handleFsStat)
-		v1.GET("/sandboxes/:id/fs/list", s.handleFsList)
-		v1.GET("/sandboxes/:id/fs/exists", s.handleFsExists)
-		v1.POST("/sandboxes/:id/fs/mkdir", s.handleFsMkdir)
-		v1.POST("/sandboxes/:id/fs/remove", s.handleFsRemove)
-		v1.POST("/sandboxes/:id/fs/remove-dir", s.handleFsRemoveDir)
-		v1.POST("/sandboxes/:id/fs/copy", s.handleFsCopy)
-		v1.POST("/sandboxes/:id/fs/rename", s.handleFsRename)
+		v1.POST("/sandboxes", s.handleCreateSandbox)
+		v1.GET("/sandboxes", s.handleListSandboxes)
+
+		v1.GET("/sandboxes/by-name/:name", s.handleGetSandboxByName)
+		v1.POST("/sandboxes/by-name/:name/start", s.handleStartSandboxByName)
+		v1.POST("/sandboxes/by-name/:name/stop", s.handleStopSandboxByName)
+		v1.DELETE("/sandboxes/by-name/:name", s.handleDeleteSandboxByName)
+
+		v1.GET("/sandboxes/:id", s.handleGetSandbox)
+		v1.POST("/sandboxes/:id/start", s.handleStartSandbox)
+		v1.POST("/sandboxes/:id/stop", s.handleStopSandbox)
+		v1.DELETE("/sandboxes/:id", s.handleDeleteSandbox)
+		v1.GET("/sandboxes/:id/logs", s.handleSandboxLogs)
+		v1.GET("/sandboxes/:id/agent", s.handleSandboxAgent)
+
+		v1.GET("/volumes", s.handleListVolumes)
+		v1.POST("/volumes", s.handleCreateVolume)
+		v1.GET("/volumes/default", s.handleGetDefaultVolume)
+		v1.DELETE("/volumes/:id", s.handleDeleteVolume)
+
+		v1.GET("/volumes/:id/files/content", s.handleVolumeFsGetContent)
+		v1.PUT("/volumes/:id/files/content", s.handleVolumeFsPutContent)
+		v1.GET("/volumes/:id/files/stat", s.handleVolumeFsStat)
+		v1.GET("/volumes/:id/files/exists", s.handleVolumeFsExists)
+		v1.POST("/volumes/:id/files/mkdir", s.handleVolumeFsMkdir)
+		v1.POST("/volumes/:id/files/copy", s.handleVolumeFsCopy)
+		v1.POST("/volumes/:id/files/rename", s.handleVolumeFsRename)
+		v1.GET("/volumes/:id/files", s.handleVolumeFsList)
+		v1.DELETE("/volumes/:id/files", s.handleVolumeFsRemove)
 	}
 }
 
@@ -89,13 +100,8 @@ func (s *Server) Run(ctx context.Context) error {
 	srv := &http.Server{
 		Handler:           s.eng,
 		ReadHeaderTimeout: 10 * time.Second,
-		// ReadTimeout unset (0) so large fs PUT bodies and long uploads are not
-		// cut by a fixed deadline; headers still capped by ReadHeaderTimeout.
-		ReadTimeout: 0,
-		// IdleTimeout leaves room for long-lived log streams behind an ALB.
-		IdleTimeout: 120 * time.Second,
-		// WriteTimeout is unset (0) so streaming logs/exec can run longer than
-		// a fixed write deadline; callers should cancel via context.
+		ReadTimeout:       0,
+		IdleTimeout:       120 * time.Second,
 	}
 	errCh := make(chan error, 1)
 	go func() {

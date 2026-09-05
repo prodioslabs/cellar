@@ -9,14 +9,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/prodioslabs/cellar/internal/daemon"
 	"github.com/prodioslabs/cellar/internal/gateway"
+	"github.com/prodioslabs/cellar/internal/paths"
 	"github.com/prodioslabs/cellar/internal/version"
 )
 
 func main() {
 	listen := flag.String("listen", gateway.DefaultListenAddr, "HTTP listen address")
-	dataDir := flag.String("data-dir", daemon.DefaultDataDir, "cellard data directory for cluster CA and manager discovery")
+	dataDir := flag.String("data-dir", paths.DefaultDataDir, "cellard data directory for cluster CA and manager discovery")
 	upstreams := flag.String("upstreams", "", "comma-separated manager gRPC addresses (overrides discovery from data-dir)")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()

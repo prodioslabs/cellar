@@ -3,7 +3,6 @@ package gateway
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
 )
@@ -30,27 +28,34 @@ type fakeUpstream struct {
 	err     error
 	ready   error
 
-	logsChunks [][]byte
+	logsChunks []*cellarv1.SandboxLogsChunk
 	logsErr    error
 	logsBlock  bool
-	execRes    *ExecResult
-	execErr    error
-
 	canceledLogs bool
 
-	fsChunks [][]byte
-	fsErr    error
-	fsWrote  []byte
-	fsMeta   *cellarv1.FsMetadata
-	fsExists bool
+	volumes []*cellarv1.Volume
+	volume  *cellarv1.Volume
 }
 
-func (f *fakeUpstream) Create(_ context.Context, apiKey string, _ *cellarv1.SandboxCreateRequest) (*cellarv1.Sandbox, error) {
+func (f *fakeUpstream) Create(_ context.Context, apiKey string, _ []byte, _ bool) (*cellarv1.Sandbox, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
 	if f.err != nil {
 		return nil, f.err
+	}
+	return f.create, nil
+}
+
+func (f *fakeUpstream) Start(_ context.Context, apiKey, _ string) (*cellarv1.Sandbox, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.get != nil {
+		return f.get, nil
 	}
 	return f.create, nil
 }
@@ -82,29 +87,23 @@ func (f *fakeUpstream) Get(_ context.Context, apiKey, _ string) (*cellarv1.Sandb
 	return f.get, nil
 }
 
-func (f *fakeUpstream) List(_ context.Context, apiKey string) ([]*cellarv1.Sandbox, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	if f.err != nil {
-		return nil, f.err
-	}
-	return f.list, nil
+func (f *fakeUpstream) GetByName(_ context.Context, apiKey, _ string) (*cellarv1.Sandbox, error) {
+	return f.Get(context.Background(), apiKey, "")
 }
 
-func (f *fakeUpstream) UpdateNetwork(_ context.Context, apiKey string, _ *cellarv1.SandboxUpdateNetworkRequest) (*cellarv1.Sandbox, error) {
+func (f *fakeUpstream) List(_ context.Context, apiKey, _ string, _ uint32, _ string) ([]*cellarv1.Sandbox, string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
 	if f.err != nil {
-		return nil, f.err
+		return nil, "", f.err
 	}
-	return f.get, nil
+	return f.list, "", nil
 }
 
 type fakeLogsStream struct {
 	ctx    context.Context
-	chunks [][]byte
+	chunks []*cellarv1.SandboxLogsChunk
 	err    error
 	i      int
 	block  bool
@@ -113,7 +112,7 @@ type fakeLogsStream struct {
 
 func (s *fakeLogsStream) Recv() (*cellarv1.SandboxLogsChunk, error) {
 	if s.i < len(s.chunks) {
-		ch := &cellarv1.SandboxLogsChunk{Data: s.chunks[s.i]}
+		ch := s.chunks[s.i]
 		s.i++
 		return ch, nil
 	}
@@ -152,167 +151,150 @@ func (f *fakeUpstream) Logs(ctx context.Context, apiKey string, _ *cellarv1.Sand
 	}, nil
 }
 
-func (f *fakeUpstream) Exec(_ context.Context, apiKey, _ string, _ []string) (*ExecResult, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	if f.execErr != nil {
-		return nil, f.execErr
-	}
-	return f.execRes, nil
-}
+type fakeAgentRelay struct{}
 
-func (f *fakeUpstream) StartJob(_ context.Context, apiKey, _ string, _ []string) (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return "job1", nil
-}
+func (f *fakeAgentRelay) Send([]byte) error      { return io.EOF }
+func (f *fakeAgentRelay) Recv() ([]byte, error)  { return nil, io.EOF }
+func (f *fakeAgentRelay) Close() error           { return nil }
 
-func (f *fakeUpstream) ListJobs(_ context.Context, apiKey, _ string) ([]*cellarv1.JobInfo, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return nil, nil
-}
-
-func (f *fakeUpstream) GetJob(_ context.Context, apiKey, _, _ string) (*cellarv1.JobInfo, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return &cellarv1.JobInfo{Id: "job1", Phase: "running"}, nil
-}
-
-func (f *fakeUpstream) StopJob(_ context.Context, apiKey, _, _ string, _ int32) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return nil
-}
-
-func (f *fakeUpstream) JobLogs(ctx context.Context, apiKey string, _ *cellarv1.JobLogsRequest) (LogsStream, error) {
-	return f.Logs(ctx, apiKey, &cellarv1.SandboxLogsRequest{})
-}
-
-func (f *fakeUpstream) FsRead(ctx context.Context, apiKey, _, _ string) (FsStream, error) {
+func (f *fakeUpstream) AgentRelay(_ context.Context, apiKey, _ string) (AgentRelayStream, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
 	if f.err != nil {
 		return nil, f.err
 	}
-	return &fakeFsStream{ctx: ctx, chunks: f.fsChunks, err: f.fsErr}, nil
+	return &fakeAgentRelay{}, nil
 }
 
-func (f *fakeUpstream) FsWrite(_ context.Context, apiKey, _, _ string, r io.Reader) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	if f.err != nil {
-		return f.err
-	}
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	f.fsWrote = append([]byte(nil), data...)
-	return nil
-}
-
-func (f *fakeUpstream) FsStat(_ context.Context, apiKey, _, _ string) (*cellarv1.FsMetadata, error) {
+func (f *fakeUpstream) CreateVolume(_ context.Context, apiKey string, _ *cellarv1.VolumeCreateRequest) (*cellarv1.Volume, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
 	if f.err != nil {
 		return nil, f.err
 	}
-	if f.fsMeta != nil {
-		return f.fsMeta, nil
-	}
-	return &cellarv1.FsMetadata{Kind: "file", Size: 11, Mode: 0o644}, nil
+	return f.volume, nil
 }
 
-func (f *fakeUpstream) FsList(_ context.Context, apiKey, _, _ string) ([]*cellarv1.FsEntry, error) {
+func (f *fakeUpstream) ListVolumes(_ context.Context, apiKey string) ([]*cellarv1.Volume, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
 	if f.err != nil {
 		return nil, f.err
 	}
-	return []*cellarv1.FsEntry{{Path: "/tmp/a", Kind: "file", Size: 1, Mode: 0o644}}, nil
+	return f.volumes, nil
 }
 
-func (f *fakeUpstream) FsExists(_ context.Context, apiKey, _, _ string) (bool, error) {
+func (f *fakeUpstream) GetVolume(_ context.Context, apiKey, _ string) (*cellarv1.Volume, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
 	if f.err != nil {
-		return false, f.err
+		return nil, f.err
 	}
-	return f.fsExists, nil
+	return f.volume, nil
 }
 
-func (f *fakeUpstream) FsMkdir(_ context.Context, apiKey, _, _ string) error {
+func (f *fakeUpstream) GetDefaultVolume(_ context.Context, apiKey string) (*cellarv1.Volume, error) {
+	return f.GetVolume(context.Background(), apiKey, "")
+}
+
+func (f *fakeUpstream) DeleteVolume(_ context.Context, apiKey, _ string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
-	return f.err
-}
-
-func (f *fakeUpstream) FsRemove(_ context.Context, apiKey, _, _ string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return f.err
-}
-
-func (f *fakeUpstream) FsRemoveDir(_ context.Context, apiKey, _, _ string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return f.err
-}
-
-func (f *fakeUpstream) FsCopy(_ context.Context, apiKey, _, _, _ string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return f.err
-}
-
-func (f *fakeUpstream) FsRename(_ context.Context, apiKey, _, _, _ string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.lastKey = apiKey
-	return f.err
-}
-
-type fakeFsStream struct {
-	ctx    context.Context
-	chunks [][]byte
-	err    error
-	i      int
-}
-
-func (s *fakeFsStream) Recv() (*cellarv1.FsChunk, error) {
-	if s.i < len(s.chunks) {
-		ch := &cellarv1.FsChunk{Data: s.chunks[s.i]}
-		s.i++
-		return ch, nil
+	if f.err != nil {
+		return "", f.err
 	}
-	if s.err != nil {
-		return nil, s.err
-	}
-	return nil, io.EOF
+	return "volume deleted", nil
 }
 
-func (s *fakeFsStream) Close() error { return nil }
+func (f *fakeUpstream) VolumeFsRead(_ context.Context, apiKey, _, _ string) (FsStream, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &fakeFsStream{}, nil
+}
+
+func (f *fakeUpstream) VolumeFsWrite(_ context.Context, apiKey, _, _ string, _ io.Reader) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) VolumeFsStat(_ context.Context, apiKey, _, _ string) (*cellarv1.FsMetadata, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &cellarv1.FsMetadata{Kind: "file", Size: 1, Mode: 0o644}, nil
+}
+
+func (f *fakeUpstream) VolumeFsList(_ context.Context, apiKey, _, _ string) ([]*cellarv1.FsEntry, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	return []*cellarv1.FsEntry{{Path: "/a", Kind: "file"}}, nil
+}
+
+func (f *fakeUpstream) VolumeFsExists(_ context.Context, apiKey, _, _ string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return true, f.err
+}
+
+func (f *fakeUpstream) VolumeFsMkdir(_ context.Context, apiKey, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) VolumeFsRemove(_ context.Context, apiKey, _, _ string, _ bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) VolumeFsCopy(_ context.Context, apiKey, _, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+func (f *fakeUpstream) VolumeFsRename(_ context.Context, apiKey, _, _, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
+}
+
+type fakeFsStream struct{}
+
+func (s *fakeFsStream) Recv() (*cellarv1.FsChunk, error) { return nil, io.EOF }
+func (s *fakeFsStream) Close() error                     { return nil }
 
 func (f *fakeUpstream) Ready(_ context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.ready
 }
+
+func (f *fakeUpstream) ClusterID() string { return "local" }
 
 func newTestServer(t *testing.T, up Upstream) *Server {
 	t.Helper()
@@ -359,10 +341,17 @@ func TestAuthRequired(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d", rec.Code)
 	}
+	var body errorBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Code != "unauthenticated" {
+		t.Fatalf("code = %q", body.Error.Code)
+	}
 }
 
 func TestAuthForwardBearer(t *testing.T) {
-	up := &fakeUpstream{list: []*cellarv1.Sandbox{{Id: "sb1"}}}
+	up := &fakeUpstream{list: []*cellarv1.Sandbox{{Id: "sb1", Name: "demo", SpecJson: []byte(`{"name":"demo","image":{"type":"oci","reference":"alpine"}}`)}}}
 	s := newTestServer(t, up)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes", nil)
@@ -377,10 +366,17 @@ func TestAuthForwardBearer(t *testing.T) {
 	if got != "cellar_testkey" {
 		t.Fatalf("api key = %q", got)
 	}
+	var page cloudListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Data) != 1 || page.Data[0].ID != "sb1" {
+		t.Fatalf("page = %#v", page)
+	}
 }
 
 func TestAuthForwardXAPIKey(t *testing.T) {
-	up := &fakeUpstream{get: &cellarv1.Sandbox{Id: "sb1"}}
+	up := &fakeUpstream{get: &cellarv1.Sandbox{Id: "sb1", Name: "n", Status: &cellarv1.SandboxStatus{Phase: "running"}}}
 	s := newTestServer(t, up)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1", nil)
@@ -395,14 +391,21 @@ func TestAuthForwardXAPIKey(t *testing.T) {
 	if got != "cellar_x" {
 		t.Fatalf("api key = %q", got)
 	}
+	var sb cloudSandboxResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &sb); err != nil {
+		t.Fatal(err)
+	}
+	if sb.Status != "running" || sb.OrgID != "local" {
+		t.Fatalf("sb = %#v", sb)
+	}
 }
 
 func TestCreateAndGRPCStatusMapping(t *testing.T) {
 	up := &fakeUpstream{
-		create: &cellarv1.Sandbox{Id: "new"},
+		create: &cellarv1.Sandbox{Id: "new", Name: "demo", SpecJson: []byte(`{"name":"demo","image":{"type":"oci","reference":"alpine:3.20"}}`)},
 	}
 	s := newTestServer(t, up)
-	body := `{"spec":{"image":"alpine:3.20"}}`
+	body := `{"name":"demo","image":{"type":"oci","reference":"alpine:3.20"},"resources":{"vcpus":1,"memory_mib":512},"runtime":{},"network":{"enabled":false},"lifecycle":{}}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer k")
@@ -411,12 +414,12 @@ func TestCreateAndGRPCStatusMapping(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	var sb cellarv1.Sandbox
-	if err := protojson.Unmarshal(rec.Body.Bytes(), &sb); err != nil {
+	var sb cloudSandboxResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &sb); err != nil {
 		t.Fatal(err)
 	}
-	if sb.Id != "new" {
-		t.Fatalf("id = %q", sb.Id)
+	if sb.ID != "new" {
+		t.Fatalf("id = %q", sb.ID)
 	}
 
 	up.err = status.Error(codes.NotFound, "missing")
@@ -427,71 +430,57 @@ func TestCreateAndGRPCStatusMapping(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rec.Code)
 	}
+	var errBody errorBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &errBody); err != nil {
+		t.Fatal(err)
+	}
+	if errBody.Error.Code != "sandbox_not_found" {
+		t.Fatalf("code = %q", errBody.Error.Code)
+	}
 }
 
-func TestDeleteNoContent(t *testing.T) {
+func TestDeleteMessage(t *testing.T) {
 	s := newTestServer(t, &fakeUpstream{})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/v1/sandboxes/sb1", nil)
 	req.Header.Set("Authorization", "Bearer k")
 	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
-}
-
-func TestExec(t *testing.T) {
-	up := &fakeUpstream{
-		execRes: &ExecResult{Stdout: []byte("hi\n"), ExitCode: 0},
-	}
-	s := newTestServer(t, up)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sb1/exec", strings.NewReader(`{"command":["echo","hi"]}`))
-	req.Header.Set("Authorization", "Bearer k")
-	req.Header.Set("Content-Type", "application/json")
-	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	var out execResponseBody
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+	var msg messageResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &msg); err != nil {
 		t.Fatal(err)
 	}
-	if out.Stdout != "hi\n" || out.ExitCode != 0 {
-		t.Fatalf("unexpected %#v", out)
+	if msg.Message == "" {
+		t.Fatal("empty message")
 	}
 }
 
-func TestLogsNDJSON(t *testing.T) {
+func TestLogsSSE(t *testing.T) {
 	up := &fakeUpstream{
-		logsChunks: [][]byte{[]byte("line1\n"), []byte("line2\n")},
+		logsChunks: []*cellarv1.SandboxLogsChunk{
+			{Id: "1", Source: "stdout", TsUnixNano: time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC).UnixNano(), Text: "line1\n"},
+		},
 	}
 	s := newTestServer(t, up)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/logs?tail=10", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/logs", nil)
 	req.Header.Set("Authorization", "Bearer k")
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	ct := rec.Header().Get("Content-Type")
-	if !strings.Contains(ct, "application/x-ndjson") {
+	if !strings.Contains(ct, "text/event-stream") {
 		t.Fatalf("content-type = %q", ct)
 	}
-	lines := bytes.Split(bytes.TrimSpace(rec.Body.Bytes()), []byte("\n"))
-	if len(lines) != 2 {
-		t.Fatalf("lines = %d body=%s", len(lines), rec.Body.String())
+	body := rec.Body.String()
+	if !strings.Contains(body, "event: log") || !strings.Contains(body, `"text":"line1\n"`) {
+		t.Fatalf("body = %s", body)
 	}
-	var row map[string]string
-	if err := json.Unmarshal(lines[0], &row); err != nil {
-		t.Fatal(err)
-	}
-	raw, err := base64.StdEncoding.DecodeString(row["data"])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(raw) != "line1\n" {
-		t.Fatalf("data = %q", raw)
+	if !strings.Contains(body, "event: end") {
+		t.Fatalf("missing end event: %s", body)
 	}
 }
 
@@ -500,7 +489,7 @@ func TestLogsCancel(t *testing.T) {
 	s := newTestServer(t, up)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/v1/sandboxes/sb1/logs?follow=true", nil)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/v1/sandboxes/sb1/logs", nil)
 	req.Header.Set("Authorization", "Bearer k")
 
 	done := make(chan struct{})
@@ -547,107 +536,19 @@ func TestGRPCCodeToHTTP(t *testing.T) {
 	}
 }
 
-func TestFsContentReadWrite(t *testing.T) {
+func TestVolumeList(t *testing.T) {
 	up := &fakeUpstream{
-		fsChunks: [][]byte{[]byte("hello"), []byte(" world")},
+		volumes: []*cellarv1.Volume{{Id: "v1", Name: "data", Kind: "named", Status: "ready"}},
 	}
 	s := newTestServer(t, up)
-
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/content?path=/tmp/a", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/volumes", nil)
 	req.Header.Set("Authorization", "Bearer k")
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "application/octet-stream") {
-		t.Fatalf("content-type = %q", ct)
-	}
-	if rec.Body.String() != "hello world" {
-		t.Fatalf("body = %q", rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPut, "/v1/sandboxes/sb1/fs/content?path=/tmp/a", strings.NewReader("payload"))
-	req.Header.Set("Authorization", "Bearer k")
-	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("put status = %d", rec.Code)
-	}
-	up.mu.Lock()
-	wrote := string(up.fsWrote)
-	up.mu.Unlock()
-	if wrote != "payload" {
-		t.Fatalf("wrote = %q", wrote)
-	}
-}
-
-func TestFsStatListExists(t *testing.T) {
-	up := &fakeUpstream{
-		fsExists: true,
-		fsMeta:   &cellarv1.FsMetadata{Kind: "file", Size: 3, Mode: 0o644, ModifiedUnixNano: time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC).UnixNano()},
-	}
-	s := newTestServer(t, up)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/stat?path=/tmp/a", nil)
-	req.Header.Set("Authorization", "Bearer k")
-	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("stat status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	var meta map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &meta); err != nil {
-		t.Fatal(err)
-	}
-	if meta["kind"] != "file" || meta["modified"] == nil {
-		t.Fatalf("meta = %#v", meta)
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/list?path=/tmp", nil)
-	req.Header.Set("Authorization", "Bearer k")
-	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("list status = %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/exists?path=/tmp/a", nil)
-	req.Header.Set("Authorization", "Bearer k")
-	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("exists status = %d", rec.Code)
-	}
-	var exists map[string]bool
-	if err := json.Unmarshal(rec.Body.Bytes(), &exists); err != nil {
-		t.Fatal(err)
-	}
-	if !exists["exists"] {
-		t.Fatalf("exists = %#v", exists)
-	}
-}
-
-func TestFsNotFound(t *testing.T) {
-	up := &fakeUpstream{err: status.Error(codes.NotFound, "missing")}
-	s := newTestServer(t, up)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/fs/stat?path=/missing", nil)
-	req.Header.Set("Authorization", "Bearer k")
-	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status = %d", rec.Code)
-	}
-}
-
-func TestFsMkdirMissingPath(t *testing.T) {
-	s := newTestServer(t, &fakeUpstream{})
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sb1/fs/mkdir", strings.NewReader(`{}`))
-	req.Header.Set("Authorization", "Bearer k")
-	req.Header.Set("Content-Type", "application/json")
-	s.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d", rec.Code)
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"id":"v1"`)) {
+		t.Fatalf("body = %s", rec.Body.String())
 	}
 }
