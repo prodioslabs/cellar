@@ -16,7 +16,7 @@ Each sandbox is a real virtual machine, not a container. You install Cellar, sta
 curl -fsSL https://cellar.prodioslabs.in/install.sh | sh
 ```
 
-Linux and macOS, amd64 and arm64. The installer places `cellard` (node daemon), `cellar` (CLI), and `cellar-gateway` (HTTP front door for apps). See the [install guide](https://cellar.prodioslabs.in/docs/install) for details.
+Linux (amd64 and arm64) and macOS (Apple Silicon / arm64). The installer places `cellard` (node daemon), `cellar` (CLI), and `cellar-gateway` (HTTP front door for apps). See the [install guide](https://cellar.prodioslabs.in/docs/install) for details.
 
 ## Quick start
 

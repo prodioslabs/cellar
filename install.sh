@@ -39,6 +39,12 @@ case "$(uname -m)" in
 		;;
 esac
 
+# microsandbox local runtime is Apple Silicon only (Intel Macs and Rosetta are not supported).
+# https://docs.microsandbox.dev/troubleshooting/macos
+if [ "$os" = "darwin" ] && [ "$arch" = "amd64" ]; then
+	fail "macOS requires Apple Silicon (arm64); Intel Macs are not supported"
+fi
+
 # Prefer the invoking user's home when the installer itself runs under sudo.
 install_home=${HOME:-}
 if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then

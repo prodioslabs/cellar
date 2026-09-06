@@ -18,7 +18,7 @@ curl -fsSL https://cellar.prodioslabs.in/install.sh | CELLAR_VERSION=v0.5.0 sh
 
 </Callout>
 
-The installer detects **linux** / **darwin** and **amd64** / **arm64**, verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`). It uses `sudo` when needed, but does not enable or start the services.
+The installer detects **linux** / **darwin** and **amd64** / **arm64** (macOS is Apple Silicon / arm64 only — Intel Macs are not supported), verifies archives against `checksums.txt`, and installs binaries (plus systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`). It uses `sudo` when needed, but does not enable or start the services.
 
 To set a prefix:
 
@@ -28,14 +28,13 @@ curl -fsSL https://cellar.prodioslabs.in/install.sh | CELLAR_VERSION=v0.5.0 CELL
 
 ## GitHub Releases
 
-Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux and macOS **amd64** / **arm64** bundles.
+Tag `vX.Y.Z` (or a SemVer prerelease such as `vX.Y.Z-rc.1`) to publish Linux **amd64** / **arm64** and macOS **arm64** bundles.
 
 Download URLs follow a stable layout:
 
 ```text
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_amd64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_linux_arm64.tar.gz
-https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_amd64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/cellar_X.Y.Z_darwin_arm64.tar.gz
 https://github.com/prodioslabs/cellar/releases/download/vX.Y.Z/checksums.txt
 ```
