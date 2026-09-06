@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   },
   description:
     'Container orchestrator control plane for isolated sandboxes with mTLS identity and userspace egress policy.',
+  icons: {
+    icon: [{ url: '/cellar-logo.png', type: 'image/png' }],
+  },
 }
 
 export default function Layout({ children }: LayoutProps<'/'>) {
