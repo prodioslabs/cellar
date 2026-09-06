@@ -1,6 +1,6 @@
 'use client'
 
-import { Server } from 'lucide-react'
+import { Box, Server, Shield } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/cn'
 
@@ -184,6 +184,11 @@ function NodeCard({
       ? 'border-emerald-500/40 bg-emerald-500/5 shadow-[0_0_0_1px_rgba(16,185,129,0.08)]'
       : 'border-sky-500/40 bg-sky-500/5'
   const dot = kind === 'manager' ? 'bg-emerald-500' : 'bg-sky-500'
+  const Icon = kind === 'manager' ? Shield : Box
+  const iconTone =
+    kind === 'manager'
+      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+      : 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
 
   return (
     <div
@@ -201,7 +206,18 @@ function NodeCard({
           )}
         />
       </div>
-      <p className="text-sm font-semibold">{name}</p>
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          className={cn(
+            'inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors',
+            on ? iconTone : 'bg-fd-muted text-fd-muted-foreground',
+          )}
+          title={kind === 'manager' ? 'Manager' : 'Worker'}
+        >
+          <Icon className="size-3.5" aria-hidden />
+        </span>
+        <p className="truncate text-sm font-semibold">{name}</p>
+      </div>
       <p className="mt-0.5 text-xs text-pretty text-fd-muted-foreground">{subtitle}</p>
       <div
         className={cn(
