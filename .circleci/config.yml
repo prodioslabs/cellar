@@ -14,10 +14,10 @@ executors:
     docker:
       - image: goreleaser/goreleaser-cross:v1.26
         # Image ENTRYPOINT execs goreleaser; CircleCI run steps need a shell.
-        entrypoint: ["/bin/bash"]
+        entrypoint: ['/bin/bash']
     environment:
       GOTOOLCHAIN: auto
-      CGO_ENABLED: "1"
+      CGO_ENABLED: '1'
 
 commands:
   checkout-full:
@@ -65,7 +65,7 @@ jobs:
       - run:
           name: Validate tag
           command: |
-            tag="${CIRCLE_TAG}"
+            tag="${CIRCLE_TAG:-<< pipeline.git.tag >>}"
             if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
               echo "Invalid release tag: $tag"
               echo "Expected SemVer like v1.2.3 or v1.2.3-rc.1"
@@ -79,11 +79,21 @@ jobs:
           name: Check GoReleaser config
           command: goreleaser check
       - run:
-          name: Release
+          name: Require GITHUB_TOKEN
+          command: |
+            if [ -z "${GITHUB_TOKEN:-}" ]; then
+              echo "GITHUB_TOKEN is not set."
+              echo "Add it in CircleCI Project Settings → Environment Variables."
+              echo "GoReleaser needs it to publish to https://github.com/prodioslabs/cellar/releases"
+              exit 1
+            fi
+      - run:
+          name: Release to GitHub
           command: goreleaser release --clean
 
 workflows:
   ci:
+    when: pipeline.git.tag == ""
     jobs:
       - test:
           filters:
@@ -97,6 +107,7 @@ workflows:
               ignore: /.*/
 
   release:
+    when: pipeline.git.tag starts-with "v"
     jobs:
       - release:
           filters:

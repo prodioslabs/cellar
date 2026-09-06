@@ -114,5 +114,8 @@ changelog:
       - "^ci:"
 
 release:
+  github:
+    owner: prodioslabs
+    name: cellar
   prerelease: auto
   name_template: "v{{.Version}}"
