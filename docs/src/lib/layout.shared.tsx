@@ -1,6 +1,7 @@
+import { GitHubStarLink } from '@/components/github-star'
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared'
 import Image from 'next/image'
-import { appName, gitConfig } from './shared'
+import { appName } from './shared'
 
 export function baseOptions(): BaseLayoutProps {
   return {
@@ -24,7 +25,11 @@ export function baseOptions(): BaseLayoutProps {
         url: '/docs',
         active: 'nested-url',
       },
+      {
+        type: 'custom',
+        secondary: true,
+        children: <GitHubStarLink />,
+      },
     ],
-    githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
   }
 }
