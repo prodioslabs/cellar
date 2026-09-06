@@ -10,6 +10,15 @@ executors:
     environment:
       GOTOOLCHAIN: auto
 
+  linux-goreleaser-cross:
+    docker:
+      - image: goreleaser/goreleaser-cross:v1.26
+        # Image ENTRYPOINT execs goreleaser; CircleCI run steps need a shell.
+        entrypoint: ["/bin/bash"]
+    environment:
+      GOTOOLCHAIN: auto
+      CGO_ENABLED: "1"
+
 commands:
   checkout-full:
     description: 'Checkout with full git history (GitHub fetch-depth: 0)'
@@ -18,22 +27,12 @@ commands:
       - run:
           name: Fetch full git history and tags
           command: |
+            git config --global --add safe.directory "$(pwd)"
             if git rev-parse --is-shallow-repository | grep -q true; then
               git fetch --unshallow --tags --force
             else
               git fetch --tags --force
             fi
-
-  install-aarch64-cross-compiler:
-    steps:
-      - run:
-          name: Install aarch64 cross-compiler
-          command: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
-
-  install-goreleaser:
-    steps:
-      # Latest v2.x, matching goreleaser-action version: "~> v2"
-      - go/install-goreleaser
 
 jobs:
   test:
@@ -46,13 +45,11 @@ jobs:
           command: go test ./...
 
   snapshot:
-    executor: linux-go
+    executor: linux-goreleaser-cross
     resource_class: large
     steps:
       - checkout-full
       - go/mod-download-cached
-      - install-aarch64-cross-compiler
-      - install-goreleaser
       - run:
           name: Check GoReleaser config
           command: goreleaser check
@@ -61,7 +58,7 @@ jobs:
           command: goreleaser release --snapshot --clean
 
   release:
-    executor: linux-go
+    executor: linux-goreleaser-cross
     resource_class: large
     steps:
       - checkout-full
@@ -75,11 +72,9 @@ jobs:
               exit 1
             fi
       - go/mod-download-cached
-      - install-aarch64-cross-compiler
       - run:
           name: Test
           command: go test ./...
-      - install-goreleaser
       - run:
           name: Check GoReleaser config
           command: goreleaser check

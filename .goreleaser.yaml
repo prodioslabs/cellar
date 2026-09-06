@@ -19,6 +19,9 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
     flags:
       - -trimpath
     ldflags:
@@ -38,6 +41,9 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
     flags:
       - -trimpath
     ldflags:
@@ -45,7 +51,8 @@ builds:
         -X github.com/prodioslabs/cellar/internal/version.Version={{.Version}}
         -X github.com/prodioslabs/cellar/internal/version.Commit={{.Commit}}
         -X github.com/prodioslabs/cellar/internal/version.Date={{.Date}}
-    # CGO cross-compile needs an aarch64 toolchain; host gcc cannot assemble gcc_arm64.S.
+    # CGO cross-compile needs target toolchains (goreleaser-cross: aarch64 gcc + osxcross clang).
+    # Darwin amd64 is omitted: microsandbox local runtime is Apple Silicon only.
     overrides:
       - goos: linux
         goarch: arm64
@@ -53,6 +60,12 @@ builds:
         env:
           - CC=aarch64-linux-gnu-gcc
           - CXX=aarch64-linux-gnu-g++
+      - goos: darwin
+        goarch: arm64
+        goarm64: v8.0
+        env:
+          - CC=oa64-clang
+          - CXX=oa64-clang++
 
   - id: cellar-gateway
     main: ./cmd/cellar-gateway
@@ -65,6 +78,9 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
     flags:
       - -trimpath
     ldflags:
