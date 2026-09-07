@@ -94,11 +94,15 @@ func toCloudSandbox(sb *cellarv1.Sandbox, orgID string) cloudSandboxResponse {
 		return cloudSandboxResponse{OrgID: orgID}
 	}
 	s := sandbox.FromProto(sb)
+	slug := s.Slug
+	if slug == "" {
+		slug = s.Name
+	}
 	out := cloudSandboxResponse{
 		ID:        s.ID,
 		OrgID:     orgID,
 		Name:      s.Name,
-		Slug:      s.Slug,
+		Slug:      slug,
 		Status:    string(s.Status.Phase),
 		Ephemeral: s.Ephemeral,
 		CreatedAt: s.CreatedAt.UTC().Format(time.RFC3339Nano),
