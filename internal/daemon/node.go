@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"time"
 
@@ -348,6 +349,7 @@ func nodeToInfo(n *node.Node, leaderID string, peers map[string]struct{}, now ti
 		Availability:        string(n.Availability.Effective()),
 		Labels:              node.CloneLabels(n.Labels),
 		RuntimeGrpcAddr:     n.RuntimeGRPCAddr,
+		Hostname:            hostnameFromAddr(n.RuntimeGRPCAddr),
 		RuntimeSandboxCount: int32(n.RuntimeSandboxCount),
 		PubKeyFingerprint:   n.PubKeyFingerprint,
 		IssuedAtUnixNano:    n.IssuedAt.UnixNano(),
@@ -374,6 +376,20 @@ func nodeToInfo(n *node.Node, leaderID string, peers map[string]struct{}, now ti
 		}
 	}
 	return info
+}
+
+// hostnameFromAddr returns the host portion of a runtime gRPC address
+// (typically the node's private IP). Bare hosts are returned as-is.
+func hostnameFromAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err == nil {
+		return host
+	}
+	return addr
 }
 
 func mapNodeErr(err error) error {

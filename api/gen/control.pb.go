@@ -1002,6 +1002,7 @@ type NodeInfo struct {
 	IssuedAtUnixNano         int64                  `protobuf:"varint,12,opt,name=issued_at_unix_nano,json=issuedAtUnixNano,proto3" json:"issued_at_unix_nano,omitempty"`
 	ExpiresAtUnixNano        int64                  `protobuf:"varint,13,opt,name=expires_at_unix_nano,json=expiresAtUnixNano,proto3" json:"expires_at_unix_nano,omitempty"`
 	NodeType                 string                 `protobuf:"bytes,14,opt,name=node_type,json=nodeType,proto3" json:"node_type,omitempty"` // leader | manager | worker
+	Hostname                 string                 `protobuf:"bytes,15,opt,name=hostname,proto3" json:"hostname,omitempty"`                 // host part of runtime_grpc_addr (typically private IP)
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -1130,6 +1131,13 @@ func (x *NodeInfo) GetExpiresAtUnixNano() int64 {
 func (x *NodeInfo) GetNodeType() string {
 	if x != nil {
 		return x.NodeType
+	}
+	return ""
+}
+
+func (x *NodeInfo) GetHostname() string {
+	if x != nil {
+		return x.Hostname
 	}
 	return ""
 }

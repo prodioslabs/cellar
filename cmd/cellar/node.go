@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -48,10 +49,11 @@ func newNodeListCmd() *cobra.Command {
 				return fmt.Errorf("node ls: %w", err)
 			}
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tTYPE\tSTATUS\tAVAILABILITY\tMANAGER STATUS\tSANDBOXES")
+			fmt.Fprintln(w, "ID\tHOSTNAME\tTYPE\tSTATUS\tAVAILABILITY\tMANAGER STATUS\tSANDBOXES")
 			for _, n := range resp.Nodes {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					shortNodeID(n.NodeId),
+					nodeHostname(n),
 					n.NodeType,
 					n.Status,
 					n.Availability,
@@ -86,6 +88,7 @@ func newNodeInspectCmd() *cobra.Command {
 				return fmt.Errorf("empty response")
 			}
 			fmt.Printf("ID: %s\n", n.NodeId)
+			fmt.Printf("Hostname: %s\n", nodeHostname(n))
 			fmt.Printf("Role: %s\n", n.Role)
 			fmt.Printf("NodeType: %s\n", n.NodeType)
 			fmt.Printf("Membership: %s\n", n.Membership)
@@ -258,6 +261,26 @@ func shortNodeID(id string) string {
 		return id[:12]
 	}
 	return id
+}
+
+// nodeHostname returns the node hostname (private IP host), preferring the
+// Hostname field and falling back to the host of runtime_grpc_addr.
+func nodeHostname(n *cellarv1.NodeInfo) string {
+	if n == nil {
+		return ""
+	}
+	if h := strings.TrimSpace(n.Hostname); h != "" {
+		return h
+	}
+	addr := strings.TrimSpace(n.RuntimeGrpcAddr)
+	if addr == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err == nil {
+		return host
+	}
+	return addr
 }
 
 // sandboxCountDisplay prints the last-reported sandbox count only when the
