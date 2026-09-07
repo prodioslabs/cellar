@@ -335,6 +335,9 @@ func specToOptions(spec sandbox.Spec) ([]msb.SandboxOption, error) {
 	} else if !spec.Network.Enabled {
 		opts = append(opts, msb.WithNetwork(msb.NetworkPolicy.None()))
 	}
+	if secrets := secretsFromSpec(spec.Network); len(secrets) > 0 {
+		opts = append(opts, msb.WithSecrets(secrets...))
+	}
 	if len(spec.Mounts) > 0 {
 		mounts := make(map[string]msb.MountConfig, len(spec.Mounts))
 		for _, m := range spec.Mounts {
@@ -367,27 +370,76 @@ func networkFromSpec(ns sandbox.NetworkSpec) *msb.NetworkConfig {
 	if !ns.Enabled {
 		return nil
 	}
+	var cfg *msb.NetworkConfig
 	if ns.Policy == nil {
-		return msb.NetworkPolicy.AllowAll()
-	}
-	cfg := &msb.NetworkConfig{
-		DefaultEgress:  mapAction(ns.Policy.DefaultEgress),
-		DefaultIngress: mapAction(ns.Policy.DefaultIngress),
-	}
-	for _, r := range ns.Policy.Rules {
-		cfg.Rules = append(cfg.Rules, msb.PolicyRule{
-			Action:      mapAction(r.Action),
-			Direction:   mapDirection(r.Direction),
-			Destination: destinationString(r.Destination),
-			Protocols:   mapProtocols(r.Protocols),
-			Ports:       mapPorts(r.Ports),
-		})
+		cfg = msb.NetworkPolicy.AllowAll()
+	} else {
+		cfg = &msb.NetworkConfig{
+			DefaultEgress:  mapAction(ns.Policy.DefaultEgress),
+			DefaultIngress: mapAction(ns.Policy.DefaultIngress),
+		}
+		for _, r := range ns.Policy.Rules {
+			cfg.Rules = append(cfg.Rules, msb.PolicyRule{
+				Action:      mapAction(r.Action),
+				Direction:   mapDirection(r.Direction),
+				Destination: destinationString(r.Destination),
+				Protocols:   mapProtocols(r.Protocols),
+				Ports:       mapPorts(r.Ports),
+			})
+		}
 	}
 	if ns.MaxConnections != nil {
 		v := uint(*ns.MaxConnections)
 		cfg.MaxConnections = &v
 	}
+	if ns.Secrets != nil {
+		cfg.OnSecretViolation = mapViolationAction(ns.Secrets.OnViolation)
+	}
 	return cfg
+}
+
+// secretsFromSpec maps cloud network.secrets entries to MSB SecretEntry values.
+func secretsFromSpec(ns sandbox.NetworkSpec) []msb.SecretEntry {
+	if ns.Secrets == nil || len(ns.Secrets.Entries) == 0 {
+		return nil
+	}
+	out := make([]msb.SecretEntry, 0, len(ns.Secrets.Entries))
+	for _, e := range ns.Secrets.Entries {
+		opts := msb.SecretEnvOptions{
+			Placeholder: e.Placeholder,
+			OnViolation: mapViolationAction(e.OnViolation),
+		}
+		requireTLS := e.RequireTLSIdentityEffective()
+		opts.RequireTLS = &requireTLS
+		for _, h := range e.AllowedHosts {
+			switch h.Type {
+			case "exact":
+				opts.AllowHosts = append(opts.AllowHosts, h.Value)
+			case "wildcard":
+				opts.AllowHostPatterns = append(opts.AllowHostPatterns, h.Value)
+			case "any":
+				// No host restriction — secret may be substituted for any host.
+			}
+		}
+		out = append(out, msb.Secret.Env(e.EnvVar, e.Value, opts))
+	}
+	return out
+}
+
+func mapViolationAction(a *sandbox.SecretViolationAction) msb.ViolationAction {
+	if a == nil {
+		return msb.ViolationActionDefault
+	}
+	switch a.Type {
+	case "block":
+		return msb.ViolationActionBlock
+	case "block_and_log":
+		return msb.ViolationActionBlockAndLog
+	case "block_and_terminate":
+		return msb.ViolationActionBlockAndTerminate
+	default:
+		return msb.ViolationActionDefault
+	}
 }
 
 func mapAction(a sandbox.PolicyAction) msb.PolicyAction {

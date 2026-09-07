@@ -68,8 +68,8 @@ type EnvVar struct {
 
 // Resources are cloud resource limits.
 type Resources struct {
-	VCPUs      uint8  `json:"vcpus"`
-	MemoryMiB  uint32 `json:"memory_mib"`
+	VCPUs       uint8   `json:"vcpus"`
+	MemoryMiB   uint32  `json:"memory_mib"`
 	DiskSizeMiB *uint32 `json:"disk_size_mib,omitempty"`
 }
 
@@ -104,17 +104,17 @@ type MountOptions struct {
 
 // VolumeMount is a tagged cloud volume mount.
 type VolumeMount struct {
-	Type                string        `json:"type"` // bind | named | tmpfs | disk_image
-	Host                string        `json:"host,omitempty"`
-	Guest               string        `json:"guest"`
-	Name                string        `json:"name,omitempty"`
-	Format              string        `json:"format,omitempty"`
-	Fstype              string        `json:"fstype,omitempty"`
-	SizeMiB             *uint32       `json:"size_mib,omitempty"`
-	QuotaMiB            *uint32       `json:"quota_mib,omitempty"`
-	Options             MountOptions  `json:"options,omitempty"`
-	StatVirtualization  string        `json:"stat_virtualization,omitempty"`
-	HostPermissions     string        `json:"host_permissions,omitempty"`
+	Type               string       `json:"type"` // bind | named | tmpfs | disk_image
+	Host               string       `json:"host,omitempty"`
+	Guest              string       `json:"guest"`
+	Name               string       `json:"name,omitempty"`
+	Format             string       `json:"format,omitempty"`
+	Fstype             string       `json:"fstype,omitempty"`
+	SizeMiB            *uint32      `json:"size_mib,omitempty"`
+	QuotaMiB           *uint32      `json:"quota_mib,omitempty"`
+	Options            MountOptions `json:"options,omitempty"`
+	StatVirtualization string       `json:"stat_virtualization,omitempty"`
+	HostPermissions    string       `json:"host_permissions,omitempty"`
 }
 
 // PortRange is an inclusive guest port range.
@@ -145,14 +145,49 @@ type NetworkPolicy struct {
 type NetworkSpec struct {
 	Enabled        bool           `json:"enabled"`
 	Policy         *NetworkPolicy `json:"policy,omitempty"`
+	Secrets        *SecretsConfig `json:"secrets,omitempty"`
 	MaxConnections *uint          `json:"max_connections,omitempty"`
+}
+
+// SecretsConfig is the cloud twin of microsandbox CloudSecretsConfig.
+// Real values stay on the host; the guest only sees placeholders.
+type SecretsConfig struct {
+	Entries     []SecretEntry          `json:"entries"`
+	OnViolation *SecretViolationAction `json:"on_violation,omitempty"`
+}
+
+// SecretEntry is one create-time secret for network-proxy substitution.
+type SecretEntry struct {
+	EnvVar string `json:"env_var"`
+	Value  string `json:"value"`
+	// Source is an optional host-side reference. Create currently requires
+	// an inline Value; Source-only entries are rejected.
+	Source       json.RawMessage     `json:"source,omitempty"`
+	Placeholder  string              `json:"placeholder"`
+	AllowedHosts []SecretHostPattern `json:"allowed_hosts"`
+	// RequireTLSIdentity defaults to true when omitted (nil).
+	RequireTLSIdentity *bool                  `json:"require_tls_identity,omitempty"`
+	OnViolation        *SecretViolationAction `json:"on_violation,omitempty"`
+}
+
+// SecretHostPattern is a tagged host allow-list entry.
+// JSON: {"type":"exact","value":"api.example.com"}, {"type":"wildcard","value":"*.example.com"}, {"type":"any"}.
+type SecretHostPattern struct {
+	Type  string `json:"type"` // exact | wildcard | any
+	Value string `json:"value,omitempty"`
+}
+
+// SecretViolationAction is a tagged violation action.
+// JSON: {"type":"block"}, {"type":"block_and_log"}, {"type":"block_and_terminate"}.
+type SecretViolationAction struct {
+	Type string `json:"type"`
 }
 
 // LifecyclePolicy controls ephemeral / idle / max duration.
 type LifecyclePolicy struct {
-	Ephemeral        bool   `json:"ephemeral,omitempty"`
-	MaxDurationSecs  *uint64 `json:"max_duration_secs,omitempty"`
-	IdleTimeoutSecs  *uint64 `json:"idle_timeout_secs,omitempty"`
+	Ephemeral       bool    `json:"ephemeral,omitempty"`
+	MaxDurationSecs *uint64 `json:"max_duration_secs,omitempty"`
+	IdleTimeoutSecs *uint64 `json:"idle_timeout_secs,omitempty"`
 }
 
 // HandoffInit hands PID 1 to a guest init after agentd setup.
@@ -171,40 +206,40 @@ type Rlimit struct {
 
 // Patch is a rootfs patch applied before VM start (simplified text/file/mkdir/remove/append).
 type Patch struct {
-	Type    string `json:"type"`
-	Path    string `json:"path,omitempty"`
-	Content string `json:"content,omitempty"`
+	Type    string  `json:"type"`
+	Path    string  `json:"path,omitempty"`
+	Content string  `json:"content,omitempty"`
 	Mode    *uint32 `json:"mode,omitempty"`
-	Replace bool   `json:"replace,omitempty"`
-	Src     string `json:"src,omitempty"`
-	Dst     string `json:"dst,omitempty"`
-	Target  string `json:"target,omitempty"`
-	Link    string `json:"link,omitempty"`
+	Replace bool    `json:"replace,omitempty"`
+	Src     string  `json:"src,omitempty"`
+	Dst     string  `json:"dst,omitempty"`
+	Target  string  `json:"target,omitempty"`
+	Link    string  `json:"link,omitempty"`
 }
 
 // Spec is the msb-cloud sandbox create body (flattened onto the request).
 type Spec struct {
-	Name             string            `json:"name"`
-	Image            RootfsSource      `json:"image"`
-	Resources        Resources         `json:"resources"`
-	Runtime          RuntimeOptions    `json:"runtime"`
-	Env              []EnvVar          `json:"env,omitempty"`
-	Labels           map[string]string `json:"labels,omitempty"`
-	Rlimits          []Rlimit          `json:"rlimits,omitempty"`
-	Mounts           []VolumeMount     `json:"mounts,omitempty"`
-	Patches          []Patch           `json:"patches,omitempty"`
-	Network          NetworkSpec       `json:"network"`
-	Init             *HandoffInit      `json:"init,omitempty"`
-	PullPolicy       PullPolicy        `json:"pull_policy,omitempty"`
-	SecurityProfile  SecurityProfile   `json:"security_profile,omitempty"`
-	Lifecycle        LifecyclePolicy   `json:"lifecycle"`
-	Slug             string            `json:"slug,omitempty"`
+	Name            string            `json:"name"`
+	Image           RootfsSource      `json:"image"`
+	Resources       Resources         `json:"resources"`
+	Runtime         RuntimeOptions    `json:"runtime"`
+	Env             []EnvVar          `json:"env,omitempty"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Rlimits         []Rlimit          `json:"rlimits,omitempty"`
+	Mounts          []VolumeMount     `json:"mounts,omitempty"`
+	Patches         []Patch           `json:"patches,omitempty"`
+	Network         NetworkSpec       `json:"network"`
+	Init            *HandoffInit      `json:"init,omitempty"`
+	PullPolicy      PullPolicy        `json:"pull_policy,omitempty"`
+	SecurityProfile SecurityProfile   `json:"security_profile,omitempty"`
+	Lifecycle       LifecyclePolicy   `json:"lifecycle"`
+	Slug            string            `json:"slug,omitempty"`
 }
 
 // Status is observed runtime state.
 type Status struct {
-	Phase     StatusPhase `json:"phase"`
-	Message   string      `json:"message,omitempty"`
+	Phase   StatusPhase `json:"phase"`
+	Message string      `json:"message,omitempty"`
 	// LocalName is the microsandbox local name (cellar sandbox ID).
 	LocalName string    `json:"local_name,omitempty"`
 	StartedAt time.Time `json:"started_at,omitempty"`
@@ -331,7 +366,96 @@ func ValidateSpec(spec Spec) error {
 			return fmt.Errorf("mount[%d]: invalid type %q", i, m.Type)
 		}
 	}
+	if err := validateSecrets(spec.Network); err != nil {
+		return err
+	}
 	return nil
+}
+
+func validateSecrets(ns NetworkSpec) error {
+	if ns.Secrets == nil || len(ns.Secrets.Entries) == 0 {
+		return nil
+	}
+	if !ns.Enabled {
+		return fmt.Errorf("network.secrets require network.enabled")
+	}
+	if err := validateViolationAction("network.secrets.on_violation", ns.Secrets.OnViolation); err != nil {
+		return err
+	}
+	for i, e := range ns.Secrets.Entries {
+		prefix := fmt.Sprintf("network.secrets.entries[%d]", i)
+		if strings.TrimSpace(e.EnvVar) == "" {
+			return fmt.Errorf("%s: env_var is required", prefix)
+		}
+		if strings.ContainsAny(e.EnvVar, "=\x00") {
+			return fmt.Errorf("%s: env_var cannot contain '=' or NUL", prefix)
+		}
+		if e.Value == "" {
+			if len(e.Source) > 0 {
+				return fmt.Errorf("%s: source-only secrets are not supported; provide value", prefix)
+			}
+			return fmt.Errorf("%s: value is required", prefix)
+		}
+		if e.Placeholder != "" {
+			if strings.ContainsAny(e.Placeholder, "\x00\r\n") {
+				return fmt.Errorf("%s: placeholder cannot contain NUL, CR, or LF", prefix)
+			}
+			if len(e.Placeholder) > 1024 {
+				return fmt.Errorf("%s: placeholder exceeds 1024 bytes", prefix)
+			}
+		}
+		if len(e.AllowedHosts) == 0 {
+			return fmt.Errorf("%s: allowed_hosts is required", prefix)
+		}
+		for j, h := range e.AllowedHosts {
+			switch h.Type {
+			case "exact", "wildcard":
+				if strings.TrimSpace(h.Value) == "" {
+					return fmt.Errorf("%s.allowed_hosts[%d]: value is required for type %q", prefix, j, h.Type)
+				}
+			case "any":
+			default:
+				return fmt.Errorf("%s.allowed_hosts[%d]: invalid type %q", prefix, j, h.Type)
+			}
+		}
+		if err := validateViolationAction(prefix+".on_violation", e.OnViolation); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateViolationAction(path string, a *SecretViolationAction) error {
+	if a == nil {
+		return nil
+	}
+	switch a.Type {
+	case "block", "block_and_log", "block_and_terminate":
+		return nil
+	case "":
+		return fmt.Errorf("%s: type is required", path)
+	default:
+		return fmt.Errorf("%s: unsupported type %q", path, a.Type)
+	}
+}
+
+// RequireTLSIdentityEffective returns whether TLS identity is required (default true).
+func (e SecretEntry) RequireTLSIdentityEffective() bool {
+	if e.RequireTLSIdentity == nil {
+		return true
+	}
+	return *e.RequireTLSIdentity
+}
+
+// SpecToJSONRedacted marshals Spec with secret values cleared for customer APIs.
+func SpecToJSONRedacted(spec Spec) ([]byte, error) {
+	cp := cloneSpec(spec)
+	if cp.Network.Secrets != nil {
+		for i := range cp.Network.Secrets.Entries {
+			cp.Network.Secrets.Entries[i].Value = ""
+		}
+	}
+	return json.Marshal(cp)
 }
 
 // NormalizeSpec fills defaults.
@@ -436,6 +560,34 @@ func cloneSpec(spec Spec) Spec {
 			}
 		}
 		out.Network.Policy = &p
+	}
+	if spec.Network.Secrets != nil {
+		s := *spec.Network.Secrets
+		if spec.Network.Secrets.OnViolation != nil {
+			v := *spec.Network.Secrets.OnViolation
+			s.OnViolation = &v
+		}
+		if spec.Network.Secrets.Entries != nil {
+			s.Entries = make([]SecretEntry, len(spec.Network.Secrets.Entries))
+			for i, e := range spec.Network.Secrets.Entries {
+				s.Entries[i] = e
+				if e.Source != nil {
+					s.Entries[i].Source = append(json.RawMessage(nil), e.Source...)
+				}
+				if e.AllowedHosts != nil {
+					s.Entries[i].AllowedHosts = append([]SecretHostPattern(nil), e.AllowedHosts...)
+				}
+				if e.RequireTLSIdentity != nil {
+					v := *e.RequireTLSIdentity
+					s.Entries[i].RequireTLSIdentity = &v
+				}
+				if e.OnViolation != nil {
+					v := *e.OnViolation
+					s.Entries[i].OnViolation = &v
+				}
+			}
+		}
+		out.Network.Secrets = &s
 	}
 	if spec.Init != nil {
 		init := *spec.Init

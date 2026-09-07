@@ -39,7 +39,7 @@ type cloudSandboxResponse struct {
 
 type cloudListResponse struct {
 	Data       []cloudSandboxResponse `json:"data"`
-	NextCursor *string                 `json:"next_cursor,omitempty"`
+	NextCursor *string                `json:"next_cursor,omitempty"`
 }
 
 type messageResponse struct {
@@ -108,10 +108,14 @@ func toCloudSandbox(sb *cellarv1.Sandbox, orgID string) cloudSandboxResponse {
 	if out.Status == "" {
 		out.Status = string(sandbox.PhaseCreated)
 	}
+	spec := s.Spec
 	if len(sb.SpecJson) > 0 {
-		out.Spec = json.RawMessage(sb.SpecJson)
-	} else if specJSON, err := sandbox.SpecToJSON(s.Spec); err == nil {
-		out.Spec = json.RawMessage(specJSON)
+		if parsed, err := sandbox.SpecFromJSON(sb.SpecJson); err == nil {
+			spec = parsed
+		}
+	}
+	if redacted, err := sandbox.SpecToJSONRedacted(spec); err == nil {
+		out.Spec = json.RawMessage(redacted)
 	}
 	if s.Status.Phase == sandbox.PhaseFailed && s.Status.Message != "" {
 		msg := s.Status.Message
