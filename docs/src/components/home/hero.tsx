@@ -39,9 +39,8 @@ export function Hero() {
             >
               microsandbox
             </a>{' '}
-            runtime on your own cloud today — a laptop, a rack, or VMs on AWS or
-            GCP. Same hardware-isolated environments, without waiting on someone
-            else&apos;s cloud.
+            runtime on your own cloud today — a laptop, a rack, or VMs on AWS or GCP. Same
+            hardware-isolated environments, without waiting on someone else&apos;s cloud.
           </p>
           <InstallCommand className="mx-auto mb-8 lg:mx-0" />
           <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-start">

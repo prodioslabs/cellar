@@ -1,6 +1,7 @@
 'use client'
 
-import { Box, Server, Shield } from 'lucide-react'
+import { Box, Network, Server, Shield } from 'lucide-react'
+import Link from 'next/link'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/cn'
 
@@ -520,27 +521,66 @@ export function CliShowcase() {
               <li className="flex gap-3">
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">1</span>
                 <span>
-                  <code className="font-mono text-[13px]">cellar init</code> stands up the first
-                  manager — Raft leader and cluster CA
+                  <Link
+                    href="/docs/cluster/initialization"
+                    className="font-medium text-fd-foreground underline-offset-4 hover:underline"
+                  >
+                    <code className="font-mono text-[13px]">cellar init</code>
+                  </Link>{' '}
+                  stands up the first manager — Raft leader and cluster CA
                 </span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">2</span>
                 <span>
                   Mint a <code className="font-mono text-[13px]">join-token</code>, then{' '}
-                  <code className="font-mono text-[13px]">cellar join</code> to add more managers
-                  and workers
+                  <Link
+                    href="/docs/cluster/initialization#join-a-worker"
+                    className="font-medium text-fd-foreground underline-offset-4 hover:underline"
+                  >
+                    <code className="font-mono text-[13px]">cellar join</code>
+                  </Link>{' '}
+                  to add more managers and workers
                 </span>
               </li>
               <li className="flex gap-3">
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">3</span>
                 <span>
-                  <code className="font-mono text-[13px]">sandbox create</code> puts a microsandbox
-                  VM on a live node
+                  <Link
+                    href="/docs/sandboxes"
+                    className="font-medium text-fd-foreground underline-offset-4 hover:underline"
+                  >
+                    <code className="font-mono text-[13px]">sandbox create</code>
+                  </Link>{' '}
+                  puts a microsandbox VM on a live node
                 </span>
               </li>
             </ol>
           </div>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+          <Link
+            href="/docs/cluster"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary underline-offset-4 hover:underline"
+          >
+            <Network className="size-3.5" aria-hidden />
+            Cluster overview →
+          </Link>
+          <Link
+            href="/docs/cluster/initialization"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary underline-offset-4 hover:underline"
+          >
+            <Shield className="size-3.5" aria-hidden />
+            Initialize and join →
+          </Link>
+          <Link
+            href="/docs/sandboxes"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary underline-offset-4 hover:underline"
+          >
+            <Box className="size-3.5" aria-hidden />
+            Sandboxes →
+          </Link>
         </div>
 
         <div className="mt-12">
@@ -553,27 +593,32 @@ export function CliShowcase() {
                 {
                   title: 'AWS',
                   body: 'EC2 or bare metal with KVM. Same Cellar install as anywhere else.',
+                  href: '/docs/cluster/initialization',
                   icon: <AwsIcon className="size-5" />,
                 },
                 {
                   title: 'GCP',
                   body: 'Compute Engine with nested virtualization. Point Cellar at VMs you already run.',
+                  href: '/docs/cluster',
                   icon: <GcpIcon className="size-5" />,
                 },
                 {
                   title: 'Your own infra',
                   body: 'A Linux box with /dev/kvm, or a Mac. A laptop is enough to start.',
+                  href: '/docs/quick-start',
                   icon: <Server className="size-5" />,
                 },
               ] as const satisfies ReadonlyArray<{
                 title: string
                 body: string
+                href: string
                 icon: ReactNode
               }>
             ).map((card) => (
-              <div
+              <Link
                 key={card.title}
-                className="min-w-0 rounded-xl border border-fd-border bg-fd-card px-4 py-4"
+                href={card.href}
+                className="min-w-0 rounded-xl border border-fd-border bg-fd-card px-4 py-4 transition-colors hover:bg-fd-accent/40"
               >
                 <div className="mb-2 flex min-w-0 items-center gap-2.5">
                   <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-fd-border bg-fd-background text-fd-foreground">
@@ -582,7 +627,7 @@ export function CliShowcase() {
                   <h3 className="truncate text-sm font-semibold">{card.title}</h3>
                 </div>
                 <p className="text-sm text-fd-muted-foreground">{card.body}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
