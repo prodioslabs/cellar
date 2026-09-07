@@ -145,6 +145,7 @@ message NodeInfo {
   int64 issued_at_unix_nano = 12;
   int64 expires_at_unix_nano = 13;
   string node_type = 14;          // leader | manager | worker
+  string hostname = 15;           // host part of runtime_grpc_addr (typically private IP)
 }
 
 message NodeListRequest {}
