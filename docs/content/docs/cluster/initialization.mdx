@@ -1,0 +1,96 @@
+---
+title: Initialization
+description: Initialize a Cellar cluster and join workers or managers
+---
+
+After [install](/docs/install) (and [KVM / Apple Silicon](/docs/quick-start) on hosts that run sandboxes), start `cellard`, then initialize the first manager or join another node.
+
+Linux defaults: data directory `/var/lib/cellar`, control socket `/var/run/cellar/cellar.sock`. On macOS both default under `~/.cellar`.
+
+## Initialization
+
+On the first manager, initialize with that host’s **reachable** address (other nodes will dial this for gRPC):
+
+```bash
+sudo cellar init --advertise-addr 192.0.2.10:17946
+```
+
+If you omit `--advertise-addr`, Cellar fills an empty host with loopback (`127.0.0.1:17946`). The same applies to `--raft-addr` (`127.0.0.1:17947`). That is fine for a single-node laptop. On a multi-host or cloud cluster, peers cannot join a loopback advertise address — pass a private IP (or hostname) every node can reach.
+
+Optional flags:
+
+- `--listen-addr` — remote gRPC listen (default `:17946`)
+- `--raft-addr` — Raft listen/advertise (default `:17947`; managers only need this to be peer-reachable)
+
+`init` prints worker and manager join commands. Confirm locally:
+
+```bash
+sudo cellar status
+# expect initialized: true, is_leader: true, and advertise matching your --advertise-addr
+```
+
+<Callout type="warn" title="Cloud VMs (AWS)">
+  On EC2, do not advertise `127.0.0.1`. Fetch the instance private IP with IMDSv2, then pass it to `init` (and `--raft-addr` if you set Raft explicitly):
+
+```bash
+IMDS=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+PRIVATE_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $IMDS" \
+  http://169.254.169.254/latest/meta-data/local-ipv4)
+
+sudo cellar init --advertise-addr ${PRIVATE_IP}:17946 --raft-addr ${PRIVATE_IP}:17947
+```
+
+Keep Raft and gRPC on node-reachable IPs. Put a load balancer only in front of `cellar-gateway` — see [AWS load balancer](/docs/api/load-balancer).
+
+</Callout>
+
+## Join a worker
+
+Workers add sandbox capacity. They do not vote in Raft and never hold the CA private key.
+
+On a manager, print a ready-to-run join command:
+
+```bash
+sudo cellar join-token worker
+# → cellar join --token CLLRN-1-… 192.0.2.10:17946
+```
+
+On the worker (after install and `systemctl enable --now cellard`):
+
+```bash
+sudo cellar join --token CLLRN-1-… 192.0.2.10:17946
+```
+
+Confirm:
+
+```bash
+sudo cellar status
+# role: worker
+
+# on a manager:
+sudo cellar node ls
+```
+
+## Join a manager
+
+Managers join the Raft quorum. Prefer an **odd** number of managers so the cluster keeps quorum if one fails.
+
+On an existing manager:
+
+```bash
+sudo cellar join-token manager
+# → cellar join --token CLLRN-1-… 192.0.2.10:17946
+```
+
+On the new manager, pass reachable advertise and Raft addresses (same cloud IMDS pattern as [above](#initialization) if needed):
+
+```bash
+sudo cellar join --token CLLRN-1-… 192.0.2.10:17946 \
+  --advertise-addr 192.0.2.11:17946 \
+  --raft-addr 192.0.2.11:17947
+```
+
+Confirm with `sudo cellar status` on the new node and `sudo cellar node ls` on a manager.
+
+You can also [promote or demote](/docs/nodes) a node later; role changes apply on the next heartbeat (re-issue cert and open or close Raft).
