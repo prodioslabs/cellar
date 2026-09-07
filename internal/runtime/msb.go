@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -294,22 +295,51 @@ func mapLogSources(sources []string) []msb.LogSource {
 
 func specToOptions(spec sandbox.Spec) ([]msb.SandboxOption, error) {
 	var opts []msb.SandboxOption
-	ref := spec.ImageReference()
-	if ref == "" {
-		return nil, fmt.Errorf("oci image reference required")
+
+	switch spec.Image.Type {
+	case "", "oci":
+		ref := spec.ImageReference()
+		if ref == "" {
+			return nil, fmt.Errorf("oci image reference required")
+		}
+		opts = append(opts, msb.WithImage(ref))
+		if spec.Resources.DiskSizeMiB != nil {
+			opts = append(opts, msb.WithRootDisk(msb.RootDisk.Managed(*spec.Resources.DiskSizeMiB)))
+		}
+	case "bind":
+		if spec.Image.Path == "" {
+			return nil, fmt.Errorf("image.path is required for bind rootfs")
+		}
+		opts = append(opts, msb.WithBindRootfs(spec.Image.Path))
+	case "disk_image":
+		if spec.Image.Path == "" {
+			return nil, fmt.Errorf("image.path is required for disk_image rootfs")
+		}
+		opts = append(opts, msb.WithImageDisk(spec.Image.Path, spec.Image.Fstype))
+	default:
+		return nil, fmt.Errorf("unsupported image.type %q", spec.Image.Type)
 	}
-	opts = append(opts, msb.WithImage(ref))
+
 	if spec.Resources.VCPUs > 0 {
 		opts = append(opts, msb.WithCPUs(spec.Resources.VCPUs))
 	}
 	if spec.Resources.MemoryMiB > 0 {
 		opts = append(opts, msb.WithMemory(spec.Resources.MemoryMiB))
 	}
-	if spec.Resources.DiskSizeMiB != nil {
-		opts = append(opts, msb.WithRootDisk(msb.RootDisk.Managed(*spec.Resources.DiskSizeMiB)))
-	}
 	if spec.Runtime.Workdir != nil && *spec.Runtime.Workdir != "" {
 		opts = append(opts, msb.WithWorkdir(*spec.Runtime.Workdir))
+	}
+	if spec.Runtime.Shell != nil && *spec.Runtime.Shell != "" {
+		opts = append(opts, msb.WithShell(*spec.Runtime.Shell))
+	}
+	if spec.Runtime.User != nil && *spec.Runtime.User != "" {
+		opts = append(opts, msb.WithUser(*spec.Runtime.User))
+	}
+	if len(spec.Runtime.Scripts) > 0 {
+		opts = append(opts, msb.WithScripts(spec.Runtime.Scripts))
+	}
+	if spec.Runtime.LogLevel != nil && *spec.Runtime.LogLevel != "" {
+		opts = append(opts, msb.WithLogLevel(msb.LogLevel(*spec.Runtime.LogLevel)))
 	}
 	if len(spec.Runtime.Cmd) > 0 {
 		opts = append(opts, msb.WithCmd(spec.Runtime.Cmd...))
@@ -327,8 +357,26 @@ func specToOptions(spec sandbox.Spec) ([]msb.SandboxOption, error) {
 	if len(spec.Labels) > 0 {
 		opts = append(opts, msb.WithLabels(spec.Labels))
 	}
+	if len(spec.Rlimits) > 0 {
+		// Accepted on the cloud Spec twin; the Go SDK has no create-time rlimits API yet.
+		log.Printf("sandbox spec has %d rlimits; microsandbox Go SDK cannot apply them at create", len(spec.Rlimits))
+	}
 	if spec.Lifecycle.Ephemeral {
 		opts = append(opts, msb.WithEphemeral(true))
+	}
+	if spec.Lifecycle.MaxDurationSecs != nil {
+		opts = append(opts, msb.WithMaxDuration(time.Duration(*spec.Lifecycle.MaxDurationSecs)*time.Second))
+	}
+	if spec.Lifecycle.IdleTimeoutSecs != nil {
+		opts = append(opts, msb.WithIdleTimeout(time.Duration(*spec.Lifecycle.IdleTimeoutSecs)*time.Second))
+	}
+	switch spec.SecurityProfile {
+	case sandbox.SecurityRestricted:
+		opts = append(opts, msb.WithSecurityProfile(msb.SecurityProfileRestricted))
+	case sandbox.SecurityDefault, "":
+		// SDK default
+	default:
+		opts = append(opts, msb.WithSecurityProfile(msb.SecurityProfile(spec.SecurityProfile)))
 	}
 	if net := networkFromSpec(spec.Network); net != nil {
 		opts = append(opts, msb.WithNetwork(net))
@@ -338,23 +386,21 @@ func specToOptions(spec sandbox.Spec) ([]msb.SandboxOption, error) {
 	if secrets := secretsFromSpec(spec.Network); len(secrets) > 0 {
 		opts = append(opts, msb.WithSecrets(secrets...))
 	}
-	if len(spec.Mounts) > 0 {
-		mounts := make(map[string]msb.MountConfig, len(spec.Mounts))
-		for _, m := range spec.Mounts {
-			mo := msb.MountOptions{Readonly: m.Options.ReadOnly, Noexec: m.Options.NoExec, Nosuid: m.Options.NoSuid, Nodev: m.Options.NoDev}
-			switch m.Type {
-			case "named":
-				mounts[m.Guest] = msb.Mount.Named(m.Name, mo)
-			case "bind":
-				mounts[m.Guest] = msb.Mount.Bind(m.Host, mo)
-			case "tmpfs":
-				to := msb.TmpfsOptions{Noexec: m.Options.NoExec, Nosuid: m.Options.NoSuid, Nodev: m.Options.NoDev, Readonly: m.Options.ReadOnly}
-				if m.SizeMiB != nil {
-					to.SizeMiB = *m.SizeMiB
-				}
-				mounts[m.Guest] = msb.Mount.Tmpfs(to)
-			}
+	if spec.Init != nil {
+		initOpts, err := initFromSpec(spec.Init)
+		if err != nil {
+			return nil, err
 		}
+		opts = append(opts, msb.WithInit(initOpts))
+	}
+	if patches, err := patchesFromSpec(spec.Patches); err != nil {
+		return nil, err
+	} else if len(patches) > 0 {
+		opts = append(opts, msb.WithPatches(patches...))
+	}
+	if mounts, err := mountsFromSpec(spec.Mounts); err != nil {
+		return nil, err
+	} else if len(mounts) > 0 {
 		opts = append(opts, msb.WithMounts(mounts))
 	}
 	switch spec.PullPolicy {
@@ -364,6 +410,133 @@ func specToOptions(spec sandbox.Spec) ([]msb.SandboxOption, error) {
 		opts = append(opts, msb.WithPullPolicy(msb.PullPolicyNever))
 	}
 	return opts, nil
+}
+
+func initFromSpec(init *sandbox.HandoffInit) (msb.InitConfig, error) {
+	if init == nil {
+		return msb.InitConfig{}, fmt.Errorf("init is required")
+	}
+	env := make(map[string]string, len(init.Env))
+	for _, e := range init.Env {
+		env[e.Key] = e.Value
+	}
+	if init.Cmd == "" || init.Cmd == "auto" {
+		cfg := msb.Init.Auto()
+		if len(env) > 0 {
+			cfg.Env = env
+		}
+		if len(init.Args) > 0 {
+			cfg.Args = append([]string(nil), init.Args...)
+		}
+		return cfg, nil
+	}
+	return msb.Init.Cmd(init.Cmd, msb.InitOptions{
+		Args: append([]string(nil), init.Args...),
+		Env:  env,
+	}), nil
+}
+
+func patchesFromSpec(patches []sandbox.Patch) ([]msb.PatchConfig, error) {
+	if len(patches) == 0 {
+		return nil, nil
+	}
+	out := make([]msb.PatchConfig, 0, len(patches))
+	for i, p := range patches {
+		po := msb.PatchOptions{Mode: p.Mode, Replace: p.Replace}
+		switch p.Type {
+		case "text":
+			content := ""
+			if p.Content != nil {
+				content = p.Content.Text
+			}
+			out = append(out, msb.Patch.Text(p.Path, content, po))
+		case "file":
+			// Go SDK has no binary File patch; map as text (bytes as string).
+			content := ""
+			if p.Content != nil {
+				if p.Content.Text != "" {
+					content = p.Content.Text
+				} else {
+					content = string(p.Content.Bytes)
+				}
+			}
+			out = append(out, msb.Patch.Text(p.Path, content, po))
+		case "append":
+			content := ""
+			if p.Content != nil {
+				content = p.Content.Text
+				if content == "" && len(p.Content.Bytes) > 0 {
+					content = string(p.Content.Bytes)
+				}
+			}
+			out = append(out, msb.Patch.Append(p.Path, content))
+		case "mkdir":
+			out = append(out, msb.Patch.Mkdir(p.Path, po))
+		case "remove":
+			out = append(out, msb.Patch.Remove(p.Path))
+		case "symlink":
+			out = append(out, msb.Patch.Symlink(p.Target, p.Link, po))
+		case "copy_file":
+			out = append(out, msb.Patch.CopyFile(p.Src, p.Dst, po))
+		case "copy_dir":
+			out = append(out, msb.Patch.CopyDir(p.Src, p.Dst, po))
+		default:
+			return nil, fmt.Errorf("patch[%d]: unsupported type %q", i, p.Type)
+		}
+	}
+	return out, nil
+}
+
+func mountsFromSpec(mounts []sandbox.VolumeMount) (map[string]msb.MountConfig, error) {
+	if len(mounts) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]msb.MountConfig, len(mounts))
+	for i, m := range mounts {
+		mo := msb.MountOptions{
+			Readonly:           m.Options.Readonly,
+			Noexec:             m.Options.Noexec,
+			Nosuid:             m.Options.Nosuid,
+			Nodev:              m.Options.Nodev,
+			StatVirtualization: msb.StatVirtualization(m.StatVirtualization),
+			HostPermissions:    msb.HostPermissions(m.HostPermissions),
+		}
+		if m.Options.OverrideUID != nil && m.Options.OverrideGID != nil {
+			mo.Owner = &msb.MountOwner{UID: *m.Options.OverrideUID, GID: *m.Options.OverrideGID}
+		}
+		if m.QuotaMiB != nil {
+			mo.QuotaMiB = *m.QuotaMiB
+		}
+		switch m.Type {
+		case "named":
+			out[m.Guest] = msb.Mount.Named(m.Name, mo)
+		case "bind":
+			out[m.Guest] = msb.Mount.Bind(m.Host, mo)
+		case "tmpfs":
+			to := msb.TmpfsOptions{
+				Noexec:   m.Options.Noexec,
+				Nosuid:   m.Options.Nosuid,
+				Nodev:    m.Options.Nodev,
+				Readonly: m.Options.Readonly,
+			}
+			if m.SizeMiB != nil {
+				to.SizeMiB = *m.SizeMiB
+			}
+			out[m.Guest] = msb.Mount.Tmpfs(to)
+		case "disk_image":
+			out[m.Guest] = msb.Mount.Disk(m.Host, msb.DiskOptions{
+				Format:   m.Format,
+				Fstype:   m.Fstype,
+				Readonly: m.Options.Readonly,
+				Noexec:   m.Options.Noexec,
+				Nosuid:   m.Options.Nosuid,
+				Nodev:    m.Options.Nodev,
+			})
+		default:
+			return nil, fmt.Errorf("mount[%d]: unsupported type %q", i, m.Type)
+		}
+	}
+	return out, nil
 }
 
 func networkFromSpec(ns sandbox.NetworkSpec) *msb.NetworkConfig {

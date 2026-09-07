@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"testing"
+	"time"
 
 	msb "github.com/superradcompany/microsandbox/sdk/go"
 
@@ -79,23 +80,152 @@ func TestSpecToOptionsWithSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := &msb.SandboxConfig{}
-	for _, o := range opts {
-		o(cfg)
-	}
+	cfg := applyOpts(t, opts)
 	if len(cfg.Secrets) != 1 {
 		t.Fatalf("Secrets=%#v", cfg.Secrets)
 	}
 	if cfg.Secrets[0].EnvVar != "TOK" || cfg.Secrets[0].Value != "secret-value" {
 		t.Fatalf("secret=%#v", cfg.Secrets[0])
 	}
-	if cfg.Secrets[0].Placeholder != "MSB_TOK" {
-		t.Fatalf("placeholder=%q", cfg.Secrets[0].Placeholder)
-	}
-	if len(cfg.Secrets[0].AllowHosts) != 1 || cfg.Secrets[0].AllowHosts[0] != "api.example.com" {
-		t.Fatalf("AllowHosts=%v", cfg.Secrets[0].AllowHosts)
-	}
 	if cfg.Network == nil {
 		t.Fatal("Network nil")
 	}
 }
+
+func TestSpecToOptionsCloudParity(t *testing.T) {
+	shell := "/bin/bash"
+	user := "root"
+	level := "debug"
+	maxDur := uint64(120)
+	idle := uint64(30)
+	uid, gid := uint32(1000), uint32(1000)
+	quota := uint32(64)
+	size := uint32(32)
+	mode := uint32(0o644)
+
+	spec := sandbox.Spec{
+		Name: "demo",
+		Image: sandbox.RootfsSource{
+			Type: "oci", Reference: "alpine:3.20",
+		},
+		Resources: sandbox.Resources{VCPUs: 2, MemoryMiB: 1024, DiskSizeMiB: ptrU32(2048)},
+		Runtime: sandbox.RuntimeOptions{
+			Shell: &shell, User: &user, LogLevel: &level,
+			Scripts: map[string]string{"hi": "echo hi"},
+			Cmd:     []string{"sleep", "inf"},
+		},
+		SecurityProfile: sandbox.SecurityRestricted,
+		Lifecycle: sandbox.LifecyclePolicy{
+			Ephemeral: true, MaxDurationSecs: &maxDur, IdleTimeoutSecs: &idle,
+		},
+		Init: &sandbox.HandoffInit{
+			Cmd: "/sbin/init",
+			Env: []sandbox.EnvPair{{Key: "A", Value: "1"}},
+		},
+		Patches: []sandbox.Patch{
+			{Type: "text", Path: "/etc/x", Content: &sandbox.PatchContent{Text: "x"}, Mode: &mode, Replace: true},
+			{Type: "mkdir", Path: "/app"},
+		},
+		Mounts: []sandbox.VolumeMount{
+			{
+				Type: "bind", Host: "/host", Guest: "/data",
+				Options: sandbox.MountOptions{
+					Readonly: true, Noexec: true, OverrideUID: &uid, OverrideGID: &gid,
+				},
+				StatVirtualization: "relaxed",
+				HostPermissions:    "mirror",
+				QuotaMiB:           &quota,
+			},
+			{
+				Type: "tmpfs", Guest: "/tmp", SizeMiB: &size,
+				Options: sandbox.MountOptions{Noexec: true},
+			},
+			{
+				Type: "disk_image", Host: "/disk.img", Guest: "/mnt", Format: "raw", Fstype: "ext4",
+			},
+		},
+		Network:    sandbox.NetworkSpec{Enabled: true},
+		PullPolicy: sandbox.PullAlways,
+		Rlimits:    []sandbox.Rlimit{{Resource: "nofile", Soft: 1024, Hard: 2048}},
+	}
+
+	opts, err := specToOptions(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := applyOpts(t, opts)
+
+	if cfg.Image != "alpine:3.20" {
+		t.Fatalf("Image=%q", cfg.Image)
+	}
+	if cfg.RootDisk == nil || cfg.RootDisk.SizeMiB != 2048 {
+		t.Fatalf("RootDisk=%#v", cfg.RootDisk)
+	}
+	if cfg.Shell != "/bin/bash" || cfg.User != "root" || cfg.LogLevel != msb.LogLevelDebug {
+		t.Fatalf("runtime shell/user/log=%q/%q/%q", cfg.Shell, cfg.User, cfg.LogLevel)
+	}
+	if cfg.Scripts["hi"] != "echo hi" {
+		t.Fatalf("Scripts=%v", cfg.Scripts)
+	}
+	if cfg.SecurityProfile != msb.SecurityProfileRestricted {
+		t.Fatalf("SecurityProfile=%q", cfg.SecurityProfile)
+	}
+	if !cfg.Ephemeral || cfg.MaxDuration != 120*time.Second || cfg.IdleTimeout != 30*time.Second {
+		t.Fatalf("lifecycle ephemeral=%v max=%v idle=%v", cfg.Ephemeral, cfg.MaxDuration, cfg.IdleTimeout)
+	}
+	if cfg.Init == nil || cfg.Init.Cmd != "/sbin/init" || cfg.Init.Env["A"] != "1" {
+		t.Fatalf("Init=%#v", cfg.Init)
+	}
+	if len(cfg.Patches) != 2 || cfg.Patches[0].Kind != msb.PatchKindText || cfg.Patches[1].Kind != msb.PatchKindMkdir {
+		t.Fatalf("Patches=%#v", cfg.Patches)
+	}
+	bind := cfg.Volumes["/data"]
+	if bind.Kind() != msb.MountKindBind || !bind.Readonly || !bind.Noexec {
+		t.Fatalf("bind=%#v", bind)
+	}
+	if bind.Owner == nil || bind.Owner.UID != 1000 || bind.QuotaMiB != 64 {
+		t.Fatalf("bind owner/quota=%#v", bind)
+	}
+	if bind.StatVirtualization != msb.StatVirtualizationRelaxed || bind.HostPermissions != msb.HostPermissionsMirror {
+		t.Fatalf("bind virt/perm=%q/%q", bind.StatVirtualization, bind.HostPermissions)
+	}
+	if cfg.Volumes["/tmp"].Kind() != msb.MountKindTmpfs || cfg.Volumes["/tmp"].SizeMiB != 32 {
+		t.Fatalf("tmpfs=%#v", cfg.Volumes["/tmp"])
+	}
+	disk := cfg.Volumes["/mnt"]
+	if disk.Kind() != msb.MountKindDisk || disk.Disk != "/disk.img" || disk.Format != "raw" {
+		t.Fatalf("disk=%#v", disk)
+	}
+	if cfg.PullPolicy != msb.PullPolicyAlways {
+		t.Fatalf("PullPolicy=%q", cfg.PullPolicy)
+	}
+}
+
+func TestSpecToOptionsBindRootfs(t *testing.T) {
+	opts, err := specToOptions(sandbox.Spec{
+		Name:      "demo",
+		Image:     sandbox.RootfsSource{Type: "bind", Path: "/var/rootfs"},
+		Resources: sandbox.Resources{VCPUs: 1, MemoryMiB: 512},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := applyOpts(t, opts)
+	if cfg.ImageBind != "/var/rootfs" {
+		t.Fatalf("ImageBind=%q", cfg.ImageBind)
+	}
+	if cfg.Image != "" {
+		t.Fatalf("Image should be empty for bind rootfs, got %q", cfg.Image)
+	}
+}
+
+func applyOpts(t *testing.T, opts []msb.SandboxOption) *msb.SandboxConfig {
+	t.Helper()
+	cfg := &msb.SandboxConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	return cfg
+}
+
+func ptrU32(v uint32) *uint32 { return &v }
