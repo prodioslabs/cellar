@@ -1076,37 +1076,16 @@ func (c *controlServer) NodeUpdate(ctx context.Context, req *cellarv1.NodeUpdate
 
 func defaultAdvertise(listen string) string {
 	if strings.HasPrefix(listen, ":") {
-		return privateIPv4() + listen
+		return "127.0.0.1" + listen
 	}
 	return listen
 }
 
 func defaultRaftAddr(addr string) string {
 	if strings.HasPrefix(addr, ":") {
-		return privateIPv4() + addr
+		return "127.0.0.1" + addr
 	}
 	return addr
-}
-
-// privateIPv4 returns the first non-loopback RFC1918 IPv4 address, or
-// 127.0.0.1 if none is found.
-func privateIPv4() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "127.0.0.1"
-	}
-	for _, addr := range addrs {
-		ipNet, ok := addr.(*net.IPNet)
-		if !ok || ipNet.IP.IsLoopback() {
-			continue
-		}
-		ip := ipNet.IP.To4()
-		if ip == nil || !ip.IsPrivate() {
-			continue
-		}
-		return ip.String()
-	}
-	return "127.0.0.1"
 }
 
 // DialLocal connects to the local control socket.
