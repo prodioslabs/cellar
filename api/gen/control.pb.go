@@ -1769,7 +1769,7 @@ const file_control_proto_rawDesc = "" +
 	"\x13pub_key_fingerprint\x18\v \x01(\tR\x11pubKeyFingerprint\x12-\n" +
 	"\x13issued_at_unix_nano\x18\f \x01(\x03R\x10issuedAtUnixNano\x12/\n" +
 	"\x14expires_at_unix_nano\x18\r \x01(\x03R\x11expiresAtUnixNano\x12\x1b\n" +
-	"\tnode_type\x18\x0e \x01(\tR\bnodeType\x1a9\n" 
+	"\tnode_type\x18\x0e \x01(\tR\bnodeType\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x11\n" +
