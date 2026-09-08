@@ -54,12 +54,13 @@ See [macOS troubleshooting](https://docs.microsandbox.dev/troubleshooting/macos)
 On each host, install Cellar, create the `cellar` system user, and start the daemon:
 
 ```bash
-curl -fsSL https://cellar.prodioslabs.in/install.sh | sh
+curl -fsSL https://cellar.prodioslabs.in/install.sh | bash
 sudo systemd-sysusers
 sudo usermod -aG kvm cellar
 sudo systemctl daemon-reload
 sudo systemctl enable --now cellard
-sudo systemctl enable --now cellar-gateway   # optional: HTTP front door for apps
+# If you selected cellar-gateway in the installer menu:
+sudo systemctl enable --now cellar-gateway
 ```
 
 See [non-root access](/docs/install/non-root) to run the CLI without `sudo`.

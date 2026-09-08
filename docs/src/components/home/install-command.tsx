@@ -4,7 +4,7 @@ import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/cn'
 
-export const INSTALL_COMMAND = 'curl -fsSL https://cellar.prodioslabs.in/install.sh | sh'
+export const INSTALL_COMMAND = 'curl -fsSL https://cellar.prodioslabs.in/install.sh | bash'
 
 export function InstallCommand({
   command = INSTALL_COMMAND,
