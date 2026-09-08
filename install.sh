@@ -187,8 +187,11 @@ select_components() {
 	trap - EXIT INT TERM
 
 	for ((i = 0; i < n; i++)); do
-		[ "${selected[i]}" -eq 1 ] && printf '%s\n' "${options[i]}"
+		if [ "${selected[i]}" -eq 1 ]; then
+			printf '%s\n' "${options[i]}"
+		fi
 	done
+	return 0
 }
 
 resolve_components() {
