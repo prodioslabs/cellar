@@ -1,0 +1,11 @@
+region                   = "ap-south-1"
+cluster_name             = "Cellar"
+vpc_cidr                 = "10.0.0.0/16"
+instance_type            = "t3a.micro"
+key_name                 = "codios-aws"
+admin_cidr               = "0.0.0.0/0"
+manager_count            = 3
+worker_count             = 2
+idle_timeout             = 600
+deregistration_delay     = 300
+acm_certificate_arn      = "arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/UUID"
