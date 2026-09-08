@@ -23,6 +23,10 @@ fail() {
 	exit 1
 }
 
+# ./install.sh | INSTALL_CELLAR_GATEWAY=true closes the pipe immediately; the next
+# printf to stdout then dies with SIGPIPE and no message under set -e.
+trap 'fail "stdout pipe closed early. Do not pipe into INSTALL_CELLAR_GATEWAY=…. Use: INSTALL_CELLAR_GATEWAY=true '"$0"'   or: '"$0"' --install-cellar-gateway true"' PIPE
+
 command -v curl >/dev/null 2>&1 || fail "curl is required"
 command -v tar >/dev/null 2>&1 || fail "tar is required"
 
@@ -89,117 +93,79 @@ component_selected() {
 	esac
 }
 
-# Arrow-key navigable, space-selectable menu. Talks to /dev/tty on fd 3 so
-# stdout stays clean for capture. Defaults: cellar + cellard pre-checked.
-select_components() {
-	local prompt=$1
-	shift
-	local options=("$@")
-	local n=${#options[@]}
-	local cursor=0
-	local -a selected
-	local i key rest flip
+# Normalize true/false (case-insensitive). Prints "true" or "false"; returns 1 if invalid.
+parse_bool() {
+	case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+		true) printf 'true\n' ;;
+		false) printf 'false\n' ;;
+		*) return 1 ;;
+	esac
+}
 
-	if [ "$n" -eq 0 ]; then
-		fail "select_components: no options"
-	fi
+# CLI flag > INSTALL_CELLAR_GATEWAY env. Empty means unset.
+install_gateway_choice=
 
-	for ((i = 0; i < n; i++)); do
-		case " $DEFAULT_COMPONENTS " in
-			*" ${options[i]} "*) selected[i]=1 ;;
-			*) selected[i]=0 ;;
+parse_install_args() {
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+			--install-cellar-gateway)
+				[ "$#" -ge 2 ] || fail "--install-cellar-gateway requires true or false"
+				install_gateway_choice=$(parse_bool "$2") ||
+					fail "--install-cellar-gateway expects true or false (got: $2)"
+				shift 2
+				;;
+			--install-cellar-gateway=*)
+				install_gateway_choice=$(parse_bool "${1#*=}") ||
+					fail "--install-cellar-gateway expects true or false (got: ${1#*=})"
+				shift
+				;;
+			INSTALL_CELLAR_GATEWAY | INSTALL_CELLAR_GATEWAY=*)
+				fail "set the env var before the command, e.g. INSTALL_CELLAR_GATEWAY=true $0 … (or pass --install-cellar-gateway true)"
+				;;
+			-h | --help)
+				printf 'Usage: %s [--install-cellar-gateway true|false]\n' "$0"
+				printf '  Always installs cellar + cellard. Gateway is optional.\n'
+				printf '  Env: INSTALL_CELLAR_GATEWAY=true|false ./install.sh\n'
+				printf '  Curl: curl … | bash -s -- --install-cellar-gateway true\n'
+				printf '  Curl: curl … | INSTALL_CELLAR_GATEWAY=true bash\n'
+				exit 0
+				;;
+			*)
+				fail "unknown argument: $1 (try --install-cellar-gateway true|false)"
+				;;
 		esac
 	done
+}
 
-	exec 3<>/dev/tty
+parse_install_args "$@"
 
-	menu_cleanup() {
-		tput cnorm >&3 2>/dev/null || true
-		stty echo <&3 2>/dev/null || true
-		exec 3>&- 2>/dev/null || true
-	}
-	trap 'menu_cleanup' EXIT INT TERM
+if [ -z "$install_gateway_choice" ] && [ -n "${INSTALL_CELLAR_GATEWAY:-}" ]; then
+	install_gateway_choice=$(parse_bool "$INSTALL_CELLAR_GATEWAY") ||
+		fail "INSTALL_CELLAR_GATEWAY expects true or false (got: $INSTALL_CELLAR_GATEWAY)"
+fi
 
-	tput civis >&3
-	stty -echo <&3
-
-	draw() {
-		printf '\n  %s\033[K\n' "$prompt" >&3
-		for ((i = 0; i < n; i++)); do
-			local mark=" "
-			[ "${selected[i]}" -eq 1 ] && mark="✓"
-			if [ "$i" -eq "$cursor" ]; then
-				printf '\033[7m  ❯ [%s] %-30s\033[0m\033[K\n' "$mark" "${options[i]}" >&3
-			else
-				printf '    [%s] %-30s\033[K\n' "$mark" "${options[i]}" >&3
-			fi
-		done
-		printf '\n  \033[2m↑/↓ move · space select · enter confirm · a all · q quit\033[0m\033[K\n' >&3
-	}
-
-	# prompt + blank + n rows + blank + hint
-	erase() { tput cuu $((n + 4)) >&3; }
-
+prompt_install_gateway() {
+	local reply normalized
 	while true; do
-		draw
-
-		IFS= read -rsn1 -u 3 key
-		case $key in
-			$'\x1b')
-				# Arrow keys arrive as ESC [ A/B. Short timeout so a bare Esc doesn't hang.
-				read -rsn2 -t 0.05 -u 3 rest || true
-				case ${rest:-} in
-					'[A') cursor=$(( (cursor - 1 + n) % n )) ;;
-					'[B') cursor=$(( (cursor + 1) % n )) ;;
-				esac
-				;;
-			'k' | 'K') cursor=$(( (cursor - 1 + n) % n )) ;;
-			'j' | 'J') cursor=$(( (cursor + 1) % n )) ;;
-			' ') selected[cursor]=$((1 - selected[cursor])) ;;
-			'a' | 'A')
-				flip=1
-				for ((i = 0; i < n; i++)); do
-					if [ "${selected[i]}" -eq 1 ]; then
-						flip=0
-					fi
-				done
-				for ((i = 0; i < n; i++)); do selected[i]=$flip; done
-				;;
-			'q' | 'Q')
-				erase
-				tput ed >&3
-				menu_cleanup
-				trap - EXIT INT TERM
-				exit 130
-				;;
-			'')
-				break
+		printf 'Install cellar-gateway? [y/N] ' >/dev/tty
+		IFS= read -r reply </dev/tty || reply=
+		normalized=$(printf '%s' "$reply" | tr '[:upper:]' '[:lower:]')
+		case "$normalized" in
+			y | yes | true) return 0 ;;
+			n | no | false | '') return 1 ;;
+			*)
+				printf 'Please answer y or n (or true/false).\n' >/dev/tty
 				;;
 		esac
-
-		erase
 	done
-
-	erase
-	tput ed >&3
-
-	menu_cleanup
-	trap - EXIT INT TERM
-
-	for ((i = 0; i < n; i++)); do
-		if [ "${selected[i]}" -eq 1 ]; then
-			printf '%s\n' "${options[i]}"
-		fi
-	done
-	return 0
 }
 
 resolve_components() {
-	local picks raw item
+	local raw item want_gateway
 	local -a list=()
 
 	if [ -n "${CELLAR_COMPONENTS:-}" ]; then
-		# Allow comma and/or whitespace separators.
+		# Allow comma and/or whitespace separators. Full override; skips flag/prompt.
 		raw=${CELLAR_COMPONENTS//,/ }
 		for item in $raw; do
 			[ -n "$item" ] || continue
@@ -208,19 +174,47 @@ resolve_components() {
 		done
 		[ ${#list[@]} -gt 0 ] || fail "CELLAR_COMPONENTS is empty"
 		printf 'Using CELLAR_COMPONENTS: %s\n' "${list[*]}"
+		selected_components="${list[*]}"
+		return 0
+	fi
+
+	# shellcheck disable=SC2206
+	list=($DEFAULT_COMPONENTS)
+
+	if [ -n "$install_gateway_choice" ]; then
+		want_gateway=$install_gateway_choice
+	elif [ ! -t 1 ]; then
+		# Common misuse: ./install.sh | INSTALL_CELLAR_GATEWAY=true (dead pipe + would hang on prompt).
+		_print_misuse() {
+			printf 'Note: stdout is not a terminal.\n'
+			printf '  Wrong:   %s | INSTALL_CELLAR_GATEWAY=true\n' "$0"
+			printf '  Correct: INSTALL_CELLAR_GATEWAY=true %s\n' "$0"
+			printf '  Or:      %s --install-cellar-gateway true\n' "$0"
+		}
+		if ( : >/dev/tty ) 2>/dev/null; then
+			_print_misuse >/dev/tty
+		else
+			_print_misuse >&2
+		fi
+		unset -f _print_misuse
+		exit 1
 	elif [ -c /dev/tty ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
-		picks=$(select_components "Select Cellar components to install:" $ALL_COMPONENTS)
-		while IFS= read -r item; do
-			[ -n "$item" ] || continue
-			list+=("$item")
-		done <<<"$picks"
-		[ ${#list[@]} -gt 0 ] || fail "no components selected"
+		if prompt_install_gateway; then
+			want_gateway=true
+		else
+			want_gateway=false
+		fi
 	else
-		# No TTY (e.g. some automation): manager-friendly defaults.
-		# shellcheck disable=SC2206
-		list=($DEFAULT_COMPONENTS)
-		printf 'No TTY; installing defaults (%s). Set CELLAR_COMPONENTS to override; cellar-gateway skipped.\n' \
+		want_gateway=false
+		printf 'No TTY; installing defaults (%s). Use --install-cellar-gateway or INSTALL_CELLAR_GATEWAY to include the gateway.\n' \
 			"${list[*]}"
+	fi
+
+	if [ "$want_gateway" = true ]; then
+		list+=(cellar-gateway)
+		printf 'Including cellar-gateway.\n'
+	else
+		printf 'Skipping cellar-gateway.\n'
 	fi
 
 	selected_components="${list[*]}"

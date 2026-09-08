@@ -36,7 +36,9 @@ duplicating them here.
 
 ### Install
 - `curl … | bash` (`install.sh`) and `make install` support **Linux and Darwin**.
-  `install.sh` is bash (interactive component menu); do not pipe to `sh`.
+  `install.sh` is bash (always installs `cellar` + `cellard`; optional gateway via
+  `--install-cellar-gateway` / `INSTALL_CELLAR_GATEWAY` or a y/N TTY prompt); do not
+  pipe to `sh`.
 - Linux: binaries → `$PREFIX/bin` (default `/usr/local`), plus systemd units +
   sysusers from `contrib/`.
 - Darwin: host tools → `$PREFIX/bin` (default `~/.local/bin`, no sudo); LaunchAgents

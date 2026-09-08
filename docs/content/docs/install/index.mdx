@@ -18,13 +18,18 @@ curl -fsSL https://cellar.prodioslabs.in/install.sh | CELLAR_VERSION=v0.5.0 bash
 
 </Callout>
 
-The installer detects **linux** / **darwin** and **amd64** / **arm64** (macOS is Apple Silicon / arm64 only — Intel Macs are not supported), verifies archives against `checksums.txt`, and installs selected binaries (plus matching systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`). It uses `sudo` when needed, but does not enable or start the services.
+The installer detects **linux** / **darwin** and **amd64** / **arm64** (macOS is Apple Silicon / arm64 only — Intel Macs are not supported), verifies archives against `checksums.txt`, and always installs **`cellar`** + **`cellard`** (plus matching systemd units and sysusers on Linux; LaunchAgents under `~/Library/LaunchAgents` on macOS with a default prefix of `~/.local`). It uses `sudo` when needed, but does not enable or start the services.
 
-On a TTY it shows an interactive menu (`cellar`, `cellard`, `cellar-gateway`) with **`cellar` + `cellard` pre-selected** (gateway off by default for manager nodes). Without a TTY it installs those same defaults. Override non-interactively:
+`cellar-gateway` is optional. On a TTY with no flag, the installer asks `Install cellar-gateway? [y/N]`. Without a TTY it skips the gateway. Set the choice non-interactively:
 
 ```bash
-curl -fsSL https://cellar.prodioslabs.in/install.sh | CELLAR_COMPONENTS=cellar,cellard,cellar-gateway bash
+curl -fsSL https://cellar.prodioslabs.in/install.sh | bash -s -- --install-cellar-gateway true
+curl -fsSL https://cellar.prodioslabs.in/install.sh | bash -s -- --install-cellar-gateway false
+# or:
+curl -fsSL https://cellar.prodioslabs.in/install.sh | INSTALL_CELLAR_GATEWAY=true bash
 ```
+
+Advanced: `CELLAR_COMPONENTS` (comma/space list) fully overrides the component set and skips the gateway flag/prompt.
 
 To set a prefix:
 
