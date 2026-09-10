@@ -22,15 +22,16 @@ module "vpc" {
 module "ec2" {
   source = "./modules/ec2"
 
-  region        = var.region
-  cluster_name  = var.cluster_name
-  instance_type = var.instance_type
-  key_name      = var.key_name
-  admin_cidr    = var.admin_cidr
-  manager_count = var.manager_count
-  worker_count  = var.worker_count
-  vpc_id        = module.vpc.vpc_id
-  subnet_ids    = module.vpc.subnet_ids
+  region           = var.region
+  cluster_name     = var.cluster_name
+  instance_type    = var.instance_type
+  root_volume_size = var.root_volume_size
+  root_volume_type = var.root_volume_type
+  key_name         = var.key_name
+  manager_count    = var.manager_count
+  worker_count     = var.worker_count
+  vpc_id           = module.vpc.vpc_id
+  subnet_ids       = module.vpc.subnet_ids
 }
 
 module "alb" {

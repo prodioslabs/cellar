@@ -24,6 +24,7 @@ locals {
     Cluster = var.cluster_name
   }
 
+  # Default node ingress: TCP open to the internet (matches cluster bring-up needs).
   node_ports = {
     ssh     = 22
     http    = 80
@@ -32,6 +33,8 @@ locals {
     grpc    = 17946
     raft    = 17947
   }
+
+  node_ingress_cidr = "0.0.0.0/0"
 
   common_init = <<-EOT
 #!/bin/bash
@@ -156,7 +159,7 @@ resource "aws_security_group_rule" "node_ingress" {
   from_port         = each.value
   to_port           = each.value
   protocol          = "tcp"
-  cidr_blocks       = [var.admin_cidr]
+  cidr_blocks       = [local.node_ingress_cidr]
   security_group_id = aws_security_group.node.id
 }
 
@@ -228,8 +231,8 @@ resource "aws_instance" "manager" {
   depends_on             = [aws_security_group.node]
 
   root_block_device {
-    volume_size = 20
-    volume_type = "gp3"
+    volume_size = var.root_volume_size
+    volume_type = var.root_volume_type
   }
 
   tags = merge(local.common_tags, {
@@ -252,8 +255,8 @@ resource "aws_instance" "worker" {
   depends_on             = [aws_instance.manager]
 
   root_block_device {
-    volume_size = 20
-    volume_type = "gp3"
+    volume_size = var.root_volume_size
+    volume_type = var.root_volume_type
   }
 
   tags = merge(local.common_tags, {

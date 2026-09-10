@@ -18,13 +18,23 @@ variable "instance_type" {
   type        = string
 }
 
+variable "root_volume_size" {
+  description = "Root EBS volume size in GiB for each EC2 instance"
+  type        = number
+}
+
+variable "root_volume_type" {
+  description = "Root EBS volume type for each EC2 instance"
+  type        = string
+}
+
 variable "key_name" {
   description = "Existing EC2 key pair name"
   type        = string
 }
 
 variable "admin_cidr" {
-  description = "CIDR allowed to reach node and ALB ports"
+  description = "CIDR allowed to reach the ALB HTTPS listener (node SG ports are hardcoded to 0.0.0.0/0)"
   type        = string
 }
 
