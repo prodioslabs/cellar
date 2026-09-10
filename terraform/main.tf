@@ -39,6 +39,10 @@ module "alb" {
   cluster_name           = var.cluster_name
   admin_cidr             = var.admin_cidr
   acm_certificate_arn    = var.acm_certificate_arn
+  acm_domain_name        = var.acm_domain_name
+  route53_zone_id        = var.route53_zone_id
+  route53_zone_name      = var.route53_zone_name
+  create_dns_alias       = var.create_dns_alias
   idle_timeout           = var.idle_timeout
   deregistration_delay   = var.deregistration_delay
   vpc_id                 = module.vpc.vpc_id

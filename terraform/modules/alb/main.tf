@@ -2,6 +2,67 @@ locals {
   common_tags = {
     Cluster = var.cluster_name
   }
+
+  create_acm = trimspace(var.acm_certificate_arn) == ""
+
+  route53_zone_id = local.create_acm ? (
+    trimspace(var.route53_zone_id) != "" ? var.route53_zone_id : data.aws_route53_zone.acm[0].zone_id
+  ) : ""
+
+  certificate_arn = local.create_acm ? aws_acm_certificate_validation.gateway[0].certificate_arn : var.acm_certificate_arn
+}
+
+check "acm_inputs" {
+  assert {
+    condition     = !local.create_acm || trimspace(var.acm_domain_name) != ""
+    error_message = "Set acm_domain_name when acm_certificate_arn is empty so Terraform can create an ACM certificate."
+  }
+}
+
+data "aws_route53_zone" "acm" {
+  count = local.create_acm && trimspace(var.route53_zone_id) == "" ? 1 : 0
+
+  name         = trimspace(var.route53_zone_name) != "" ? var.route53_zone_name : var.acm_domain_name
+  private_zone = false
+}
+
+resource "aws_acm_certificate" "gateway" {
+  count = local.create_acm ? 1 : 0
+
+  domain_name       = var.acm_domain_name
+  validation_method = "DNS"
+
+  tags = merge(local.common_tags, {
+    Name = "${var.cluster_name}-gateway-cert"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "acm_validation" {
+  for_each = local.create_acm ? {
+    for dvo in aws_acm_certificate.gateway[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = local.route53_zone_id
+}
+
+resource "aws_acm_certificate_validation" "gateway" {
+  count = local.create_acm ? 1 : 0
+
+  certificate_arn         = aws_acm_certificate.gateway[0].arn
+  validation_record_fqdns = [for record in aws_route53_record.acm_validation : record.fqdn]
 }
 
 resource "aws_security_group" "alb" {
@@ -95,10 +156,24 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.acm_certificate_arn
+  certificate_arn   = local.certificate_arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.gateway.arn
+  }
+}
+
+resource "aws_route53_record" "gateway_alias" {
+  count = local.create_acm && var.create_dns_alias ? 1 : 0
+
+  zone_id = local.route53_zone_id
+  name    = var.acm_domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.gateway.dns_name
+    zone_id                = aws_lb.gateway.zone_id
+    evaluate_target_health = true
   }
 }

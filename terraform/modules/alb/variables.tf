@@ -9,8 +9,33 @@ variable "admin_cidr" {
 }
 
 variable "acm_certificate_arn" {
-  description = "ARN of an existing ACM certificate in this region for HTTPS:443"
+  description = "Existing ACM certificate ARN. Leave empty to create a new certificate for acm_domain_name."
   type        = string
+  default     = ""
+}
+
+variable "acm_domain_name" {
+  description = "FQDN for a new ACM certificate (required when acm_certificate_arn is empty)"
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_id" {
+  description = "Route53 hosted zone ID for ACM DNS validation (and optional alias). Empty looks up route53_zone_name / acm_domain_name."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_name" {
+  description = "Public Route53 zone name used when route53_zone_id is empty and a cert is created"
+  type        = string
+  default     = ""
+}
+
+variable "create_dns_alias" {
+  description = "When creating a cert, also create a Route53 alias from acm_domain_name to the ALB"
+  type        = bool
+  default     = true
 }
 
 variable "idle_timeout" {

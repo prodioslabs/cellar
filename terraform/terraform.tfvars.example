@@ -1,11 +1,20 @@
-region                   = "ap-south-1"
-cluster_name             = "Cellar"
-vpc_cidr                 = "10.0.0.0/16"
-instance_type            = "t3a.micro"
-key_name                 = "codios-aws"
-admin_cidr               = "0.0.0.0/0"
-manager_count            = 3
-worker_count             = 2
-idle_timeout             = 600
-deregistration_delay     = 300
-acm_certificate_arn      = "arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/UUID"
+region               = "<REGION>"               # us-east-1
+cluster_name         = "<YOUR_CLUSTER_NAME>"    # sandbox
+vpc_cidr             = "<YOUR_VPC_CIDR>"        # 10.0.0.1/16
+instance_type        = "<YOUR_INSTANCE_TYPE>"   # t2.small
+key_name             = "<YOUR_KEY_PAIR>"        # existing cloud key-pair
+admin_cidr           = "0.0.0.0/0"
+manager_count        = 3
+worker_count         = 2
+idle_timeout         = 600
+deregistration_delay = 300
+
+# Option A: existing ACM certificate in the same region
+# acm_certificate_arn = "arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/UUID"
+
+# Option B: create a certificate (leave ARN empty)
+acm_certificate_arn = ""
+acm_domain_name     = "gateway.example.com"
+route53_zone_name   = "example.com" # public hosted zone that can validate acm_domain_name
+# route53_zone_id   = "Zxxxxxxxx"   # optional explicit zone ID
+create_dns_alias    = true

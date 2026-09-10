@@ -53,6 +53,11 @@ output "alb_arn" {
   value       = module.alb.alb_arn
 }
 
+output "certificate_arn" {
+  description = "ACM certificate ARN used by the HTTPS listener"
+  value       = module.alb.certificate_arn
+}
+
 output "gateway_url" {
   description = "HTTPS URL for cellar-gateway via the ALB"
   value       = module.alb.gateway_url

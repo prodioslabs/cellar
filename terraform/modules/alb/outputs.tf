@@ -18,7 +18,12 @@ output "target_group_arn" {
   value       = aws_lb_target_group.gateway.arn
 }
 
+output "certificate_arn" {
+  description = "ACM certificate ARN used by the HTTPS listener"
+  value       = local.certificate_arn
+}
+
 output "gateway_url" {
-  description = "HTTPS URL for cellar-gateway via the ALB"
-  value       = "https://${aws_lb.gateway.dns_name}"
+  description = "HTTPS URL for cellar-gateway (domain alias when created, otherwise ALB DNS)"
+  value       = local.create_acm && var.create_dns_alias ? "https://${var.acm_domain_name}" : "https://${aws_lb.gateway.dns_name}"
 }

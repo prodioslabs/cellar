@@ -36,54 +36,78 @@ locals {
   common_init = <<-EOT
 #!/bin/bash
 set -euxo pipefail
+exec > >(tee -a /var/log/cellar-bootstrap.log) 2>&1
 export DEBIAN_FRONTEND=noninteractive
+export HOME=/root
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+export CELLAR_DATA_DIR=/var/lib/cellar
+export CELLAR_COMPONENTS=cellard,cellar,cellar-gateway
+
 apt-get update -y
 apt-get install -y unzip curl jq
-curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscli.zip
-unzip -q /tmp/awscli.zip -d /tmp && /tmp/aws/install
+
+if ! command -v aws >/dev/null 2>&1; then
+  curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscli.zip
+  unzip -q /tmp/awscli.zip -d /tmp
+  /tmp/aws/install
+fi
+
 IMDS=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
   -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
 PRIVATE_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $IMDS" \
   http://169.254.169.254/latest/meta-data/local-ipv4)
-export CELLAR_COMPONENTS=cellard,cellar,cellar-gateway
+
 curl -fsSL https://cellar.prodioslabs.in/install.sh | bash
-systemd-sysusers || true
-usermod -aG kvm cellar || true
+systemd-sysusers
+getent group kvm >/dev/null || groupadd --system kvm
+usermod -aG kvm cellar
 systemctl daemon-reload
 systemctl enable --now cellard
-for i in $(seq 1 60); do
-  if [ -S /var/run/cellar/cellar.sock ]; then
+
+ok=0
+for i in $(seq 1 90); do
+  if [ -S /var/run/cellar/cellar.sock ] || [ -S /run/cellar/cellar.sock ]; then
+    ok=1
     break
   fi
+  systemctl is-active --quiet cellard || systemctl status cellard --no-pager || true
   sleep 2
 done
+if [ "$ok" -ne 1 ]; then
+  echo "cellard socket did not appear" >&2
+  systemctl status cellard --no-pager || true
+  journalctl -u cellard -n 100 --no-pager || true
+  exit 1
+fi
 EOT
 
   leader_init = <<-EOT
 ${local.common_init}
 cellar init --advertise-addr "$PRIVATE_IP:17946" --raft-addr "$PRIVATE_IP:17947"
-MANAGER_TOKEN=$(cellar join-token manager | awk '/cellar join/{print $4}')
-WORKER_TOKEN=$(cellar join-token worker | awk '/cellar join/{print $4}')
+MANAGER_TOKEN=$(cellar join-token manager | awk '/--token/{for(i=1;i<=NF;i++) if($i=="--token"){print $(i+1); exit}}')
+WORKER_TOKEN=$(cellar join-token worker | awk '/--token/{for(i=1;i<=NF;i++) if($i=="--token"){print $(i+1); exit}}')
+test -n "$MANAGER_TOKEN"
+test -n "$WORKER_TOKEN"
 aws ssm put-parameter --region ${var.region} --overwrite --type SecureString \
   --name "${local.ssm_prefix}/manager-token" --value "$MANAGER_TOKEN"
 aws ssm put-parameter --region ${var.region} --overwrite --type SecureString \
   --name "${local.ssm_prefix}/worker-token" --value "$WORKER_TOKEN"
 aws ssm put-parameter --region ${var.region} --overwrite --type String \
   --name "${local.ssm_prefix}/leader-addr" --value "$PRIVATE_IP:17946"
+echo "leader bootstrap complete"
 EOT
 
   join_init = {
     for role in ["manager", "worker"] : role => <<-EOT
 ${local.common_init}
-%{if role == "worker"}
-systemctl enable --now cellar-gateway
-%{endif}
 until aws ssm get-parameter --region ${var.region} \
   --name "${local.ssm_prefix}/leader-addr" >/dev/null 2>&1; do sleep 10; done
 LEADER_ADDR=$(aws ssm get-parameter --region ${var.region} \
   --name "${local.ssm_prefix}/leader-addr" --query Parameter.Value --output text)
 JOIN_TOKEN=$(aws ssm get-parameter --region ${var.region} --with-decryption \
   --name "${local.ssm_prefix}/${role}-token" --query Parameter.Value --output text)
+test -n "$LEADER_ADDR"
+test -n "$JOIN_TOKEN"
 %{if role == "manager"}
 cellar join --token "$JOIN_TOKEN" \
   --advertise-addr "$PRIVATE_IP:17946" \
@@ -91,7 +115,18 @@ cellar join --token "$JOIN_TOKEN" \
   "$LEADER_ADDR"
 %{else}
 cellar join --token "$JOIN_TOKEN" "$LEADER_ADDR"
+# Gateway needs cluster state from a completed join for /readyz.
+systemctl enable --now cellar-gateway
+systemctl restart cellar-gateway
+for i in $(seq 1 60); do
+  if curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null
 %{endif}
+echo "${role} bootstrap complete"
 EOT
   }
 }
@@ -206,9 +241,9 @@ resource "aws_instance" "manager" {
 resource "aws_instance" "worker" {
   count = var.worker_count
 
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = var.instance_type
-  key_name               = data.aws_key_pair.this.key_name
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+  key_name      = data.aws_key_pair.this.key_name
   # Continue round-robin after managers so nodes cover every regional subnet/AZ.
   subnet_id              = element(var.subnet_ids, count.index + var.manager_count)
   vpc_security_group_ids = [aws_security_group.node.id]
