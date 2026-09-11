@@ -1,10 +1,9 @@
 import { source } from '@/lib/source'
 import { DocsLayout } from 'fumadocs-ui/layouts/docs'
 import { ProdiosCredit } from '@/components/footer'
-import { githubStarsRevalidateSeconds } from '@/lib/github-stars'
 import { baseOptions } from '@/lib/layout.shared'
 
-export const revalidate = githubStarsRevalidateSeconds
+export const revalidate = 60
 
 export default function Layout({ children }: LayoutProps<'/docs'>) {
   return (
