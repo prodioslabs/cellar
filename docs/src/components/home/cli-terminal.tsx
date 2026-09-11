@@ -141,7 +141,9 @@ const SCRIPT: Step[] = [
   {
     host: 'manager-a',
     command: 'cellar sandbox create --name demo --image alpine:3.20 --start',
-    output: ['sandbox abc123de created (name=demo node=9e8d7c6b phase=pending)'],
+    output: [
+      'sandbox abc123de created (name=demo node=9e8d7c6b phase=pending)',
+    ],
     stage: 5,
   },
 ]
@@ -199,7 +201,9 @@ function NodeCard({
       )}
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px] text-fd-muted-foreground">{addr}</span>
+        <span className="font-mono text-[11px] text-fd-muted-foreground">
+          {addr}
+        </span>
         <span
           className={cn(
             'size-2 rounded-full transition-colors',
@@ -219,7 +223,9 @@ function NodeCard({
         </span>
         <p className="truncate text-sm font-semibold">{name}</p>
       </div>
-      <p className="mt-0.5 text-xs text-pretty text-fd-muted-foreground">{subtitle}</p>
+      <p className="mt-0.5 text-xs text-pretty text-fd-muted-foreground">
+        {subtitle}
+      </p>
       <div
         className={cn(
           'mt-2.5 rounded-md px-2 py-1.5 font-mono text-[11px] break-words transition-all duration-500',
@@ -267,7 +273,9 @@ function ClusterDiagram({ stage }: { stage: number }) {
 
       <p className="mb-2 text-[11px] font-medium tracking-wide text-fd-muted-foreground uppercase">
         Managers
-        <span className="ml-1.5 font-mono font-normal normal-case">{managerCount}/2</span>
+        <span className="ml-1.5 font-mono font-normal normal-case">
+          {managerCount}/2
+        </span>
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <NodeCard
@@ -283,14 +291,18 @@ function ClusterDiagram({ stage }: { stage: number }) {
           name="manager-b"
           addr="192.0.2.11"
           on={managerB}
-          subtitle={managerB ? 'Raft follower · gRPC :17946' : 'waiting for join token'}
+          subtitle={
+            managerB ? 'Raft follower · gRPC :17946' : 'waiting for join token'
+          }
           footer="raftstore · replica"
         />
       </div>
 
       <p className="mt-4 mb-2 text-[11px] font-medium tracking-wide text-fd-muted-foreground uppercase">
         Workers
-        <span className="ml-1.5 font-mono font-normal normal-case">{workerCount}/2</span>
+        <span className="ml-1.5 font-mono font-normal normal-case">
+          {workerCount}/2
+        </span>
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <NodeCard
@@ -313,8 +325,8 @@ function ClusterDiagram({ stage }: { stage: number }) {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-fd-muted-foreground">
-        Managers replicate cluster state with Raft. Workers run microsandbox VMs scheduled from that
-        shared desired state.
+        Managers replicate cluster state with Raft. Workers run microsandbox VMs
+        scheduled from that shared desired state.
       </p>
     </div>
   )
@@ -393,14 +405,20 @@ export function CliTerminal({
         {lines.map((line) => {
           if (line.kind === 'host') {
             return (
-              <div key={line.key} className="mt-2 text-sky-700 first:mt-0 dark:text-sky-400/90">
+              <div
+                key={line.key}
+                className="mt-2 text-sky-700 first:mt-0 dark:text-sky-400/90"
+              >
                 # {line.text}
               </div>
             )
           }
           if (line.kind === 'output') {
             return (
-              <div key={line.key} className="text-neutral-500 dark:text-neutral-400">
+              <div
+                key={line.key}
+                className="text-neutral-500 dark:text-neutral-400"
+              >
                 {line.text || '\u00a0'}
               </div>
             )
@@ -494,14 +512,18 @@ export function CliShowcase() {
     <section className="border-t border-fd-border px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
       <div className="mx-auto w-full max-w-(--fd-layout-width) min-w-0">
         <div className="mb-8 max-w-3xl sm:mb-10">
-          <p className="mb-2 text-sm font-medium text-fd-muted-foreground">Cluster</p>
+          <p className="mb-2 text-sm font-medium text-fd-muted-foreground">
+            Cluster
+          </p>
           <h2 className="mb-4 text-xl font-bold tracking-tight text-balance sm:text-2xl lg:text-3xl">
             Start a cluster. Add machines when you need them.
           </h2>
           <p className="text-pretty text-fd-muted-foreground">
-            Bootstrap a manager, join more nodes, and create sandboxes. Cellar keeps cluster state
-            in <code className="font-mono text-[13px]">Raft</code>, then places hardware-isolated
-            VMs on workers that are ready. You don&apos;t write YAML for this.
+            Bootstrap a manager, join more nodes, and create sandboxes. Cellar
+            keeps cluster state in{' '}
+            <code className="font-mono text-[13px]">Raft</code>, then places
+            hardware-isolated VMs on workers that are ready. You don&apos;t
+            write YAML for this.
           </p>
         </div>
 
@@ -519,7 +541,9 @@ export function CliShowcase() {
             <ClusterDiagram stage={stage} />
             <ol className="space-y-3 text-sm">
               <li className="flex gap-3">
-                <span className="mt-0.5 font-mono text-fd-muted-foreground">1</span>
+                <span className="mt-0.5 font-mono text-fd-muted-foreground">
+                  1
+                </span>
                 <span>
                   <Link
                     href="/docs/cluster/initialization"
@@ -531,9 +555,13 @@ export function CliShowcase() {
                 </span>
               </li>
               <li className="flex gap-3">
-                <span className="mt-0.5 font-mono text-fd-muted-foreground">2</span>
+                <span className="mt-0.5 font-mono text-fd-muted-foreground">
+                  2
+                </span>
                 <span>
-                  Mint a <code className="font-mono text-[13px]">join-token</code>, then{' '}
+                  Mint a{' '}
+                  <code className="font-mono text-[13px]">join-token</code>,
+                  then{' '}
                   <Link
                     href="/docs/cluster/initialization#join-a-worker"
                     className="font-medium text-fd-foreground underline-offset-4 hover:underline"
@@ -544,13 +572,17 @@ export function CliShowcase() {
                 </span>
               </li>
               <li className="flex gap-3">
-                <span className="mt-0.5 font-mono text-fd-muted-foreground">3</span>
+                <span className="mt-0.5 font-mono text-fd-muted-foreground">
+                  3
+                </span>
                 <span>
                   <Link
                     href="/docs/sandboxes"
                     className="font-medium text-fd-foreground underline-offset-4 hover:underline"
                   >
-                    <code className="font-mono text-[13px]">sandbox create</code>
+                    <code className="font-mono text-[13px]">
+                      sandbox create
+                    </code>
                   </Link>{' '}
                   puts a microsandbox VM on a live node
                 </span>
@@ -593,9 +625,8 @@ export function CliShowcase() {
                 {
                   title: 'AWS',
                   body: 'EC2 or bare metal with KVM. Same Cellar install as anywhere else.',
-                  href: '/docs/cluster/initialization',
-                  icon: <AwsIcon className="size-5" />,
                   href: '/docs/install/terraform',
+                  icon: <AwsIcon className="size-5" />,
                   linkLabel: 'Learn more',
                 },
                 {
@@ -615,31 +646,29 @@ export function CliShowcase() {
                 body: string
                 href: string
                 icon: ReactNode
-                href?: string
                 linkLabel?: string
               }>
             ).map((card) => (
               <Link
                 key={card.title}
                 href={card.href}
-                className="min-w-0 rounded-xl border border-fd-border bg-fd-card px-4 py-4 transition-colors hover:bg-fd-accent/40"
+                className="group min-w-0 rounded-xl border border-fd-border bg-fd-card px-4 py-4 transition-colors hover:bg-fd-accent/40"
               >
                 <div className="mb-2 flex min-w-0 items-center gap-2.5">
                   <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-fd-border bg-fd-background text-fd-foreground">
                     {card.icon}
                   </span>
-                  <h3 className="truncate text-sm font-semibold">{card.title}</h3>
+                  <h3 className="truncate text-sm font-semibold">
+                    {card.title}
+                  </h3>
                 </div>
                 <p className="text-sm text-fd-muted-foreground">{card.body}</p>
-                {'href' in card && card.href ? (
-                  <Link
-                    href={card.href}
-                    className="mt-3 inline-flex text-sm font-medium text-fd-primary underline-offset-4 hover:underline"
-                  >
+                {'linkLabel' in card && card.linkLabel ? (
+                  <span className="mt-3 inline-flex text-sm font-medium text-fd-primary underline-offset-4 group-hover:underline">
                     {card.linkLabel} →
-                  </Link>
+                  </span>
                 ) : null}
-              </div>
+              </Link>
             ))}
           </div>
         </div>
