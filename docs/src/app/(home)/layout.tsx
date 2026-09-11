@@ -1,6 +1,9 @@
 import { HomeLayout } from 'fumadocs-ui/layouts/home'
 import { Footer } from '@/components/footer'
+import { githubStarsRevalidateSeconds } from '@/lib/github-stars'
 import { baseOptions } from '@/lib/layout.shared'
+
+export const revalidate = githubStarsRevalidateSeconds
 
 export default function Layout({ children }: LayoutProps<'/'>) {
   return (

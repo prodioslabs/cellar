@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react'
 import { Suspense, use } from 'react'
-import { fetchRepositoryInfo } from 'fumadocs-ui/components/github-info'
 import { cn } from '@/lib/cn'
+import { getGitHubStars } from '@/lib/github-stars'
 import { gitConfig } from '@/lib/shared'
 
 export const githubRepoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`
@@ -10,15 +10,6 @@ const starFormatter = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
 })
-
-const repoInfoPromise = fetchRepositoryInfo({
-  owner: gitConfig.user,
-  repo: gitConfig.repo,
-  token: process.env.GITHUB_TOKEN,
-}).then(
-  (info) => info.stars,
-  () => null,
-)
 
 type GitHubStarLinkProps = {
   className?: string
@@ -34,7 +25,7 @@ export function GitHubStarLink(props: GitHubStarLinkProps) {
 }
 
 function GitHubStarLinkInner(props: GitHubStarLinkProps) {
-  return <GitHubStarAnchor stars={use(repoInfoPromise)} {...props} />
+  return <GitHubStarAnchor stars={use(getGitHubStars())} {...props} />
 }
 
 function GitHubStarAnchor({
