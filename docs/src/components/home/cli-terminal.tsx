@@ -1,6 +1,7 @@
 'use client'
 
 import { Box, Server, Shield } from 'lucide-react'
+import Link from 'next/link'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/cn'
 
@@ -554,6 +555,8 @@ export function CliShowcase() {
                   title: 'AWS',
                   body: 'EC2 or bare metal with KVM. Same Cellar install as anywhere else.',
                   icon: <AwsIcon className="size-5" />,
+                  href: '/docs/install/terraform',
+                  linkLabel: 'Learn more',
                 },
                 {
                   title: 'GCP',
@@ -569,6 +572,8 @@ export function CliShowcase() {
                 title: string
                 body: string
                 icon: ReactNode
+                href?: string
+                linkLabel?: string
               }>
             ).map((card) => (
               <div
@@ -582,6 +587,14 @@ export function CliShowcase() {
                   <h3 className="truncate text-sm font-semibold">{card.title}</h3>
                 </div>
                 <p className="text-sm text-fd-muted-foreground">{card.body}</p>
+                {'href' in card && card.href ? (
+                  <Link
+                    href={card.href}
+                    className="mt-3 inline-flex text-sm font-medium text-fd-primary underline-offset-4 hover:underline"
+                  >
+                    {card.linkLabel} →
+                  </Link>
+                ) : null}
               </div>
             ))}
           </div>

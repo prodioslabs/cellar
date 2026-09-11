@@ -1,4 +1,4 @@
 {
   "title": "Install",
-  "pages": ["index", "non-root"]
+  "pages": ["index", "non-root", "terraform"]
 }
