@@ -61,14 +61,6 @@ PRIVATE_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $IMDS" \
   http://169.254.169.254/latest/meta-data/local-ipv4)
 
 curl -fsSL https://cellar.prodioslabs.in/install.sh | bash
-# Installer ships a stock unit; pin the control socket to systemd RuntimeDirectory
-# (/run/cellar) so the host CLI can dial it (ProtectSystem can hide /var/run).
-install -d /etc/systemd/system/cellard.service.d
-cat >/etc/systemd/system/cellard.service.d/override.conf <<'EOF'
-[Service]
-ExecStart=
-ExecStart=/usr/local/bin/cellard --socket /run/cellar/cellar.sock --data-dir /var/lib/cellar
-EOF
 systemd-sysusers
 getent group kvm >/dev/null || groupadd --system kvm
 usermod -aG kvm cellar
