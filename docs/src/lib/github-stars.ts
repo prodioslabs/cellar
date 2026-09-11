@@ -1,9 +1,10 @@
+import { cache } from 'react'
 import { fetchRepositoryInfo } from 'fumadocs-ui/components/github-info'
 import { gitConfig } from '@/lib/shared'
 
 export const githubStarsRevalidateSeconds = 60
 
-export async function getGitHubStars(): Promise<number | null> {
+export const getGitHubStars = cache(async (): Promise<number | null> => {
   try {
     const info = await fetchRepositoryInfo({
       owner: gitConfig.user,
@@ -15,4 +16,4 @@ export async function getGitHubStars(): Promise<number | null> {
   } catch {
     return null
   }
-}
+})

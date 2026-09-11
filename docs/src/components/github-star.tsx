@@ -1,8 +1,7 @@
-'use client'
-
 import { Star } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Suspense, use } from 'react'
 import { cn } from '@/lib/cn'
+import { getGitHubStars } from '@/lib/github-stars'
 import { gitConfig } from '@/lib/shared'
 
 export const githubRepoUrl = `https://github.com/${gitConfig.user}/${gitConfig.repo}`
@@ -12,69 +11,21 @@ const starFormatter = new Intl.NumberFormat('en', {
   maximumFractionDigits: 1,
 })
 
-const STARS_REFRESH_MS = 60_000
-
-let cachedStars: number | null = null
-let inflight: Promise<number | null> | null = null
-
-async function fetchStars(): Promise<number | null> {
-  const response = await fetch('/api/github-stars', { cache: 'no-store' })
-  if (!response.ok) return cachedStars
-  const data: unknown = await response.json()
-  if (typeof data !== 'object' || data === null || !('stars' in data)) {
-    return cachedStars
-  }
-  return typeof data.stars === 'number' ? data.stars : null
-}
-
-function refreshStars(): Promise<number | null> {
-  if (inflight) return inflight
-  inflight = fetchStars()
-    .catch(() => cachedStars)
-    .then((stars) => {
-      cachedStars = stars
-      inflight = null
-      return stars
-    })
-  return inflight
-}
-
-function useGitHubStars() {
-  const [stars, setStars] = useState<number | null>(cachedStars)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const tick = () => {
-      void refreshStars().then((value) => {
-        if (!cancelled) setStars(value)
-      })
-    }
-
-    tick()
-    const interval = window.setInterval(tick, STARS_REFRESH_MS)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') tick()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [])
-
-  return stars
-}
-
 type GitHubStarLinkProps = {
   className?: string
   variant?: 'nav' | 'hero'
 }
 
 export function GitHubStarLink(props: GitHubStarLinkProps) {
-  return <GitHubStarAnchor stars={useGitHubStars()} {...props} />
+  return (
+    <Suspense fallback={<GitHubStarAnchor stars={null} {...props} />}>
+      <GitHubStarLinkInner {...props} />
+    </Suspense>
+  )
+}
+
+function GitHubStarLinkInner(props: GitHubStarLinkProps) {
+  return <GitHubStarAnchor stars={use(getGitHubStars())} {...props} />
 }
 
 function GitHubStarAnchor({
