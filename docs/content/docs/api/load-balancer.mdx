@@ -13,3 +13,5 @@ Put an **Application Load Balancer** (HTTPS) in front of gateway instances:
 6. Raise the ALB idle timeout (e.g. 5–15 minutes) so long `logs` and agent WebSocket streams are not cut early.
 
 Keep Raft / gRPC advertise addresses as real node-reachable IPs — do not point intra-cluster traffic at the ALB.
+
+The Terraform example under `terraform/` provisions this ALB with an AWS cluster. See [Infrastructure with Terraform](/docs/install/terraform) for IaC layout, nested virtualization, and instance-type requirements.

@@ -10,7 +10,7 @@ Type=simple
 User=cellar
 Group=cellar
 StateDirectory=cellar
-RuntimeDirectory=cellar
+RuntimeDirectory=cellar-gateway
 ExecStart=/usr/local/bin/cellar-gateway \
   --listen :8080 \
   --data-dir /var/lib/cellar
@@ -25,7 +25,7 @@ ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadOnlyPaths=/var/lib/cellar
-ReadWritePaths=/run/cellar
+ReadWritePaths=/run/cellar-gateway
 
 [Install]
 WantedBy=multi-user.target

@@ -1,0 +1,116 @@
+---
+title: Infrastructure using Terraform
+description: Provision Cellar infrastructure with Iac
+---
+
+Use Infrastructure as Code (IaC) to create the network, VMs, and load balancer that run a Cellar cluster, then install and bootstrap Cellar on those hosts. The repo includes a **Terraform** example under `terraform/` for AWS; the same pattern applies on other clouds if you supply equivalent resources.
+
+## What to provision
+
+A production-style Cellar deployment needs:
+
+| Resource | Role |
+| -------- | ---- |
+| Network | VPC (or equivalent), subnets, routes so nodes can reach each other and clients can reach the gateway |
+| Manager nodes | Raft / control plane (`cellard`); odd count recommended (for example 3) |
+| Worker nodes | Run sandboxes and typically `cellar-gateway` |
+| Load balancer | HTTPS in front of gateway instances on `:8080`, health check `GET /readyz` |
+| TLS certificate | Trusted cert on the load balancer (for example ACM on AWS) |
+| SSH / bootstrap access | Key pair or equivalent so instances can install and join the cluster |
+
+Cellar itself is still installed on each host (installer or user-data). IaC creates the machines and wiring; it does not replace [quick start](/docs/quick-start) cluster commands unless your templates automate them (the AWS stack does via user-data).
+
+### Host requirements (any cloud)
+
+Sandboxes are hardware VMs, not containers:
+
+- **Linux:** KVM (`/dev/kvm`); the `cellar` service user needs access (usually the `kvm` group)
+- **If the host is itself a VM** (EC2, GCE, and similar): the cloud must expose **nested virtualization**, and you must enable it for the instance
+- Prefer a recent Linux image with glibc **2.28+** (the AWS example uses Ubuntu 24.04 amd64)
+
+Without nested virtualization on cloud VMs, Cellar may install but sandboxes will not start. See [quick start](/docs/quick-start) for verifying KVM on the host.
+
+## Repo layout
+
+```text
+terraform/
+  main.tf              # wires vpc, ec2, alb modules
+  variables.tf
+  terraform.tfvars.example
+  modules/
+    vpc/
+    ec2/
+    alb/
+```
+
+Requires Terraform **1.5+**. Tunable values live in `terraform.tfvars` (copy from the example).
+
+## Example: AWS
+
+The shipped stack creates:
+
+1. A VPC with one public subnet per AZ
+2. Manager and worker EC2 instances (Ubuntu 24.04 amd64), round-robin across subnets
+3. An internet-facing ALB → workers `:8080`
+4. User-data that installs Cellar, enables nested virtualization-aware bootstrap, adds `cellar` to `kvm`, initializes or joins the cluster, and starts the gateway on workers
+
+### Prerequisites
+
+- AWS credentials for VPC, EC2, IAM, ELB, and SSM (plus ACM and Route53 when creating a certificate)
+- An existing EC2 key pair in the target region (`key_name`)
+- Instance types that support [nested virtualization](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/amazon-ec2-nested-virtualization.html)
+
+Terraform sets `cpu_options.nested_virtualization = "enabled"` on every manager and worker.
+
+<Callout type="warn" title="Instance type matters">
+  Types without nested virtualization (for example older `m5` or `m6i`) may install Cellar but cannot start sandboxes. Prefer a nested-virt capable family such as M7i.
+</Callout>
+
+List nested-virt capable types in your region:
+
+```bash
+aws ec2 describe-instance-types \
+  --filters Name=processor-info.supported-features,Values=nested-virtualization \
+  --query 'InstanceTypes[].InstanceType' --output text
+```
+
+### Example instance types
+
+The example config uses **`m7i.large`**. Scale vCPU and memory to how many sandboxes each node should run.
+
+| Instance type | vCPU | Memory (GiB) | Notes |
+| ------------- | ---- | ------------ | ----- |
+| `m7i.large` | 2 | 8 | Default in `terraform.tfvars.example` |
+| `m7i.xlarge` | 4 | 16 | More concurrent sandboxes per node |
+| `m7i.2xlarge` | 8 | 32 | Heavier workloads |
+
+Other families that support nested virtualization (availability varies by region) include **M7i-flex**, **C7i** / **C7i-flex**, **R7i**, **M8i** / **C8i** / **R8i**, and related Intel generations. Confirm with `describe-instance-types` before applying.
+
+```hcl
+instance_type = "m7i.large"
+```
+
+### Apply
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# edit terraform.tfvars — region, key_name, instance_type, ACM options, counts
+terraform init
+terraform apply
+```
+
+Useful variables:
+
+| Variable | Purpose |
+| -------- | ------- |
+| `instance_type` | Must support nested virtualization |
+| `manager_count` / `worker_count` | Cluster size (example: 3 managers, 2 workers) |
+| `root_volume_size` / `root_volume_type` | EBS root disk (example: 20 GiB `gp3`) |
+| `acm_certificate_arn` or `acm_domain_name` + Route53 | HTTPS for the ALB |
+
+The ALB terminates HTTPS and forwards to workers on `:8080` with `/readyz` health checks. See [AWS load balancer](/docs/api/load-balancer) for listener and timeout guidance.
+
+## Other clouds
+
+There is no first-party Terraform for GCP, Azure, or bare metal in this repo yet. Reuse the same checklist: network, nested-virt capable VMs (or bare-metal KVM), managers and workers, HTTPS load balancer to gateway `:8080`, then install and join Cellar as in [quick start](/docs/quick-start).

@@ -31,7 +31,7 @@ lsmod | grep kvm
 ls -l /dev/kvm
 ```
 
-An Intel host usually shows `kvm_intel` and `kvm`; AMD shows `kvm_amd` and `kvm`. If `/dev/kvm` is missing, enable CPU virtualization in firmware/UEFI (and nested virtualization if this host is itself a VM), then load the module:
+An Intel host usually shows `kvm_intel` and `kvm`; AMD shows `kvm_amd` and `kvm`. If `/dev/kvm` is missing, enable CPU virtualization in firmware/UEFI (and nested virtualization if this host is itself a VM), then load the module. On cloud VMs, use nested-virt capable instance types and enable nested virtualization at launch — see [Infrastructure with Terraform](/docs/install/terraform).
 
 ```bash
 grep -E -c '(vmx|svm)' /proc/cpuinfo   # 0 means virtualization is off or hidden
