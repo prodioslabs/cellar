@@ -61,6 +61,14 @@ PRIVATE_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $IMDS" \
   http://169.254.169.254/latest/meta-data/local-ipv4)
 
 curl -fsSL https://cellar.prodioslabs.in/install.sh | bash
+# Installer ships a stock unit; pin the control socket to systemd RuntimeDirectory
+# (/run/cellar) so the host CLI can dial it (ProtectSystem can hide /var/run).
+install -d /etc/systemd/system/cellard.service.d
+cat >/etc/systemd/system/cellard.service.d/override.conf <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/cellard --socket /run/cellar/cellar.sock --data-dir /var/lib/cellar
+EOF
 systemd-sysusers
 getent group kvm >/dev/null || groupadd --system kvm
 usermod -aG kvm cellar
@@ -86,6 +94,12 @@ EOT
 
   leader_init = <<-EOT
 ${local.common_init}
+# Drop stale join metadata from prior instance generations so joiners do not
+# race against a dead leader address still sitting in SSM.
+aws ssm delete-parameter --region ${var.region} --name "${local.ssm_prefix}/manager-token" >/dev/null 2>&1 || true
+aws ssm delete-parameter --region ${var.region} --name "${local.ssm_prefix}/worker-token" >/dev/null 2>&1 || true
+aws ssm delete-parameter --region ${var.region} --name "${local.ssm_prefix}/leader-addr" >/dev/null 2>&1 || true
+
 cellar init --advertise-addr "$PRIVATE_IP:17946" --raft-addr "$PRIVATE_IP:17947"
 MANAGER_TOKEN=$(cellar join-token manager | awk '/--token/{for(i=1;i<=NF;i++) if($i=="--token"){print $(i+1); exit}}')
 WORKER_TOKEN=$(cellar join-token worker | awk '/--token/{for(i=1;i<=NF;i++) if($i=="--token"){print $(i+1); exit}}')
@@ -103,31 +117,49 @@ EOT
   join_init = {
     for role in ["manager", "worker"] : role => <<-EOT
 ${local.common_init}
-until aws ssm get-parameter --region ${var.region} \
-  --name "${local.ssm_prefix}/leader-addr" >/dev/null 2>&1; do sleep 10; done
-LEADER_ADDR=$(aws ssm get-parameter --region ${var.region} \
-  --name "${local.ssm_prefix}/leader-addr" --query Parameter.Value --output text)
-JOIN_TOKEN=$(aws ssm get-parameter --region ${var.region} --with-decryption \
-  --name "${local.ssm_prefix}/${role}-token" --query Parameter.Value --output text)
-test -n "$LEADER_ADDR"
-test -n "$JOIN_TOKEN"
+joined=0
+for attempt in $(seq 1 90); do
+  echo "join attempt $attempt as ${role}"
+  LEADER_ADDR=$(aws ssm get-parameter --region ${var.region} \
+    --name "${local.ssm_prefix}/leader-addr" --query Parameter.Value --output text 2>/dev/null || true)
+  JOIN_TOKEN=$(aws ssm get-parameter --region ${var.region} --with-decryption \
+    --name "${local.ssm_prefix}/${role}-token" --query Parameter.Value --output text 2>/dev/null || true)
+  if [ -z "$LEADER_ADDR" ] || [ -z "$JOIN_TOKEN" ]; then
+    sleep 10
+    continue
+  fi
 %{if role == "manager"}
-cellar join --token "$JOIN_TOKEN" \
-  --advertise-addr "$PRIVATE_IP:17946" \
-  --raft-addr "$PRIVATE_IP:17947" \
-  "$LEADER_ADDR"
+  if cellar join --token "$JOIN_TOKEN" \
+    --advertise-addr "$PRIVATE_IP:17946" \
+    --raft-addr "$PRIVATE_IP:17947" \
+    "$LEADER_ADDR"; then
+    joined=1
+    break
+  fi
 %{else}
-cellar join --token "$JOIN_TOKEN" "$LEADER_ADDR"
+  # Workers must advertise a reachable private IP; omitting --advertise-addr
+  # can fall back to 127.0.0.1 when privateIPv4() cannot resolve yet.
+  if cellar join --token "$JOIN_TOKEN" \
+    --advertise-addr "$PRIVATE_IP:17946" \
+    "$LEADER_ADDR"; then
+    joined=1
+    break
+  fi
+%{endif}
+  sleep 10
+done
+test "$joined" -eq 1
+%{if role == "worker"}
 # Gateway needs cluster state from a completed join for /readyz.
 systemctl enable --now cellar-gateway
 systemctl restart cellar-gateway
-for i in $(seq 1 60); do
-  if curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null 2>&1; then
+for i in $(seq 1 90); do
+  if curl -fsS "http://127.0.0.1:8080/readyz" >/dev/null 2>&1; then
     break
   fi
   sleep 2
 done
-curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null
+curl -fsS "http://127.0.0.1:8080/readyz" >/dev/null
 %{endif}
 echo "${role} bootstrap complete"
 EOT
@@ -191,6 +223,7 @@ resource "aws_iam_role_policy" "node" {
           "ssm:PutParameter",
           "ssm:GetParameter",
           "ssm:GetParameters",
+          "ssm:DeleteParameter",
         ]
         Resource = "arn:aws:ssm:${var.region}:*:parameter${local.ssm_prefix}/*"
       },
@@ -230,6 +263,10 @@ resource "aws_instance" "manager" {
   user_data              = count.index == 0 ? local.leader_init : local.join_init["manager"]
   depends_on             = [aws_security_group.node]
 
+  cpu_options {
+    nested_virtualization = "enabled"
+  }
+
   root_block_device {
     volume_size = var.root_volume_size
     volume_type = var.root_volume_type
@@ -253,6 +290,10 @@ resource "aws_instance" "worker" {
   iam_instance_profile   = aws_iam_instance_profile.node.name
   user_data              = local.join_init["worker"]
   depends_on             = [aws_instance.manager]
+
+  cpu_options {
+    nested_virtualization = "enabled"
+  }
 
   root_block_device {
     volume_size = var.root_volume_size

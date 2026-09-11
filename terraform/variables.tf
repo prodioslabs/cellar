@@ -14,7 +14,7 @@ variable "vpc_cidr" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type for all nodes"
+  description = "EC2 instance type for all nodes (must support nested virtualization, e.g. m7i.large)"
   type        = string
 }
 
