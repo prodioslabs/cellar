@@ -102,7 +102,7 @@ The CA private key and join secrets live on the raft-backed `Cluster.RootCA` obj
 
 On macOS the unix socket and data directory default to `~/.cellar/cellar.sock` and `~/.cellar`. On Linux the socket is mode `0660` and owned by `cellar:cellar`.
 
-`init` / `join` fill an empty host on `--advertise-addr` and `--raft-addr` with a private IPv4 (or `127.0.0.1` if none is found). Pass a reachable address when other nodes must dial this host.
+`init` / `join` fill an empty host on `--advertise-addr` and `--raft-addr` with `127.0.0.1`. Pass a reachable address when other nodes must dial this host.
 
 Keep Raft and gRPC advertise addresses as real node-reachable IPs. Do not point intra-cluster traffic at a public load balancer — that belongs in front of `cellar-gateway` only. See [AWS load balancer](/docs/api/load-balancer).
 

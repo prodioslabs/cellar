@@ -156,10 +156,7 @@ function PathArrow({ label, on }: { label: string; on: boolean }) {
   return (
     <div className="flex items-center gap-2 py-1.5 pl-2" aria-hidden="true">
       <span
-        className={cn(
-          'h-6 w-px transition-colors',
-          on ? 'bg-emerald-500/50' : 'bg-fd-border',
-        )}
+        className={cn('h-6 w-px transition-colors', on ? 'bg-emerald-500/50' : 'bg-fd-border')}
       />
       <span
         className={cn(
@@ -426,8 +423,8 @@ export function GatewayShowcase() {
             Open the HTTP front door. Mint a key.
           </h2>
           <p className="text-pretty text-fd-muted-foreground">
-            Apps talk to <code className="font-mono text-[13px]">cellar-gateway</code> over HTTP, not
-            the unix-socket CLI. Create a key on the Raft leader with{' '}
+            Apps talk to <code className="font-mono text-[13px]">cellar-gateway</code> over HTTP,
+            not the unix-socket CLI. Create a key on the Raft leader with{' '}
             <code className="font-mono text-[13px]">cellar api-key create</code>. The gateway loads
             the cluster CA from <code className="font-mono text-[13px]">--data-dir</code>, dials
             manager <code className="font-mono text-[13px]">SandboxAPI</code>, and authenticates
@@ -452,8 +449,8 @@ export function GatewayShowcase() {
               <li className="flex gap-3">
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">1</span>
                 <span>
-                  Confirm the leader with <code className="font-mono text-[13px]">cellar status</code>
-                  , then mint a key with{' '}
+                  Confirm the leader with{' '}
+                  <code className="font-mono text-[13px]">cellar status</code>, then mint a key with{' '}
                   <code className="font-mono text-[13px]">api-key create</code>
                 </span>
               </li>
@@ -469,8 +466,8 @@ export function GatewayShowcase() {
                 <span className="mt-0.5 font-mono text-fd-muted-foreground">3</span>
                 <span>
                   Probe <code className="font-mono text-[13px]">/healthz</code> and{' '}
-                  <code className="font-mono text-[13px]">/readyz</code>, then call the HTTP API with{' '}
-                  <code className="font-mono text-[13px]">Bearer cellar_…</code>
+                  <code className="font-mono text-[13px]">/readyz</code>, then call the HTTP API
+                  with <code className="font-mono text-[13px]">Bearer cellar_…</code>
                 </span>
               </li>
             </ol>

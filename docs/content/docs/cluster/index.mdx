@@ -1,0 +1,48 @@
+---
+title: Cluster
+description: Managers, workers, and how nodes form a Cellar cluster
+---
+
+A Cellar **cluster** is one or more **managers** plus optional **workers**.
+
+- **Managers** are Raft voters. They hold replicated cluster state (root CA, join tokens, node records, API keys, desired sandbox state). The Raft leader signs certificates, accepts writes, and schedules sandboxes.
+- **Workers** do not vote. They heartbeat to a manager and run the sandboxes assigned to them.
+
+One manager is enough to start. Add workers for capacity, and more managers (an odd count) when you want Raft quorum across hosts. Both roles can run sandboxes — role is about the control plane, not whether the host has a VM runtime.
+
+## Standing up nodes
+
+1. Install Cellar and start `cellard` on each host ([quick start](/docs/quick-start) or [install](/docs/install)).
+2. On the first host, run [`cellar init`](/docs/cluster/initialization) with a reachable `--advertise-addr`.
+3. On later hosts, [`cellar join`](/docs/cluster/initialization) with a **worker** or **manager** token from `cellar join-token`.
+
+## Ports between nodes
+
+Intra-cluster traffic uses real node-reachable addresses — not a public load balancer:
+
+| Listener    | Default  | Who listens       |
+| ----------- | -------- | ----------------- |
+| Remote gRPC | `:17946` | Every joined node |
+| Raft TCP    | `:17947` | Managers only     |
+
+Put an Application Load Balancer in front of [`cellar-gateway`](/docs/api/load-balancer) only. Keep Raft and gRPC advertise addresses as private IPs that peers can dial.
+
+For binaries, roles, and the cluster CA, see [Architecture](/docs/architecture). To list, promote, demote, or drain nodes after join, see [Manage nodes](/docs/nodes).
+
+<Cards>
+  <Card
+    title="Initialization"
+    href="/docs/cluster/initialization"
+    description="Init the first manager, then join workers and managers"
+  />
+  <Card
+    title="Architecture"
+    href="/docs/architecture"
+    description="Binaries, roles, ports, and the cluster CA"
+  />
+  <Card
+    title="Manage nodes"
+    href="/docs/nodes"
+    description="Promote, demote, drain, and remove nodes"
+  />
+</Cards>

@@ -123,7 +123,7 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 	sb := &sandbox.Sandbox{
 		ID:                   id,
 		Name:                 spec.Name,
-		Slug:                 spec.Slug,
+		Slug:                 spec.Name,
 		Spec:                 spec,
 		NodeID:               nodeID,
 		DesiredState:         desired,

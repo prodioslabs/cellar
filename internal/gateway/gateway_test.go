@@ -28,9 +28,9 @@ type fakeUpstream struct {
 	err     error
 	ready   error
 
-	logsChunks []*cellarv1.SandboxLogsChunk
-	logsErr    error
-	logsBlock  bool
+	logsChunks   []*cellarv1.SandboxLogsChunk
+	logsErr      error
+	logsBlock    bool
 	canceledLogs bool
 
 	volumes []*cellarv1.Volume
@@ -153,9 +153,9 @@ func (f *fakeUpstream) Logs(ctx context.Context, apiKey string, _ *cellarv1.Sand
 
 type fakeAgentRelay struct{}
 
-func (f *fakeAgentRelay) Send([]byte) error      { return io.EOF }
-func (f *fakeAgentRelay) Recv() ([]byte, error)  { return nil, io.EOF }
-func (f *fakeAgentRelay) Close() error           { return nil }
+func (f *fakeAgentRelay) Send([]byte) error     { return io.EOF }
+func (f *fakeAgentRelay) Recv() ([]byte, error) { return nil, io.EOF }
+func (f *fakeAgentRelay) Close() error          { return nil }
 
 func (f *fakeUpstream) AgentRelay(_ context.Context, apiKey, _ string) (AgentRelayStream, error) {
 	f.mu.Lock()
@@ -454,6 +454,67 @@ func TestDeleteMessage(t *testing.T) {
 	}
 	if msg.Message == "" {
 		t.Fatal("empty message")
+	}
+}
+
+func TestGetSandboxRedactsSecretValues(t *testing.T) {
+	specJSON := []byte(`{
+		"name":"demo",
+		"image":{"type":"oci","reference":"alpine:3.20"},
+		"resources":{"vcpus":1,"memory_mib":512},
+		"runtime":{},
+		"network":{
+			"enabled":true,
+			"secrets":{
+				"entries":[{
+					"env_var":"GITHUB_TOKEN",
+					"value":"ghs_should_not_leak",
+					"placeholder":"MSB_GITHUB_TOKEN",
+					"allowed_hosts":[{"type":"exact","value":"api.github.com"}]
+				}]
+			}
+		},
+		"lifecycle":{}
+	}`)
+	up := &fakeUpstream{get: &cellarv1.Sandbox{Id: "sb1", Name: "demo", SpecJson: specJSON}}
+	s := newTestServer(t, up)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte("ghs_should_not_leak")) {
+		t.Fatalf("secret value leaked in GET response: %s", rec.Body.String())
+	}
+	var sb cloudSandboxResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &sb); err != nil {
+		t.Fatal(err)
+	}
+	var wire struct {
+		Network struct {
+			Secrets struct {
+				Entries []struct {
+					EnvVar      string `json:"env_var"`
+					Value       string `json:"value"`
+					Placeholder string `json:"placeholder"`
+				} `json:"entries"`
+			} `json:"secrets"`
+		} `json:"network"`
+	}
+	if err := json.Unmarshal(sb.Spec, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if len(wire.Network.Secrets.Entries) != 1 {
+		t.Fatalf("entries=%#v", wire.Network.Secrets.Entries)
+	}
+	e := wire.Network.Secrets.Entries[0]
+	if e.EnvVar != "GITHUB_TOKEN" || e.Placeholder != "MSB_GITHUB_TOKEN" {
+		t.Fatalf("entry=%#v", e)
+	}
+	if e.Value != "" {
+		t.Fatalf("value should be redacted, got %q", e.Value)
 	}
 }
 

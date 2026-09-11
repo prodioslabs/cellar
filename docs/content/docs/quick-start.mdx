@@ -1,6 +1,6 @@
 ---
 title: Quick start
-description: Initialize a Cellar cluster and join a worker node
+description: Set up KVM, install Cellar, then initialize a cluster
 ---
 
 ## Set up KVM
@@ -67,27 +67,19 @@ sudo systemctl enable --now cellar-gateway
 
 See [non-root access](/docs/install/non-root) to run the CLI without `sudo`.
 
-## Initialize the cluster
+## Next: initialize and join
 
-On the first manager, initialize with that host’s reachable address (defaults: data `/var/lib/cellar`, socket `/var/run/cellar/cellar.sock`):
+With `cellard` running, create the first manager and add workers or managers:
 
-```bash
-sudo cellar init --advertise-addr 192.0.2.10:17946
-```
-
-## Join a worker
-
-Print a ready-to-run join command on the manager:
-
-```bash
-sudo cellar join-token worker
-# → cellar join --token CLLRN-1-… 192.0.2.10:17946
-```
-
-On the worker (after install and `enable --now cellard` as above):
-
-```bash
-sudo cellar join --token CLLRN-1-… 192.0.2.10:17946
-```
-
-Managers join the same way with the **manager** token (and should pass `--advertise-addr` / `--raft-addr`).
+<Cards>
+  <Card
+    title="Initialize the cluster"
+    href="/docs/cluster/initialization"
+    description="Init, join a worker, and join a manager"
+  />
+  <Card
+    title="Cluster overview"
+    href="/docs/cluster"
+    description="Managers, workers, and intra-cluster ports"
+  />
+</Cards>
