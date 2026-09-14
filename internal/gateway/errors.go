@@ -41,7 +41,21 @@ func writeGRPCErrorKind(c *gin.Context, err error, kind string) {
 		return
 	}
 	httpStatus := grpcCodeToHTTP(st.Code())
+	if st.Code() == codes.FailedPrecondition {
+		httpStatus = failedPreconditionHTTP(st.Message())
+	}
 	writeError(c, httpStatus, cloudErrorCode(st.Code(), st.Message(), kind), st.Message())
+}
+
+func failedPreconditionHTTP(message string) int {
+	lower := strings.ToLower(message)
+	if strings.Contains(lower, "spec") || strings.Contains(lower, "config") {
+		return http.StatusBadRequest
+	}
+	if strings.Contains(lower, "owning node") || strings.Contains(lower, "not ready") {
+		return http.StatusServiceUnavailable
+	}
+	return http.StatusConflict
 }
 
 func cloudErrorCode(code codes.Code, message, kind string) string {
@@ -76,7 +90,10 @@ func cloudErrorCode(code codes.Code, message, kind string) string {
 		if strings.Contains(lower, "spec") || strings.Contains(lower, "config") {
 			return "invalid_sandbox_config"
 		}
-		return "invalid_request"
+		if strings.Contains(lower, "owning node") || strings.Contains(lower, "not ready") {
+			return "unavailable"
+		}
+		return "failed_precondition"
 	case codes.Unauthenticated:
 		return "unauthenticated"
 	case codes.PermissionDenied:

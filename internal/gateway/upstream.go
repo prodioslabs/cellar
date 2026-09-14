@@ -556,6 +556,11 @@ func (s *grpcAgentRelayStream) Close() error {
 	return nil
 }
 
+// AgentRelay opens a byte pipe to the guest agent.
+//
+// sandboxID is the URL path id from GET /v1/sandboxes/:id/agent (the msb-cloud
+// JSON id). NodeId is loaded from gRPC Get on the raft proto — it is never
+// taken from the HTTP sandbox JSON, which omits node_id by cloud contract.
 func (u *GRPCUpstream) AgentRelay(ctx context.Context, apiKey, sandboxID string) (AgentRelayStream, error) {
 	sb, err := u.Get(ctx, apiKey, sandboxID)
 	if err != nil {
