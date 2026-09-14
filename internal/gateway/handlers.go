@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -497,9 +498,32 @@ func (s *Server) handleSandboxLogs(c *gin.Context) {
 	}
 }
 
+func prepareWebSocketRequest(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
+		!headerHasToken(r.Header.Get("Connection"), "upgrade") {
+		// ALB and other proxies drop hop-by-hop Connection while leaving Upgrade.
+		r.Header.Set("Connection", "Upgrade")
+	}
+	return websocket.IsWebSocketUpgrade(r)
+}
+
+func headerHasToken(header, token string) bool {
+	token = strings.ToLower(token)
+	for _, part := range strings.Split(header, ",") {
+		if strings.ToLower(strings.TrimSpace(part)) == token {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleSandboxAgent(c *gin.Context) {
 	apiKey, ok := requireAPIKey(c)
 	if !ok {
+		return
+	}
+	if !prepareWebSocketRequest(c.Request) {
+		writeError(c, http.StatusBadRequest, "invalid_request", "WebSocket upgrade required")
 		return
 	}
 	relay, err := s.up.AgentRelay(c.Request.Context(), apiKey, c.Param("id"))
@@ -511,6 +535,12 @@ func (s *Server) handleSandboxAgent(c *gin.Context) {
 
 	ws, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		log.Printf("sandbox agent websocket upgrade: %v (connection=%q upgrade=%q version=%q)",
+			err,
+			c.GetHeader("Connection"),
+			c.GetHeader("Upgrade"),
+			c.GetHeader("Sec-WebSocket-Version"),
+		)
 		return
 	}
 	defer ws.Close()

@@ -1,10 +1,12 @@
 package gateway
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -594,6 +597,130 @@ func TestGRPCCodeToHTTP(t *testing.T) {
 		if got := grpcCodeToHTTP(code); got != want {
 			t.Fatalf("%v: got %d want %d", code, got, want)
 		}
+	}
+}
+
+func TestFailedPreconditionHTTP(t *testing.T) {
+	if got := failedPreconditionHTTP("sandbox has no owning node"); got != http.StatusServiceUnavailable {
+		t.Fatalf("owning node: %d", got)
+	}
+	if got := failedPreconditionHTTP("runtime not ready"); got != http.StatusServiceUnavailable {
+		t.Fatalf("not ready: %d", got)
+	}
+	if got := failedPreconditionHTTP("invalid sandbox config"); got != http.StatusBadRequest {
+		t.Fatalf("config: %d", got)
+	}
+	if got := failedPreconditionHTTP("sandbox stopped before reaching running"); got != http.StatusConflict {
+		t.Fatalf("stopped: %d", got)
+	}
+}
+
+func TestPrepareWebSocketRequestRestoresConnection(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/agent", nil)
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Sec-WebSocket-Version", "13")
+	req.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+	if !prepareWebSocketRequest(req) {
+		t.Fatal("expected websocket after restoring Connection")
+	}
+	if !headerHasToken(req.Header.Get("Connection"), "upgrade") {
+		t.Fatalf("Connection = %q", req.Header.Get("Connection"))
+	}
+}
+
+func TestAgentRequiresWebSocketUpgrade(t *testing.T) {
+	s := newTestServer(t, &fakeUpstream{})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/agent", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var body errorBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Code != "invalid_request" {
+		t.Fatalf("code = %q", body.Error.Code)
+	}
+	if !strings.Contains(body.Error.Message, "WebSocket") {
+		t.Fatalf("message = %q", body.Error.Message)
+	}
+}
+
+func TestAgentRelayNoOwningNodeIsUnavailable(t *testing.T) {
+	up := &fakeUpstream{err: status.Error(codes.FailedPrecondition, "sandbox has no owning node")}
+	s := newTestServer(t, up)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/sandboxes/sb1/agent", nil)
+	req.Header.Set("Authorization", "Bearer k")
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Sec-WebSocket-Version", "13")
+	req.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var body errorBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Code != "unavailable" {
+		t.Fatalf("code = %q message=%q", body.Error.Code, body.Error.Message)
+	}
+	if !strings.Contains(body.Error.Message, "owning node") {
+		t.Fatalf("message = %q", body.Error.Message)
+	}
+}
+
+func TestAgentWebSocketUpgrade(t *testing.T) {
+	s := newTestServer(t, &fakeUpstream{})
+	ts := httptest.NewServer(s.Handler())
+	t.Cleanup(ts.Close)
+
+	u := "ws" + strings.TrimPrefix(ts.URL, "http") + "/v1/sandboxes/sb1/agent"
+	ws, resp, err := websocket.DefaultDialer.Dial(u, http.Header{
+		"Authorization": []string{"Bearer k"},
+	})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer ws.Close()
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+}
+
+func TestAgentWebSocketRestoresConnectionHeader(t *testing.T) {
+	s := newTestServer(t, &fakeUpstream{})
+	ts := httptest.NewServer(s.Handler())
+	t.Cleanup(ts.Close)
+
+	host := strings.TrimPrefix(ts.URL, "http://")
+	conn, err := net.Dial("tcp", host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	raw := "GET /v1/sandboxes/sb1/agent HTTP/1.1\r\n" +
+		"Host: " + host + "\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Sec-WebSocket-Version: 13\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Authorization: Bearer k\r\n" +
+		"\r\n"
+	if _, err := conn.Write([]byte(raw)); err != nil {
+		t.Fatal(err)
+	}
+	statusLine, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(statusLine, "101") {
+		t.Fatalf("status line = %q", statusLine)
 	}
 }
 
