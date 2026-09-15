@@ -32,6 +32,7 @@ module "ec2" {
   worker_count     = var.worker_count
   vpc_id           = module.vpc.vpc_id
   subnet_ids       = module.vpc.subnet_ids
+  subnet_cidrs     = module.vpc.subnet_cidrs
 }
 
 module "alb" {

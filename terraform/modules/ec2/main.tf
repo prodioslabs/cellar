@@ -24,14 +24,18 @@ locals {
     Cluster = var.cluster_name
   }
 
-  # Default node ingress: TCP open to the internet (matches cluster bring-up needs).
+  # Public node ingress: TCP open to the internet (SSH, HTTP, gateway).
   node_ports = {
     ssh     = 22
     http    = 80
     https   = 443
     gateway = 8080
-    grpc    = 17946
-    raft    = 17947
+  }
+
+  # Cluster-internal gRPC/Raft: subnet CIDRs only, not the internet.
+  cluster_ports = {
+    grpc = 17946
+    raft = 17947
   }
 
   node_ingress_cidr = "0.0.0.0/0"
@@ -187,6 +191,35 @@ resource "aws_security_group_rule" "node_ingress" {
   security_group_id = aws_security_group.node.id
 }
 
+resource "aws_security_group" "cluster" {
+  name        = "${var.cluster_name}-cluster-sg"
+  description = "Cellar gRPC and Raft (VPC subnets only)"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.cluster_name}-cluster-sg"
+  })
+}
+
+resource "aws_security_group_rule" "cluster_ingress" {
+  for_each = local.cluster_ports
+
+  type              = "ingress"
+  description       = "TCP ${each.key} from VPC subnets"
+  from_port         = each.value
+  to_port           = each.value
+  protocol          = "tcp"
+  cidr_blocks       = var.subnet_cidrs
+  security_group_id = aws_security_group.cluster.id
+}
+
 resource "aws_iam_role" "node" {
   name = "${var.cluster_name}-node"
 
@@ -250,10 +283,10 @@ resource "aws_instance" "manager" {
   instance_type          = var.instance_type
   key_name               = data.aws_key_pair.this.key_name
   subnet_id              = element(var.subnet_ids, count.index)
-  vpc_security_group_ids = [aws_security_group.node.id]
+  vpc_security_group_ids = [aws_security_group.node.id, aws_security_group.cluster.id]
   iam_instance_profile   = aws_iam_instance_profile.node.name
   user_data              = count.index == 0 ? local.leader_init : local.join_init["manager"]
-  depends_on             = [aws_security_group.node]
+  depends_on             = [aws_security_group.node, aws_security_group.cluster]
 
   cpu_options {
     nested_virtualization = "enabled"
@@ -278,7 +311,7 @@ resource "aws_instance" "worker" {
   key_name      = data.aws_key_pair.this.key_name
   # Continue round-robin after managers so nodes cover every regional subnet/AZ.
   subnet_id              = element(var.subnet_ids, count.index + var.manager_count)
-  vpc_security_group_ids = [aws_security_group.node.id]
+  vpc_security_group_ids = [aws_security_group.node.id, aws_security_group.cluster.id]
   iam_instance_profile   = aws_iam_instance_profile.node.name
   user_data              = local.join_init["worker"]
   depends_on             = [aws_instance.manager]

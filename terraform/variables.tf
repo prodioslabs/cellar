@@ -34,7 +34,7 @@ variable "key_name" {
 }
 
 variable "admin_cidr" {
-  description = "CIDR allowed to reach the ALB HTTPS listener (node SG ports are hardcoded to 0.0.0.0/0)"
+  description = "CIDR allowed to reach the ALB HTTPS listener (node SG public ports are 0.0.0.0/0; gRPC/Raft use the cluster SG and subnet CIDRs only)"
   type        = string
 }
 
