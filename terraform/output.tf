@@ -8,6 +8,16 @@ output "subnet_ids" {
   value       = module.vpc.subnet_ids
 }
 
+output "node_security_group_id" {
+  description = "Security group ID for public node ports"
+  value       = module.ec2.node_security_group_id
+}
+
+output "cluster_security_group_id" {
+  description = "Security group ID for subnet-only gRPC/Raft"
+  value       = module.ec2.cluster_security_group_id
+}
+
 output "leader_public_ip" {
   description = "Public IP of the leader manager"
   value       = module.ec2.leader_public_ip

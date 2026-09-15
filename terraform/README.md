@@ -39,6 +39,8 @@ Provide **either**:
 
 - VPC creates **one public subnet per available AZ** in `region`
 - Managers and workers are placed **round-robin across all subnets**
+- Node SG opens SSH/HTTP/HTTPS/gateway (`22`, `80`, `443`, `8080`) to the internet
+- Cluster SG opens gRPC/Raft (`17946`, `17947`) to **public subnet CIDRs only**, not the internet
 
 ## Prerequisites
 

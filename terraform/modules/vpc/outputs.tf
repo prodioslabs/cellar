@@ -8,6 +8,11 @@ output "subnet_ids" {
   value       = aws_subnet.public[*].id
 }
 
+output "subnet_cidrs" {
+  description = "Public subnet CIDR blocks"
+  value       = aws_subnet.public[*].cidr_block
+}
+
 output "availability_zones" {
   description = "AZs used for public subnets"
   value       = local.azs

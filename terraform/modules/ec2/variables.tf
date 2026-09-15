@@ -47,3 +47,8 @@ variable "subnet_ids" {
   description = "Public subnet IDs from the vpc module (all AZs)"
   type        = list(string)
 }
+
+variable "subnet_cidrs" {
+  description = "Public subnet CIDR blocks from the vpc module (gRPC/Raft ingress)"
+  type        = list(string)
+}
