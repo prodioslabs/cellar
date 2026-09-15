@@ -38,6 +38,12 @@ service Control {
   rpc NodeUpdate(NodeUpdateRequest) returns (NodeUpdateResponse);
 }
 
+// NodeControl is served on managers (mTLS). Reads on any manager.
+service NodeControl {
+  rpc List(NodeListRequest) returns (NodeListResponse);
+  rpc Inspect(NodeInspectRequest) returns (NodeInspectResponse);
+}
+
 message InitRequest {
   string advertise_addr = 1; // host:port advertised to joiners (gRPC)
   string listen_addr = 2;    // local gRPC listen address
