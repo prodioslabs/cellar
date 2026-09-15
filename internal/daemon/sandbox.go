@@ -436,5 +436,14 @@ func (d *Daemon) lookupNodeRuntimeAddr(ctx context.Context, nodeID string) (stri
 			}
 		}
 	}
+	resp, err := d.NodeInspect(ctx, &cellarv1.NodeInspectRequest{NodeId: nodeID})
+	if err != nil {
+		return "", err
+	}
+	if resp.Node != nil {
+		if addr := strings.TrimSpace(resp.Node.RuntimeGrpcAddr); addr != "" {
+			return addr, nil
+		}
+	}
 	return "", fmt.Errorf("runtime address for node %s unknown (waiting for heartbeat)", nodeID)
 }

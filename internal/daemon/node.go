@@ -11,17 +11,30 @@ import (
 	"google.golang.org/grpc/status"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/node"
 	"github.com/prodioslabs/cellar/internal/raftstore"
 	"github.com/prodioslabs/cellar/internal/scheduler"
 	"github.com/prodioslabs/cellar/internal/store"
 )
 
-func (d *Daemon) NodeList(ctx context.Context, _ *cellarv1.NodeListRequest) (*cellarv1.NodeListResponse, error) {
-	raft, err := d.managerRaft()
-	if err != nil {
-		return nil, err
+func (d *Daemon) NodeList(ctx context.Context, req *cellarv1.NodeListRequest) (*cellarv1.NodeListResponse, error) {
+	d.mu.Lock()
+	raft := d.raft
+	d.mu.Unlock()
+	if raft != nil {
+		return d.nodeListLocal(ctx, raft)
 	}
+	var resp *cellarv1.NodeListResponse
+	err := d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+		var cerr error
+		resp, cerr = grpcapi.NodeListRemote(ctx, addr, cert, key, ca)
+		return cerr
+	})
+	return resp, err
+}
+
+func (d *Daemon) nodeListLocal(ctx context.Context, raft *raftstore.Store) (*cellarv1.NodeListResponse, error) {
 	nodes, err := raft.ListNodes(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -37,14 +50,26 @@ func (d *Daemon) NodeList(ctx context.Context, _ *cellarv1.NodeListRequest) (*ce
 }
 
 func (d *Daemon) NodeInspect(ctx context.Context, req *cellarv1.NodeInspectRequest) (*cellarv1.NodeInspectResponse, error) {
-	raft, err := d.managerRaft()
-	if err != nil {
-		return nil, err
-	}
 	if req.NodeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "node_id is required")
 	}
-	n, err := resolveNode(ctx, raft, req.NodeId)
+	d.mu.Lock()
+	raft := d.raft
+	d.mu.Unlock()
+	if raft != nil {
+		return d.nodeInspectLocal(ctx, raft, req.NodeId)
+	}
+	var resp *cellarv1.NodeInspectResponse
+	err := d.withManagerControl(func(addr string, cert, key, ca []byte) error {
+		var cerr error
+		resp, cerr = grpcapi.NodeInspectRemote(ctx, addr, cert, key, ca, req.NodeId)
+		return cerr
+	})
+	return resp, err
+}
+
+func (d *Daemon) nodeInspectLocal(ctx context.Context, raft *raftstore.Store, nodeID string) (*cellarv1.NodeInspectResponse, error) {
+	n, err := resolveNode(ctx, raft, nodeID)
 	if err != nil {
 		return nil, err
 	}

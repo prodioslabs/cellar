@@ -125,6 +125,98 @@ func TestInitJoinTokenWorkerJoin(t *testing.T) {
 	}
 }
 
+func TestWorkerNodeInspectForwards(t *testing.T) {
+	base := t.TempDir()
+	mgrListen := freePort(t)
+	mgrRaft := freePort(t)
+	mgrSock := filepath.Join(base, "mgr.sock")
+	startDaemon(t, filepath.Join(base, "mgr"), mgrSock, mgrListen, mgrRaft)
+
+	mgrConn, err := daemon.DialLocal(mgrSock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mgrConn.Close()
+	mgrCtrl := cellarv1.NewControlClient(mgrConn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	initResp, err := mgrCtrl.Init(ctx, &cellarv1.InitRequest{
+		AdvertiseAddr: mgrListen,
+		ListenAddr:    mgrListen,
+		RaftAddr:      mgrRaft,
+	})
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	workerListen := freePort(t)
+	workerSock := filepath.Join(base, "worker.sock")
+	startDaemon(t, filepath.Join(base, "worker"), workerSock, workerListen, freePort(t))
+
+	wconn, err := daemon.DialLocal(workerSock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wconn.Close()
+	wctrl := cellarv1.NewControlClient(wconn)
+
+	joinResp, err := wctrl.Join(ctx, &cellarv1.JoinRequest{
+		Token:         initResp.WorkerToken,
+		RemoteAddr:    mgrListen,
+		AdvertiseAddr: workerListen,
+		ListenAddr:    workerListen,
+	})
+	if err != nil {
+		t.Fatalf("worker join: %v", err)
+	}
+	if joinResp.NodeId == "" {
+		t.Fatal("empty worker node id")
+	}
+
+	// Manager-side inspect still works.
+	mgrInspect, err := mgrCtrl.NodeInspect(ctx, &cellarv1.NodeInspectRequest{NodeId: joinResp.NodeId})
+	if err != nil {
+		t.Fatalf("manager NodeInspect: %v", err)
+	}
+	if mgrInspect.Node == nil || mgrInspect.Node.NodeId != joinResp.NodeId {
+		t.Fatalf("manager inspect node=%v", mgrInspect.Node)
+	}
+
+	// Worker Control.NodeInspect forwards to manager NodeControl.
+	var workerInspect *cellarv1.NodeInspectResponse
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		workerInspect, err = wctrl.NodeInspect(ctx, &cellarv1.NodeInspectRequest{NodeId: joinResp.NodeId})
+		if err != nil {
+			t.Fatalf("worker NodeInspect: %v", err)
+		}
+		if workerInspect.Node != nil && workerInspect.Node.RuntimeGrpcAddr != "" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for runtime_grpc_addr; got %#v", workerInspect.Node)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if workerInspect.Node.RuntimeGrpcAddr != workerListen {
+		t.Fatalf("runtime_grpc_addr=%q want %q", workerInspect.Node.RuntimeGrpcAddr, workerListen)
+	}
+
+	list, err := wctrl.NodeList(ctx, &cellarv1.NodeListRequest{})
+	if err != nil {
+		t.Fatalf("worker NodeList: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, n := range list.Nodes {
+		seen[n.NodeId] = true
+	}
+	if !seen[initResp.NodeId] || !seen[joinResp.NodeId] {
+		t.Fatalf("NodeList missing nodes: manager=%q worker=%q got=%v", initResp.NodeId, joinResp.NodeId, seen)
+	}
+}
+
 func TestManagerJoinReplicatesCA(t *testing.T) {
 	base := t.TempDir()
 	listenA := freePort(t)

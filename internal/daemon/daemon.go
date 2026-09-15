@@ -706,7 +706,7 @@ func (d *Daemon) startRemoteGRPCLocked(listenAddr string) error {
 	}
 	s := grpc.NewServer(opts...)
 	if d.caServer != nil {
-		grpcapi.RegisterRemote(s, d.caServer, d.sandboxServer)
+		grpcapi.RegisterRemote(s, d.caServer, d.sandboxServer, d)
 	}
 	if d.sandboxAPI != nil {
 		grpcapi.RegisterSandboxAPI(s, d.sandboxAPI)
