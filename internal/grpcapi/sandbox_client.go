@@ -103,6 +103,26 @@ func SandboxListRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM 
 	return cellarv1.NewSandboxControlClient(conn).List(ctx, &cellarv1.SandboxListRequest{})
 }
 
+// NodeListRemote lists cluster nodes via NodeControl.
+func NodeListRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte) (*cellarv1.NodeListResponse, error) {
+	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewNodeControlClient(conn).List(ctx, &cellarv1.NodeListRequest{})
+}
+
+// NodeInspectRemote inspects a cluster node via NodeControl.
+func NodeInspectRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, nodeID string) (*cellarv1.NodeInspectResponse, error) {
+	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewNodeControlClient(conn).Inspect(ctx, &cellarv1.NodeInspectRequest{NodeId: nodeID})
+}
+
 // RuntimeHeartbeatRemote sends a heartbeat and receives assignments.
 func RuntimeHeartbeatRemote(ctx context.Context, addr string, certPEM, keyPEM, caPEM []byte, req *cellarv1.RuntimeHeartbeatRequest) (*cellarv1.RuntimeHeartbeatResponse, error) {
 	conn, err := DialMTLS(addr, certPEM, keyPEM, caPEM)

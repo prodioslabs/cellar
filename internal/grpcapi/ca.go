@@ -342,12 +342,15 @@ func (s *CAServer) Leave(ctx context.Context, req *cellarv1.RaftLeaveRequest) (*
 	return &cellarv1.RaftLeaveResponse{}, nil
 }
 
-func RegisterRemote(s *grpc.Server, ca *CAServer, sb *SandboxServer) {
+func RegisterRemote(s *grpc.Server, ca *CAServer, sb *SandboxServer, nodes NodeControlHost) {
 	cellarv1.RegisterCAServer(s, ca)
 	cellarv1.RegisterNodeCAServer(s, ca)
 	cellarv1.RegisterRaftMembershipServer(s, ca)
 	if sb != nil {
 		RegisterSandboxServices(s, sb)
+	}
+	if nodes != nil {
+		RegisterNodeControl(s, NewNodeServer(nodes))
 	}
 }
 
