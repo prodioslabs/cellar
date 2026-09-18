@@ -50,5 +50,6 @@ module "alb" {
   vpc_id                 = module.vpc.vpc_id
   subnet_ids             = module.vpc.subnet_ids
   worker_instance_ids    = module.ec2.worker_instance_ids
+  manager_instance_ids   = module.ec2.manager_instance_ids
   node_security_group_id = module.ec2.node_security_group_id
 }
