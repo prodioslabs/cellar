@@ -151,6 +151,14 @@ resource "aws_lb_target_group_attachment" "worker" {
   port             = 8080
 }
 
+resource "aws_lb_target_group_attachment" "leader" {
+  count = length(var.worker_instance_ids) == 0 && length(var.manager_instance_ids) == 1 ? 1 : 0
+
+  target_group_arn = aws_lb_target_group.gateway.arn
+  target_id        = var.manager_instance_ids[0]
+  port             = 8080
+}
+
 resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.gateway.arn
   port              = 443

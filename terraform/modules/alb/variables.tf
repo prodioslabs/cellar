@@ -63,6 +63,11 @@ variable "worker_instance_ids" {
   type        = list(string)
 }
 
+variable "manager_instance_ids" {
+  description = "Manager instance IDs from the ec2 module (leader first)"
+  type        = list(string)
+}
+
 variable "node_security_group_id" {
   description = "Node security group ID from the ec2 module"
   type        = string

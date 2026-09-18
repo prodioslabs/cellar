@@ -41,6 +41,7 @@ Provide **either**:
 - Managers and workers are placed **round-robin across all subnets**
 - Node SG opens SSH/HTTP/HTTPS/gateway (`22`, `80`, `443`, `8080`) to the internet
 - Cluster SG opens gRPC/Raft (`17946`, `17947`) to **public subnet CIDRs only**, not the internet
+- The ALB target group attaches **workers**. If `worker_count = 0` and `manager_count = 1`, the leader manager runs `cellar-gateway` and is registered as the ALB target instead.
 
 ## Prerequisites
 

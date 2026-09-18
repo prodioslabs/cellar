@@ -107,6 +107,18 @@ aws ssm put-parameter --region ${var.region} --overwrite --type SecureString \
   --name "${local.ssm_prefix}/worker-token" --value "$WORKER_TOKEN"
 aws ssm put-parameter --region ${var.region} --overwrite --type String \
   --name "${local.ssm_prefix}/leader-addr" --value "$PRIVATE_IP:17946"
+%{if var.worker_count == 0}
+# Single-node: gateway on the leader so the ALB has a healthy target.
+systemctl enable --now cellar-gateway
+systemctl restart cellar-gateway
+for i in $(seq 1 90); do
+  if curl -fsS "http://127.0.0.1:8080/readyz" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+curl -fsS "http://127.0.0.1:8080/readyz" >/dev/null
+%{endif}
 echo "leader bootstrap complete"
 EOT
 
