@@ -1,4 +1,5 @@
 /bin/
+/.tools/
 /dist/
 /release-extras/
 
@@ -21,3 +22,4 @@ override.tf.json
 .terraformrc
 terraform.rc
 terraform.tfvars
+.cursor/

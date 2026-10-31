@@ -235,7 +235,8 @@ func (s *Server) handleCreateSandbox(c *gin.Context) {
 
 	start := queryBool(c, "start")
 	waitFor := strings.TrimSpace(c.Query("wait_for"))
-	sb, err := s.up.Create(c.Request.Context(), apiKey, body, start)
+	snapshotID := extractSnapshotSource(body)
+	sb, err := s.up.Create(c.Request.Context(), apiKey, body, start, snapshotID)
 	if err != nil {
 		writeGRPCErrorKind(c, err, "sandbox")
 		return

@@ -86,6 +86,8 @@ func ToProto(s *Sandbox) *cellarv1.Sandbox {
 		Ephemeral:            s.Ephemeral,
 		LabelsJson:           labelsJSON,
 		AssignmentGeneration: s.AssignmentGeneration,
+		FromSnapshotId:       s.FromSnapshotID,
+		FromSnapshotLocation: s.FromSnapshotLocation,
 	}
 	if !s.CreatedAt.IsZero() {
 		out.CreatedAtUnixNano = s.CreatedAt.UnixNano()
@@ -112,6 +114,8 @@ func FromProto(p *cellarv1.Sandbox) *Sandbox {
 		Status:               StatusFromProto(p.Status),
 		Ephemeral:            p.Ephemeral,
 		AssignmentGeneration: p.AssignmentGeneration,
+		FromSnapshotID:       p.FromSnapshotId,
+		FromSnapshotLocation: p.FromSnapshotLocation,
 	}
 	if len(p.LabelsJson) > 0 {
 		_ = json.Unmarshal(p.LabelsJson, &s.Labels)
@@ -194,4 +198,74 @@ func VolumeFromProto(p *cellarv1.Volume) *Volume {
 		v.UpdatedAt = time.Unix(0, p.UpdatedAtUnixNano).UTC()
 	}
 	return v
+}
+
+// FSSnapshotToProto converts a filesystem snapshot record.
+func FSSnapshotToProto(s *FSSnapshot) *cellarv1.FSSnapshot {
+	if s == nil {
+		return nil
+	}
+	out := &cellarv1.FSSnapshot{
+		Id:           s.ID,
+		SandboxId:    s.SandboxID,
+		SandboxName:  s.SandboxName,
+		NodeId:       s.NodeID,
+		Kind:         string(s.Kind),
+		Status:       string(s.Status),
+		Backend:      string(s.Backend),
+		Location:     s.Location,
+		SizeBytes:    s.SizeBytes,
+		Digest:       s.Digest,
+		SpecJson:     append([]byte(nil), s.SpecJSON...),
+		ExpirationMs: s.ExpirationMs,
+		Message:      s.Message,
+	}
+	if !s.LastUsedAt.IsZero() {
+		out.LastUsedAtUnixNano = s.LastUsedAt.UnixNano()
+	}
+	if !s.ExpiresAt.IsZero() {
+		out.ExpiresAtUnixNano = s.ExpiresAt.UnixNano()
+	}
+	if !s.CreatedAt.IsZero() {
+		out.CreatedAtUnixNano = s.CreatedAt.UnixNano()
+	}
+	if !s.UpdatedAt.IsZero() {
+		out.UpdatedAtUnixNano = s.UpdatedAt.UnixNano()
+	}
+	return out
+}
+
+// FSSnapshotFromProto converts a proto filesystem snapshot.
+func FSSnapshotFromProto(p *cellarv1.FSSnapshot) *FSSnapshot {
+	if p == nil {
+		return nil
+	}
+	s := &FSSnapshot{
+		ID:           p.Id,
+		SandboxID:    p.SandboxId,
+		SandboxName:  p.SandboxName,
+		NodeID:       p.NodeId,
+		Kind:         FSSnapshotKind(p.Kind),
+		Status:       FSSnapshotStatus(p.Status),
+		Backend:      FSSnapshotBackend(p.Backend),
+		Location:     p.Location,
+		SizeBytes:    p.SizeBytes,
+		Digest:       p.Digest,
+		SpecJSON:     append([]byte(nil), p.SpecJson...),
+		ExpirationMs: p.ExpirationMs,
+		Message:      p.Message,
+	}
+	if p.LastUsedAtUnixNano > 0 {
+		s.LastUsedAt = time.Unix(0, p.LastUsedAtUnixNano).UTC()
+	}
+	if p.ExpiresAtUnixNano > 0 {
+		s.ExpiresAt = time.Unix(0, p.ExpiresAtUnixNano).UTC()
+	}
+	if p.CreatedAtUnixNano > 0 {
+		s.CreatedAt = time.Unix(0, p.CreatedAtUnixNano).UTC()
+	}
+	if p.UpdatedAtUnixNano > 0 {
+		s.UpdatedAt = time.Unix(0, p.UpdatedAtUnixNano).UTC()
+	}
+	return s
 }

@@ -46,6 +46,46 @@ func RegisterRuntime(s *grpc.Server, rt *RuntimeServer) {
 	cellarv1.RegisterSandboxRuntimeServer(s, rt)
 }
 
+func (r *RuntimeServer) CaptureFilesystemSnapshot(ctx context.Context, req *cellarv1.CaptureFilesystemSnapshotRequest) (*cellarv1.CaptureFilesystemSnapshotResponse, error) {
+	if r.driver == nil {
+		return nil, status.Error(codes.Unavailable, "runtime not ready")
+	}
+	if req.SandboxId == "" || req.SnapshotId == "" || req.Location == "" {
+		return nil, status.Error(codes.InvalidArgument, "sandbox_id, snapshot_id, and location required")
+	}
+	digest, size, err := r.driver.CaptureFS(ctx, req.SandboxId, req.SnapshotId, req.Location)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &cellarv1.CaptureFilesystemSnapshotResponse{Digest: digest, SizeBytes: size}, nil
+}
+
+func (r *RuntimeServer) RestoreFilesystemSnapshot(ctx context.Context, req *cellarv1.RestoreFilesystemSnapshotRequest) (*cellarv1.RestoreFilesystemSnapshotResponse, error) {
+	if r.driver == nil {
+		return nil, status.Error(codes.Unavailable, "runtime not ready")
+	}
+	if req.SnapshotId == "" || req.Location == "" {
+		return nil, status.Error(codes.InvalidArgument, "snapshot_id and location required")
+	}
+	if err := r.driver.RestoreFS(ctx, req.SnapshotId, req.Location); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &cellarv1.RestoreFilesystemSnapshotResponse{}, nil
+}
+
+func (r *RuntimeServer) DeleteSnapshotBlob(ctx context.Context, req *cellarv1.DeleteSnapshotBlobRequest) (*cellarv1.DeleteSnapshotBlobResponse, error) {
+	if r.driver == nil {
+		return nil, status.Error(codes.Unavailable, "runtime not ready")
+	}
+	if req.Location == "" {
+		return nil, status.Error(codes.InvalidArgument, "location required")
+	}
+	if err := r.driver.DeleteSnapshotObject(ctx, req.Location); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &cellarv1.DeleteSnapshotBlobResponse{}, nil
+}
+
 func (r *RuntimeServer) Logs(req *cellarv1.SandboxLogsRequest, stream cellarv1.SandboxRuntime_LogsServer) error {
 	if r.driver == nil {
 		return status.Error(codes.Unavailable, "runtime not ready")

@@ -63,9 +63,14 @@ func (s *Server) routes() {
 		v1.DELETE("/sandboxes/by-name/:name", s.handleDeleteSandboxByName)
 
 		v1.GET("/sandboxes/:id", s.handleGetSandbox)
+		v1.PATCH("/sandboxes/:id", s.handlePatchSandbox)
 		v1.POST("/sandboxes/:id/start", s.handleStartSandbox)
 		v1.POST("/sandboxes/:id/stop", s.handleStopSandbox)
 		v1.DELETE("/sandboxes/:id", s.handleDeleteSandbox)
+		v1.POST("/sandboxes/:id/snapshots", s.handleCreateSnapshot)
+		v1.GET("/sandboxes/:id/snapshots", s.handleListSandboxSnapshots)
+		v1.GET("/snapshots/:id", s.handleGetSnapshot)
+		v1.DELETE("/snapshots/:id", s.handleDeleteSnapshot)
 		v1.GET("/sandboxes/:id/logs", s.handleSandboxLogs)
 		v1.GET("/sandboxes/:id/agent", s.handleSandboxAgent)
 

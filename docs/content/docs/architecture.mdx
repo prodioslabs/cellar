@@ -9,7 +9,7 @@ Cellar is a control plane for [microsandbox](https://github.com/superradcompany/
 
 Every host that should run sandboxes — or vote in the control plane — runs **`cellard`**. After `cellar init` or `cellar join`, that daemon is either a **manager** or a **worker**.
 
-Managers replicate cluster state over Raft: the root CA, join tokens, node records, API keys, and desired sandbox state. The Raft **leader** signs certificates, accepts writes, and places new sandboxes on the least-loaded live node. Workers do not vote. They heartbeat to a manager and reconcile the sandboxes assigned to them, using KVM on Linux or Virtualization.framework on macOS.
+Managers replicate cluster state over Raft: the root CA, join tokens, node records, API keys, desired sandbox state, and filesystem snapshot metadata. Snapshot tars live on the capturing node's disk (or S3 when configured), not in Raft. The Raft **leader** signs certificates, accepts writes, and places new sandboxes on the least-loaded live node. Workers do not vote. They heartbeat to a manager and reconcile the sandboxes assigned to them, using KVM on Linux or Virtualization.framework on macOS.
 
 Operators talk to the daemon on the same machine through the **`cellar`** CLI (unix socket). Applications talk to **`cellar-gateway`** over HTTP. The gateway loads the cluster CA from disk, dials a manager `SandboxAPI`, and forwards the caller's API key. There is no Cellar SDK — point the official microsandbox SDK at the gateway.
 
@@ -30,7 +30,7 @@ flowchart TB
 
 On every node it:
 
-- Serves a **local Control API** on a unix socket. `cellar init`, `join`, `status`, `api-key`, `node`, and `sandbox` all go through this socket. Only processes that can open it can administer the node.
+- Serves a **local Control API** on a unix socket. `cellar init`, `join`, `status`, `api-key`, `node`, `sandbox`, and `snapshot` all go through this socket. Only processes that can open it can administer the node.
 - After the node joins a cluster, serves **remote gRPC** on `:17946` (the advertise address you pass to `init` / `join`). Other nodes use this for CA issue/renew, Raft membership, heartbeats, and the public sandbox API.
 - Drives sandboxes through the official microsandbox Go SDK. It is built with `CGO_ENABLED=1` and needs `/dev/kvm` on Linux or Virtualization.framework on macOS. On first sandbox use it runs `EnsureInstalled` to fetch the microsandbox CLI and firmware if needed.
 
@@ -42,6 +42,7 @@ On **workers** it heartbeats to a manager, pulls assigned sandboxes, and reconci
 cellard --data-dir /var/lib/cellar --socket /var/run/cellar/cellar.sock
 # --listen :17946   remote gRPC (after init/join)
 # --raft-addr :17947
+# --snapshot-dir, --s3-bucket / --s3-region / --s3-prefix / --s3-endpoint
 ```
 
 On macOS the defaults are `~/.cellar` for the data directory and `~/.cellar/cellar.sock` for the socket.
@@ -56,7 +57,8 @@ On macOS the defaults are `~/.cellar` for the data directory and `~/.cellar/cell
 | `status`                              | Node id, role, whether this process is the Raft leader                                                                                    |
 | `api-key`                             | Mint and revoke keys (`create`, `ls`, `rm`). Writes must run on the leader                                                                |
 | `node`                                | Membership, availability (`pause` / `drain`), labels (`ls`, `inspect`, `promote`, `demote`, `update`, `rm`)                               |
-| `sandbox`                             | Local admin (`create`, `ls`, `inspect`, `start`, `stop`, `logs`, `rm`). Desired state is written to Raft; the assigned node starts the VM |
+| `sandbox`                             | Local admin (`create`, `ls`, `inspect`, `start`, `stop`, `logs`, `rm`, `snapshot --stop`, `update`). Desired state is written to Raft; the assigned node starts the VM |
+| `snapshot`                            | Inspect and delete filesystem snapshots (`ls`, `inspect`, `rm`). Create with `sandbox snapshot --stop`; restore with `sandbox create --from-snapshot` |
 
 Use the CLI to stand up the cluster and to debug. Application workloads should use the [gateway](/docs/api) and the official microsandbox SDKs, not `cellar sandbox …` from app code.
 
@@ -95,7 +97,7 @@ The CA private key and join secrets live on the raft-backed `Cluster.RootCA` obj
 
 | Listener     | Default                       | Auth                                                                           | Purpose                                                                         |
 | ------------ | ----------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| Unix socket  | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox ops |
+| Unix socket  | `/var/run/cellar/cellar.sock` | Local FS permissions                                                           | `Init`, `Join`, `JoinToken`, `Status`, `api-key …`, `node …`, local sandbox and snapshot ops |
 | Remote gRPC  | `:17946`                      | Bootstrap insecure TLS + token digest; else mTLS **or** API key (`SandboxAPI`) | CA issue/renew, raft membership, public sandbox client API                      |
 | Gateway HTTP | `:8080`                       | API key (`Authorization: Bearer` / `X-Api-Key`); terminate TLS at ALB/proxy    | Public JSON API for apps (`cellar-gateway`)                                     |
 | Raft TCP     | `:17947`                      | Manager network                                                                | Consensus / CA key replication                                                  |

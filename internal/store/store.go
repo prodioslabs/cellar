@@ -23,6 +23,8 @@ var (
 	ErrSandboxNotFound = errors.New("sandbox not found")
 	// ErrVolumeNotFound indicates a volume record is missing.
 	ErrVolumeNotFound = errors.New("volume not found")
+	// ErrFSSnapshotNotFound indicates a filesystem snapshot record is missing.
+	ErrFSSnapshotNotFound = errors.New("filesystem snapshot not found")
 	// ErrNameExists indicates a sandbox or volume name is already taken.
 	ErrNameExists = errors.New("name already exists")
 	// ErrAPIKeyNotFound indicates an API key record is missing.
@@ -99,6 +101,12 @@ type Store interface {
 	GetVolumeByName(ctx context.Context, name string) (*sandbox.Volume, error)
 	GetDefaultVolume(ctx context.Context) (*sandbox.Volume, error)
 	ListVolumes(ctx context.Context) ([]*sandbox.Volume, error)
+
+	SaveFSSnapshot(ctx context.Context, snap *sandbox.FSSnapshot) error
+	DeleteFSSnapshot(ctx context.Context, id string) error
+	GetFSSnapshot(ctx context.Context, id string) (*sandbox.FSSnapshot, error)
+	ListFSSnapshots(ctx context.Context) ([]*sandbox.FSSnapshot, error)
+	ListFSSnapshotsBySandbox(ctx context.Context, sandboxID string) ([]*sandbox.FSSnapshot, error)
 
 	SaveAPIKey(ctx context.Context, key *apikey.Key) error
 	DeleteAPIKey(ctx context.Context, id string) error

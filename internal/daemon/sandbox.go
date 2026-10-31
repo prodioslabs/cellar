@@ -53,6 +53,11 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 		_ = drv.Close()
 		return fmt.Errorf("no identity for runtime agent")
 	}
+	if blobs, err := d.ensureBlobStore(); err != nil {
+		log.Printf("snapshot blob store: %v", err)
+	} else {
+		drv.SetBlobStore(blobs)
+	}
 	agent := runtime.NewAgent(mat.NodeID, drv, &heartbeatSource{d: d}, &statusReporter{d: d}, d.cfg.DataDir)
 	d.driver = drv
 	d.agent = agent
@@ -232,6 +237,12 @@ func (d *Daemon) reportSandboxStatus(ctx context.Context, sandboxID string, gene
 		}
 		if err := sandbox.CheckAssignmentGeneration(sb.AssignmentGeneration, generation); err != nil {
 			return err
+		}
+		d.mu.Lock()
+		sbSrv := d.sandboxServer
+		d.mu.Unlock()
+		if sbSrv != nil {
+			return sbSrv.ApplyObservedStatus(ctx, sb, st)
 		}
 		st.UpdatedAt = time.Now().UTC()
 		sb.Status = st

@@ -23,7 +23,7 @@ import (
 
 // Upstream is the SandboxAPI + runtime surface the gateway proxies to.
 type Upstream interface {
-	Create(ctx context.Context, apiKey string, specJSON []byte, start bool) (*cellarv1.Sandbox, error)
+	Create(ctx context.Context, apiKey string, specJSON []byte, start bool, snapshotID string) (*cellarv1.Sandbox, error)
 	Start(ctx context.Context, apiKey, id string) (*cellarv1.Sandbox, error)
 	Stop(ctx context.Context, apiKey, id string) (*cellarv1.Sandbox, error)
 	Remove(ctx context.Context, apiKey, id string) error
@@ -39,6 +39,12 @@ type Upstream interface {
 	GetVolume(ctx context.Context, apiKey, id string) (*cellarv1.Volume, error)
 	GetDefaultVolume(ctx context.Context, apiKey string) (*cellarv1.Volume, error)
 	DeleteVolume(ctx context.Context, apiKey, id string) (string, error)
+
+	UpdateSandbox(ctx context.Context, apiKey string, req *cellarv1.SandboxUpdateRequest) (*cellarv1.Sandbox, error)
+	CreateSnapshot(ctx context.Context, apiKey string, req *cellarv1.SnapshotCreateRequest) (*cellarv1.FSSnapshot, error)
+	GetSnapshot(ctx context.Context, apiKey, id string) (*cellarv1.FSSnapshot, error)
+	ListSnapshots(ctx context.Context, apiKey, sandboxID, sandboxName string) ([]*cellarv1.FSSnapshot, error)
+	DeleteSnapshot(ctx context.Context, apiKey, id string) error
 
 	VolumeFsRead(ctx context.Context, apiKey, volumeID, path string) (FsStream, error)
 	VolumeFsWrite(ctx context.Context, apiKey, volumeID, path string, r io.Reader) error
@@ -344,12 +350,13 @@ func (u *GRPCUpstream) ClusterID() string {
 	return cid
 }
 
-func (u *GRPCUpstream) Create(ctx context.Context, apiKey string, specJSON []byte, start bool) (*cellarv1.Sandbox, error) {
+func (u *GRPCUpstream) Create(ctx context.Context, apiKey string, specJSON []byte, start bool, snapshotID string) (*cellarv1.Sandbox, error) {
 	var out *cellarv1.Sandbox
 	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
 		resp, err := api.Create(withAPIKey(ctx, apiKey), &cellarv1.SandboxCreateRequest{
-			SpecJson: specJSON,
-			Start:    start,
+			SpecJson:   specJSON,
+			Start:      start,
+			SnapshotId: snapshotID,
 		})
 		if err != nil {
 			return err
@@ -874,4 +881,66 @@ func (u *GRPCUpstream) Ready(ctx context.Context) error {
 		lastErr = fmt.Errorf("no upstream managers")
 	}
 	return lastErr
+}
+
+func (u *GRPCUpstream) UpdateSandbox(ctx context.Context, apiKey string, req *cellarv1.SandboxUpdateRequest) (*cellarv1.Sandbox, error) {
+	var out *cellarv1.Sandbox
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.Update(withAPIKey(ctx, apiKey), req)
+		if err != nil {
+			return err
+		}
+		out = resp.Sandbox
+		return nil
+	})
+	return out, err
+}
+
+func (u *GRPCUpstream) CreateSnapshot(ctx context.Context, apiKey string, req *cellarv1.SnapshotCreateRequest) (*cellarv1.FSSnapshot, error) {
+	var out *cellarv1.FSSnapshot
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.CreateSnapshot(withAPIKey(ctx, apiKey), req)
+		if err != nil {
+			return err
+		}
+		out = resp.Snapshot
+		return nil
+	})
+	return out, err
+}
+
+func (u *GRPCUpstream) GetSnapshot(ctx context.Context, apiKey, id string) (*cellarv1.FSSnapshot, error) {
+	var out *cellarv1.FSSnapshot
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.GetSnapshot(withAPIKey(ctx, apiKey), &cellarv1.SnapshotGetRequest{SnapshotId: id})
+		if err != nil {
+			return err
+		}
+		out = resp.Snapshot
+		return nil
+	})
+	return out, err
+}
+
+func (u *GRPCUpstream) ListSnapshots(ctx context.Context, apiKey, sandboxID, sandboxName string) ([]*cellarv1.FSSnapshot, error) {
+	var out []*cellarv1.FSSnapshot
+	err := u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		resp, err := api.ListSnapshots(withAPIKey(ctx, apiKey), &cellarv1.SnapshotListRequest{
+			SandboxId:   sandboxID,
+			SandboxName: sandboxName,
+		})
+		if err != nil {
+			return err
+		}
+		out = resp.Snapshots
+		return nil
+	})
+	return out, err
+}
+
+func (u *GRPCUpstream) DeleteSnapshot(ctx context.Context, apiKey, id string) error {
+	return u.withConn(ctx, func(ctx context.Context, api cellarv1.SandboxAPIClient) error {
+		_, err := api.DeleteSnapshot(withAPIKey(ctx, apiKey), &cellarv1.SnapshotDeleteRequest{SnapshotId: id})
+		return err
+	})
 }

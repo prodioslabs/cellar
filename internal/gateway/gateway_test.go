@@ -40,7 +40,7 @@ type fakeUpstream struct {
 	volume  *cellarv1.Volume
 }
 
-func (f *fakeUpstream) Create(_ context.Context, apiKey string, _ []byte, _ bool) (*cellarv1.Sandbox, error) {
+func (f *fakeUpstream) Create(_ context.Context, apiKey string, _ []byte, _ bool, _ string) (*cellarv1.Sandbox, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lastKey = apiKey
@@ -202,6 +202,59 @@ func (f *fakeUpstream) GetVolume(_ context.Context, apiKey, _ string) (*cellarv1
 
 func (f *fakeUpstream) GetDefaultVolume(_ context.Context, apiKey string) (*cellarv1.Volume, error) {
 	return f.GetVolume(context.Background(), apiKey, "")
+}
+
+func (f *fakeUpstream) UpdateSandbox(_ context.Context, apiKey string, _ *cellarv1.SandboxUpdateRequest) (*cellarv1.Sandbox, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.get != nil {
+		return f.get, nil
+	}
+	return f.create, nil
+}
+
+func (f *fakeUpstream) CreateSnapshot(_ context.Context, apiKey string, req *cellarv1.SnapshotCreateRequest) (*cellarv1.FSSnapshot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	if !req.Stop {
+		return nil, status.Error(codes.InvalidArgument, "stop required")
+	}
+	return &cellarv1.FSSnapshot{Id: "snap1", SandboxId: req.SandboxId, Status: "creating", Kind: "manual"}, nil
+}
+
+func (f *fakeUpstream) GetSnapshot(_ context.Context, apiKey, id string) (*cellarv1.FSSnapshot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &cellarv1.FSSnapshot{Id: id, Status: "created", Kind: "manual"}, nil
+}
+
+func (f *fakeUpstream) ListSnapshots(_ context.Context, apiKey, _, _ string) ([]*cellarv1.FSSnapshot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	if f.err != nil {
+		return nil, f.err
+	}
+	return []*cellarv1.FSSnapshot{{Id: "snap1", Status: "created"}}, nil
+}
+
+func (f *fakeUpstream) DeleteSnapshot(_ context.Context, apiKey, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lastKey = apiKey
+	return f.err
 }
 
 func (f *fakeUpstream) DeleteVolume(_ context.Context, apiKey, _ string) (string, error) {
@@ -737,6 +790,28 @@ func TestVolumeList(t *testing.T) {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"id":"v1"`)) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestCreateSnapshotRequiresStop(t *testing.T) {
+	s := newTestServer(t, &fakeUpstream{})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sb1/snapshots", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/v1/sandboxes/sb1/snapshots", strings.NewReader(`{"stop":true}`))
+	req.Header.Set("Authorization", "Bearer k")
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte(`"kind":"manual"`)) {
 		t.Fatalf("body = %s", rec.Body.String())
 	}
 }

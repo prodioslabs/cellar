@@ -235,11 +235,30 @@ func (a *Agent) reconcileOne(ctx context.Context, sb *sandbox.Sandbox) error {
 			return err
 		}
 		if phase == sandbox.PhaseRunning {
+			started := sb.Status.StartedAt
+			if started.IsZero() {
+				started = time.Now().UTC()
+			}
 			return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
 				Phase:     sandbox.PhaseRunning,
 				LocalName: LocalName(sb.ID),
 				UpdatedAt: time.Now().UTC(),
-				StartedAt: time.Now().UTC(),
+				StartedAt: started,
+			})
+		}
+		if sb.Spec.Lifecycle.HasSessionTimers() {
+			now := time.Now().UTC()
+			msg := sandbox.SessionTimeoutMessage(sb.Spec, sb.Status.StartedAt, now)
+			if msg == "" {
+				msg = "session_timeout"
+			}
+			return a.report(ctx, sb.ID, sb.AssignmentGeneration, sandbox.Status{
+				Phase:     sandbox.PhaseStopped,
+				LocalName: LocalName(sb.ID),
+				Message:   msg,
+				StartedAt: sb.Status.StartedAt,
+				UpdatedAt: now,
+				StoppedAt: now,
 			})
 		}
 		msg := "sandbox not running"

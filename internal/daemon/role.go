@@ -120,7 +120,7 @@ func (d *Daemon) promoteLocal(ctx context.Context) error {
 
 	d.raft = rs
 	d.caServer = d.newCAServer(rs)
-	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
+	d.sandboxServer = d.newSandboxServer(rs)
 	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 	_ = d.caServer.UpdateRootCA(ctx)
 

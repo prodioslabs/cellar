@@ -29,12 +29,17 @@ Routes follow the microsandbox cloud shape. All require `Authorization: Bearer c
 
 | Method | Path                                | Notes                         |
 | ------ | ----------------------------------- | ----------------------------- |
-| POST   | `/v1/sandboxes`                     | create body is microsandbox `CloudSandboxSpec` (Cellar does not extend it; create-time `network.secrets` supported) |
+| POST   | `/v1/sandboxes`                     | create body is microsandbox `CloudSandboxSpec`; optional `"source":{"type":"snapshot","snapshot_id":"..."}` |
 | GET    | `/v1/sandboxes`                     | list                          |
 | GET    | `/v1/sandboxes/:id`                 | get                           |
+| PATCH  | `/v1/sandboxes/:id`                 | snapshot retention (`snapshot_expiration`, `keep_last_snapshots`) |
 | POST   | `/v1/sandboxes/:id/start`           | start                         |
 | POST   | `/v1/sandboxes/:id/stop`            | stop                          |
 | DELETE | `/v1/sandboxes/:id`                 | remove                        |
+| POST   | `/v1/sandboxes/:id/snapshots`       | manual snapshot; body `{ "stop": true }` required |
+| GET    | `/v1/sandboxes/:id/snapshots`       | list snapshots for one sandbox |
+| GET    | `/v1/snapshots/:id`                 | get snapshot                  |
+| DELETE | `/v1/snapshots/:id`                 | delete snapshot               |
 | GET    | `/v1/sandboxes/:id/logs`            | log stream                    |
 | GET    | `/v1/sandboxes/:id/agent`           | agent WebSocket relay         |
 | GET    | `/v1/sandboxes/by-name/:name`       | get by name                   |
@@ -46,5 +51,7 @@ Routes follow the microsandbox cloud shape. All require `Authorization: Bearer c
 | GET    | `/v1/volumes/default`               | default volume                |
 | DELETE | `/v1/volumes/:id`                   | delete volume                 |
 | \*     | `/v1/volumes/:id/files…`            | volume filesystem ops         |
+
+Filesystem snapshots (create, list, restore, retention) are documented under [Snapshots](/docs/sandboxes/snapshots).
 
 Point official microsandbox SDKs at this gateway as the cloud backend.
