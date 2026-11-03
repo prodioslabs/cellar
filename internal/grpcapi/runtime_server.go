@@ -67,7 +67,7 @@ func (r *RuntimeServer) RestoreFilesystemSnapshot(ctx context.Context, req *cell
 	if req.SnapshotId == "" || req.Location == "" {
 		return nil, status.Error(codes.InvalidArgument, "snapshot_id and location required")
 	}
-	if err := r.driver.RestoreFS(ctx, req.SnapshotId, req.Location); err != nil {
+	if _, err := r.driver.RestoreFS(ctx, req.SnapshotId, req.Location); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &cellarv1.RestoreFilesystemSnapshotResponse{}, nil

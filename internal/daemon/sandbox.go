@@ -53,7 +53,7 @@ func (d *Daemon) startRuntimeLocked(ctx context.Context) error {
 		_ = drv.Close()
 		return fmt.Errorf("no identity for runtime agent")
 	}
-	if blobs, err := d.ensureBlobStore(); err != nil {
+	if blobs, err := d.ensureBlobStoreLocked(); err != nil {
 		log.Printf("snapshot blob store: %v", err)
 	} else {
 		drv.SetBlobStore(blobs)

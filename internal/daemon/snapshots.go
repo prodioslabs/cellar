@@ -39,25 +39,16 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-func (d *Daemon) ensureBlobStore() (blob.Store, error) {
-	d.mu.Lock()
+// ensureBlobStoreLocked opens the snapshot blob store. Caller must hold d.mu.
+func (d *Daemon) ensureBlobStoreLocked() (blob.Store, error) {
 	if d.blobs != nil {
-		b := d.blobs
-		d.mu.Unlock()
-		return b, nil
+		return d.blobs, nil
 	}
-	d.mu.Unlock()
 	store, err := blob.Open(context.Background(), d.blobConfig())
 	if err != nil {
 		return nil, err
 	}
-	d.mu.Lock()
-	if d.blobs == nil {
-		d.blobs = store
-	} else {
-		store = d.blobs
-	}
-	d.mu.Unlock()
+	d.blobs = store
 	return store, nil
 }
 
@@ -186,7 +177,7 @@ func (c *localRuntimeClient) RestoreFilesystemSnapshot(ctx context.Context, req 
 	if c.d.driver == nil {
 		return nil, fmt.Errorf("runtime not ready")
 	}
-	if err := c.d.driver.RestoreFS(ctx, req.SnapshotId, req.Location); err != nil {
+	if _, err := c.d.driver.RestoreFS(ctx, req.SnapshotId, req.Location); err != nil {
 		return nil, err
 	}
 	return &cellarv1.RestoreFilesystemSnapshotResponse{}, nil

@@ -65,8 +65,12 @@ func (d *Driver) CreateOrConnect(ctx context.Context, sb *sandbox.Sandbox, start
 	}
 	fromSnap := sb.FromSnapshotID
 	if fromSnap != "" && d.blobs != nil && sb.FromSnapshotLocation != "" {
-		if err := d.RestoreFS(ctx, fromSnap, sb.FromSnapshotLocation); err != nil {
+		ref, err := d.RestoreFS(ctx, fromSnap, sb.FromSnapshotLocation)
+		if err != nil {
 			return fmt.Errorf("restore snapshot %s: %w", fromSnap, err)
+		}
+		if ref != "" {
+			fromSnap = ref
 		}
 	}
 	opts, err := specToOptionsFrom(sb.Spec, fromSnap)

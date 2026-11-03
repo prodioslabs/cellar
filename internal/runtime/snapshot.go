@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	msb "github.com/superradcompany/microsandbox/sdk/go"
@@ -85,44 +86,117 @@ func (d *Driver) CaptureFS(ctx context.Context, sandboxID, snapshotID, location 
 	return sum, n, nil
 }
 
-// RestoreFS loads a snapshot tar from BlobStore into the local MSB store.
-func (d *Driver) RestoreFS(ctx context.Context, snapshotID, location string) error {
+// RestoreFS loads a snapshot tar from BlobStore into the local MSB store
+// and returns the identifier WithFromSnapshot should use (path, name, or digest).
+func (d *Driver) RestoreFS(ctx context.Context, snapshotID, location string) (string, error) {
 	if snapshotID == "" || location == "" {
-		return fmt.Errorf("snapshot_id and location are required")
+		return "", fmt.Errorf("snapshot_id and location are required")
 	}
 	if d.blobs == nil {
-		return fmt.Errorf("blob store is not configured")
+		return "", fmt.Errorf("blob store is not configured")
 	}
+	dest := filepath.Join(msbHomeDir(), "snapshots", snapshotID)
+	if ref, ok := existingMSBSnapshot(ctx, dest, snapshotID); ok {
+		return ref, nil
+	}
+
 	r, err := d.blobs.Get(ctx, location)
 	if err != nil {
-		return fmt.Errorf("blob get %s: %w", location, err)
+		return "", fmt.Errorf("blob get %s: %w", location, err)
 	}
 	defer r.Close()
 
 	tmp, err := os.CreateTemp("", "cellar-restore-*.tar")
 	if err != nil {
-		return err
+		return "", err
 	}
 	tmpPath := tmp.Name()
 	if _, err := io.Copy(tmp, r); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmpPath)
-		return err
+		return "", err
 	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmpPath)
-		return err
+		return "", err
 	}
 	defer os.Remove(tmpPath)
 
-	destDir := filepath.Dir(tmpPath)
-	if _, err := msb.Snapshot.Load(ctx, tmpPath, destDir); err != nil {
-		// dest as snapshot name in the default store
-		if _, err2 := msb.Snapshot.Load(ctx, tmpPath, snapshotID); err2 != nil {
-			return fmt.Errorf("msb snapshot load: %v (named dest: %w)", err, err2)
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return "", err
+	}
+	handle, err := msb.Snapshot.Load(ctx, tmpPath, dest)
+	if err != nil {
+		if ref, ok := existingMSBSnapshot(ctx, dest, snapshotID); ok {
+			return ref, nil
+		}
+		if snapshotAlreadyExists(err) {
+			return dest, nil
+		}
+		return "", fmt.Errorf("msb snapshot load: %w", err)
+	}
+	return msbSnapshotRef(handle, dest), nil
+}
+
+func msbHomeDir() string {
+	if h := os.Getenv("MSB_HOME"); h != "" {
+		return h
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(".", ".microsandbox")
+	}
+	return filepath.Join(home, ".microsandbox")
+}
+
+func snapshotAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "already exists")
+}
+
+func msbSnapshotRef(h *msb.SnapshotHandle, fallback string) string {
+	if h == nil {
+		return fallback
+	}
+	if p := h.Path(); p != "" {
+		return p
+	}
+	if n := h.Name(); n != nil && *n != "" {
+		return *n
+	}
+	if dgst := h.Digest(); dgst != "" {
+		return dgst
+	}
+	return fallback
+}
+
+func existingMSBSnapshot(ctx context.Context, dest, snapshotID string) (string, bool) {
+	if h, err := msb.Snapshot.Get(ctx, snapshotID); err == nil && h != nil {
+		return msbSnapshotRef(h, snapshotID), true
+	}
+	if art, err := msb.Snapshot.Open(ctx, dest); err == nil && art != nil {
+		if p := art.Path(); p != "" {
+			return p, true
+		}
+		return dest, true
+	}
+	entries, err := msb.Snapshot.ListDir(ctx, dest)
+	if err == nil {
+		for _, art := range entries {
+			if art == nil {
+				continue
+			}
+			if p := art.Path(); p != "" {
+				return p, true
+			}
+			if dgst := art.Digest(); dgst != "" {
+				return dgst, true
+			}
 		}
 	}
-	return nil
+	return "", false
 }
 
 // DeleteSnapshotObject removes a tar from BlobStore.
