@@ -621,6 +621,56 @@ func (s *Store) ListAPIKeys(ctx context.Context) ([]*apikey.Key, error) {
 	return s.fsm.listAPIKeys(), nil
 }
 
+// SaveFSSnapshot replicates a filesystem snapshot record.
+func (s *Store) SaveFSSnapshot(ctx context.Context, snap *sandbox.FSSnapshot) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if snap == nil || snap.ID == "" {
+		return fmt.Errorf("filesystem snapshot is required")
+	}
+	data, err := encodeCommand(opSaveFSSnapshot, saveFSSnapshotPayload{Snapshot: snap})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// DeleteFSSnapshot removes a filesystem snapshot record.
+func (s *Store) DeleteFSSnapshot(ctx context.Context, id string) error {
+	_ = ctx
+	if err := s.requireLeader(); err != nil {
+		return err
+	}
+	if id == "" {
+		return fmt.Errorf("filesystem snapshot id is required")
+	}
+	data, err := encodeCommand(opDeleteFSSnapshot, deleteFSSnapshotPayload{ID: id})
+	if err != nil {
+		return err
+	}
+	return s.apply(data)
+}
+
+// GetFSSnapshot returns a filesystem snapshot by id.
+func (s *Store) GetFSSnapshot(ctx context.Context, id string) (*sandbox.FSSnapshot, error) {
+	_ = ctx
+	return s.fsm.getFSSnapshot(id)
+}
+
+// ListFSSnapshots returns all filesystem snapshots.
+func (s *Store) ListFSSnapshots(ctx context.Context) ([]*sandbox.FSSnapshot, error) {
+	_ = ctx
+	return s.fsm.listFSSnapshots(), nil
+}
+
+// ListFSSnapshotsBySandbox returns snapshots for one sandbox.
+func (s *Store) ListFSSnapshotsBySandbox(ctx context.Context, sandboxID string) ([]*sandbox.FSSnapshot, error) {
+	_ = ctx
+	return s.fsm.listFSSnapshotsBySandbox(sandboxID), nil
+}
+
 // ListPeers returns known manager peer metadata.
 func (s *Store) ListPeers() []PeerInfo {
 	return s.fsm.listPeers()

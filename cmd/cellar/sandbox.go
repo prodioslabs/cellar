@@ -27,16 +27,19 @@ func newSandboxCmd() *cobra.Command {
 	cmd.AddCommand(newSandboxGetCmd())
 	cmd.AddCommand(newSandboxListCmd())
 	cmd.AddCommand(newSandboxLogsCmd())
+	cmd.AddCommand(newSandboxSnapshotCmd())
+	cmd.AddCommand(newSandboxUpdateCmd())
 	return cmd
 }
 
 func newSandboxCreateCmd() *cobra.Command {
 	var (
-		name      string
-		image     string
-		memoryMiB uint32
-		vcpus     uint8
-		start     bool
+		name         string
+		image        string
+		memoryMiB    uint32
+		vcpus        uint8
+		start        bool
+		fromSnapshot string
 	)
 	cmd := &cobra.Command{
 		Use:   "create --image <image>",
@@ -45,8 +48,8 @@ func newSandboxCreateCmd() *cobra.Command {
 			if strings.TrimSpace(name) == "" {
 				return fmt.Errorf("--name is required")
 			}
-			if image == "" {
-				return fmt.Errorf("--image is required")
+			if image == "" && fromSnapshot == "" {
+				return fmt.Errorf("--image is required unless --from-snapshot is set")
 			}
 
 			spec := sandbox.Spec{
@@ -58,8 +61,12 @@ func newSandboxCreateCmd() *cobra.Command {
 				},
 			}
 			spec = sandbox.NormalizeSpec(spec)
-			if err := sandbox.ValidateSpec(spec); err != nil {
-				return err
+			if fromSnapshot == "" {
+				if err := sandbox.ValidateSpec(spec); err != nil {
+					return err
+				}
+			} else if strings.TrimSpace(name) == "" {
+				return fmt.Errorf("--name is required")
 			}
 			specJSON, err := sandbox.SpecToJSON(spec)
 			if err != nil {
@@ -75,8 +82,9 @@ func newSandboxCreateCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
 			defer cancel()
 			resp, err := client.SandboxCreate(ctx, &cellarv1.SandboxCreateRequest{
-				SpecJson: specJSON,
-				Start:    start,
+				SpecJson:   specJSON,
+				Start:      start,
+				SnapshotId: fromSnapshot,
 			})
 			if err != nil {
 				return err
@@ -91,8 +99,8 @@ func newSandboxCreateCmd() *cobra.Command {
 	cmd.Flags().Uint32Var(&memoryMiB, "memory-mib", 512, "memory limit in MiB")
 	cmd.Flags().Uint8Var(&vcpus, "vcpus", 1, "number of vCPUs")
 	cmd.Flags().BoolVar(&start, "start", false, "start the sandbox after create")
+	cmd.Flags().StringVar(&fromSnapshot, "from-snapshot", "", "restore from a filesystem snapshot id")
 	_ = cmd.MarkFlagRequired("name")
-	_ = cmd.MarkFlagRequired("image")
 	return cmd
 }
 

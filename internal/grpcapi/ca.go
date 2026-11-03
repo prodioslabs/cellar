@@ -42,12 +42,12 @@ type CAServer struct {
 	cellarv1.UnimplementedNodeCAServer
 	cellarv1.UnimplementedRaftMembershipServer
 
-	mu     sync.RWMutex
-	store  store.Store
-	raft   RaftAdmin
-	host   IdentityProvider
-	root   *ca.RootCA
-	ready  bool
+	mu    sync.RWMutex
+	store store.Store
+	raft  RaftAdmin
+	host  IdentityProvider
+	root  *ca.RootCA
+	ready bool
 
 	// afterNodeDelete runs after a successful DeleteNode (e.g. vacate kick).
 	afterNodeDelete func(ctx context.Context)
@@ -275,13 +275,13 @@ func (s *CAServer) NodeCertificateStatus(ctx context.Context, req *cellarv1.Node
 	}
 	return &cellarv1.NodeCertificateStatusResponse{
 		Node: &cellarv1.NodeRecord{
-			NodeId:             n.ID,
-			Role:               string(n.Role),
-			Membership:         string(n.Membership),
-			PubKeyFingerprint:  n.PubKeyFingerprint,
-			IssuedAtUnixNano:   n.IssuedAt.UnixNano(),
-			ExpiresAtUnixNano:  n.ExpiresAt.UnixNano(),
-			Certificate:        []byte(n.CertificatePEM),
+			NodeId:            n.ID,
+			Role:              string(n.Role),
+			Membership:        string(n.Membership),
+			PubKeyFingerprint: n.PubKeyFingerprint,
+			IssuedAtUnixNano:  n.IssuedAt.UnixNano(),
+			ExpiresAtUnixNano: n.ExpiresAt.UnixNano(),
+			Certificate:       []byte(n.CertificatePEM),
 		},
 	}, nil
 }
@@ -367,6 +367,8 @@ func mapStoreErr(err error) error {
 	case errors.Is(err, store.ErrSandboxNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, store.ErrVolumeNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, store.ErrFSSnapshotNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, store.ErrAPIKeyNotFound):
 		return status.Error(codes.NotFound, err.Error())

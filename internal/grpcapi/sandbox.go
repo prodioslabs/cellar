@@ -21,10 +21,12 @@ type SandboxServer struct {
 	cellarv1.UnimplementedSandboxControlServer
 	cellarv1.UnimplementedRuntimeAgentServer
 
-	store      store.Store
-	raft       RaftAdmin
-	host       IdentityProvider
-	quarantine *scheduler.Quarantine
+	store       store.Store
+	raft        RaftAdmin
+	host        IdentityProvider
+	quarantine  *scheduler.Quarantine
+	snapshots   SnapshotNodeClient
+	blobBackend string
 }
 
 func NewSandboxServer(s store.Store, raft RaftAdmin, host IdentityProvider) *SandboxServer {
@@ -74,9 +76,17 @@ func (s *SandboxServer) Create(ctx context.Context, req *cellarv1.SandboxCreateR
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if req.SnapshotId != "" {
+		sb, err := s.applyCreateFromSnapshot(ctx, req, spec)
+		if err != nil {
+			return nil, err
+		}
+		return &cellarv1.SandboxCreateResponse{Sandbox: sandbox.ToProto(sb)}, nil
+	}
 	if err := sandbox.ValidateSpec(spec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
 	if existing, err := s.store.GetSandboxByName(ctx, spec.Name); err == nil && existing != nil {
 		return nil, status.Error(codes.AlreadyExists, sandbox.ErrNameExists.Error())
 	} else if err != nil && !errors.Is(err, store.ErrSandboxNotFound) {
@@ -334,11 +344,8 @@ func (s *SandboxServer) UpdateSandboxStatus(ctx context.Context, req *cellarv1.U
 		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 	st := sandbox.StatusFromProto(req.Status)
-	st.UpdatedAt = time.Now().UTC()
-	sb.Status = st
-	sb.UpdatedAt = st.UpdatedAt
-	if err := s.store.SaveSandbox(ctx, sb); err != nil {
-		return nil, mapStoreErr(err)
+	if err := s.ApplyObservedStatus(ctx, sb, st); err != nil {
+		return nil, err
 	}
 	return &cellarv1.UpdateSandboxStatusResponse{}, nil
 }

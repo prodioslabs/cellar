@@ -11,6 +11,7 @@ import (
 
 	msb "github.com/superradcompany/microsandbox/sdk/go"
 
+	"github.com/prodioslabs/cellar/internal/blob"
 	"github.com/prodioslabs/cellar/internal/sandbox"
 )
 
@@ -18,6 +19,7 @@ import (
 type Driver struct {
 	mu      sync.Mutex
 	handles map[string]*msb.Sandbox // cellar sandbox ID -> handle
+	blobs   blob.Store
 }
 
 // NewDriver constructs a Driver. Call EnsureInstalled before first use.
@@ -61,7 +63,17 @@ func (d *Driver) CreateOrConnect(ctx context.Context, sb *sandbox.Sandbox, start
 	if sb == nil {
 		return fmt.Errorf("sandbox is required")
 	}
-	opts, err := specToOptions(sb.Spec)
+	fromSnap := sb.FromSnapshotID
+	if fromSnap != "" && d.blobs != nil && sb.FromSnapshotLocation != "" {
+		ref, err := d.RestoreFS(ctx, fromSnap, sb.FromSnapshotLocation)
+		if err != nil {
+			return fmt.Errorf("restore snapshot %s: %w", fromSnap, err)
+		}
+		if ref != "" {
+			fromSnap = ref
+		}
+	}
+	opts, err := specToOptionsFrom(sb.Spec, fromSnap)
 	if err != nil {
 		return err
 	}
@@ -294,30 +306,38 @@ func mapLogSources(sources []string) []msb.LogSource {
 }
 
 func specToOptions(spec sandbox.Spec) ([]msb.SandboxOption, error) {
+	return specToOptionsFrom(spec, "")
+}
+
+func specToOptionsFrom(spec sandbox.Spec, fromSnapshot string) ([]msb.SandboxOption, error) {
 	var opts []msb.SandboxOption
 
-	switch spec.Image.Type {
-	case "", "oci":
-		ref := spec.ImageReference()
-		if ref == "" {
-			return nil, fmt.Errorf("oci image reference required")
+	if fromSnapshot != "" {
+		opts = append(opts, msb.WithFromSnapshot(fromSnapshot))
+	} else {
+		switch spec.Image.Type {
+		case "", "oci":
+			ref := spec.ImageReference()
+			if ref == "" {
+				return nil, fmt.Errorf("oci image reference required")
+			}
+			opts = append(opts, msb.WithImage(ref))
+			if spec.Resources.DiskSizeMiB != nil {
+				opts = append(opts, msb.WithRootDisk(msb.RootDisk.Managed(*spec.Resources.DiskSizeMiB)))
+			}
+		case "bind":
+			if spec.Image.Path == "" {
+				return nil, fmt.Errorf("image.path is required for bind rootfs")
+			}
+			opts = append(opts, msb.WithBindRootfs(spec.Image.Path))
+		case "disk_image":
+			if spec.Image.Path == "" {
+				return nil, fmt.Errorf("image.path is required for disk_image rootfs")
+			}
+			opts = append(opts, msb.WithImageDisk(spec.Image.Path, spec.Image.Fstype))
+		default:
+			return nil, fmt.Errorf("unsupported image.type %q", spec.Image.Type)
 		}
-		opts = append(opts, msb.WithImage(ref))
-		if spec.Resources.DiskSizeMiB != nil {
-			opts = append(opts, msb.WithRootDisk(msb.RootDisk.Managed(*spec.Resources.DiskSizeMiB)))
-		}
-	case "bind":
-		if spec.Image.Path == "" {
-			return nil, fmt.Errorf("image.path is required for bind rootfs")
-		}
-		opts = append(opts, msb.WithBindRootfs(spec.Image.Path))
-	case "disk_image":
-		if spec.Image.Path == "" {
-			return nil, fmt.Errorf("image.path is required for disk_image rootfs")
-		}
-		opts = append(opts, msb.WithImageDisk(spec.Image.Path, spec.Image.Fstype))
-	default:
-		return nil, fmt.Errorf("unsupported image.type %q", spec.Image.Type)
 	}
 
 	if spec.Resources.VCPUs > 0 {

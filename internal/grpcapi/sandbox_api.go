@@ -141,6 +141,66 @@ func (s *SandboxAPIServer) List(ctx context.Context, req *cellarv1.SandboxListRe
 	return cellarv1.NewSandboxControlClient(conn).List(ctx, req)
 }
 
+func (s *SandboxAPIServer) Update(ctx context.Context, req *cellarv1.SandboxUpdateRequest) (*cellarv1.SandboxUpdateResponse, error) {
+	if s.raft != nil && s.raft.IsLeader() && s.control != nil {
+		return s.control.Update(WithInternalCall(ctx), req)
+	}
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).Update(ctx, req)
+}
+
+func (s *SandboxAPIServer) CreateSnapshot(ctx context.Context, req *cellarv1.SnapshotCreateRequest) (*cellarv1.SnapshotCreateResponse, error) {
+	if s.raft != nil && s.raft.IsLeader() && s.control != nil {
+		return s.control.CreateSnapshot(WithInternalCall(ctx), req)
+	}
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).CreateSnapshot(ctx, req)
+}
+
+func (s *SandboxAPIServer) GetSnapshot(ctx context.Context, req *cellarv1.SnapshotGetRequest) (*cellarv1.SnapshotGetResponse, error) {
+	if s.control != nil {
+		return s.control.GetSnapshot(WithInternalCall(ctx), req)
+	}
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).GetSnapshot(ctx, req)
+}
+
+func (s *SandboxAPIServer) ListSnapshots(ctx context.Context, req *cellarv1.SnapshotListRequest) (*cellarv1.SnapshotListResponse, error) {
+	if s.control != nil {
+		return s.control.ListSnapshots(WithInternalCall(ctx), req)
+	}
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).ListSnapshots(ctx, req)
+}
+
+func (s *SandboxAPIServer) DeleteSnapshot(ctx context.Context, req *cellarv1.SnapshotDeleteRequest) (*cellarv1.SnapshotDeleteResponse, error) {
+	if s.raft != nil && s.raft.IsLeader() && s.control != nil {
+		return s.control.DeleteSnapshot(WithInternalCall(ctx), req)
+	}
+	conn, err := s.dialLeader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	return cellarv1.NewSandboxControlClient(conn).DeleteSnapshot(ctx, req)
+}
+
 func (s *SandboxAPIServer) Logs(req *cellarv1.SandboxLogsRequest, stream cellarv1.SandboxAPI_LogsServer) error {
 	sbResp, err := s.Get(stream.Context(), &cellarv1.SandboxGetRequest{SandboxId: req.SandboxId})
 	if err != nil {

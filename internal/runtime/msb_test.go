@@ -219,6 +219,25 @@ func TestSpecToOptionsBindRootfs(t *testing.T) {
 	}
 }
 
+func TestSpecToOptionsFromSnapshotSkipsImage(t *testing.T) {
+	spec := sandbox.Spec{
+		Name:      "demo",
+		Image:     sandbox.OCIImage("alpine:3.20"),
+		Resources: sandbox.Resources{VCPUs: 1, MemoryMiB: 512},
+	}
+	opts, err := specToOptionsFrom(spec, "snap1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := applyOpts(t, opts)
+	if cfg.Snapshot != "snap1" {
+		t.Fatalf("Snapshot=%q", cfg.Snapshot)
+	}
+	if cfg.Image != "" {
+		t.Fatalf("Image should be empty when restoring, got %q", cfg.Image)
+	}
+}
+
 func applyOpts(t *testing.T, opts []msb.SandboxOption) *msb.SandboxConfig {
 	t.Helper()
 	cfg := &msb.SandboxConfig{}

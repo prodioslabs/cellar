@@ -227,11 +227,13 @@ type SecretViolationAction struct {
 	Type string `json:"type"`
 }
 
-// LifecyclePolicy controls ephemeral / idle / max duration.
+// LifecyclePolicy controls ephemeral / idle / max duration and snapshot retention.
 type LifecyclePolicy struct {
-	Ephemeral       bool    `json:"ephemeral,omitempty"`
-	MaxDurationSecs *uint64 `json:"max_duration_secs,omitempty"`
-	IdleTimeoutSecs *uint64 `json:"idle_timeout_secs,omitempty"`
+	Ephemeral            bool               `json:"ephemeral,omitempty"`
+	MaxDurationSecs      *uint64            `json:"max_duration_secs,omitempty"`
+	IdleTimeoutSecs      *uint64            `json:"idle_timeout_secs,omitempty"`
+	SnapshotExpirationMs *int64             `json:"snapshot_expiration_ms,omitempty"`
+	KeepLastSnapshots    *KeepLastSnapshots `json:"keep_last_snapshots,omitempty"`
 }
 
 // EnvPair is one init env entry as a cloud (String,String) tuple: ["KEY","VAL"].
@@ -386,6 +388,8 @@ type Sandbox struct {
 	CreatedAt            time.Time         `json:"created_at"`
 	UpdatedAt            time.Time         `json:"updated_at"`
 	AssignmentGeneration int64             `json:"assignment_generation,omitempty"`
+	FromSnapshotID       string            `json:"from_snapshot_id,omitempty"`
+	FromSnapshotLocation string            `json:"from_snapshot_location,omitempty"`
 }
 
 // ErrStaleAssignment is returned when a status update carries an outdated fencing token.
@@ -827,6 +831,11 @@ func cloneSpec(spec Spec) Spec {
 		v := *spec.Lifecycle.IdleTimeoutSecs
 		out.Lifecycle.IdleTimeoutSecs = &v
 	}
+	if spec.Lifecycle.SnapshotExpirationMs != nil {
+		v := *spec.Lifecycle.SnapshotExpirationMs
+		out.Lifecycle.SnapshotExpirationMs = &v
+	}
+	out.Lifecycle.KeepLastSnapshots = CloneKeepLastSnapshots(spec.Lifecycle.KeepLastSnapshots)
 	if spec.Runtime.Workdir != nil {
 		v := *spec.Runtime.Workdir
 		out.Runtime.Workdir = &v

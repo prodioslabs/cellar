@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	cellarv1 "github.com/prodioslabs/cellar/api/gen"
+	"github.com/prodioslabs/cellar/internal/blob"
 	"github.com/prodioslabs/cellar/internal/ca"
 	"github.com/prodioslabs/cellar/internal/grpcapi"
 	"github.com/prodioslabs/cellar/internal/identity"
@@ -57,6 +58,12 @@ type Config struct {
 	SocketPath string
 	ListenAddr string // default remote listen; may be overridden by init/join
 	RaftAddr   string
+
+	SnapshotDir string
+	S3Bucket    string
+	S3Region    string
+	S3Prefix    string
+	S3Endpoint  string
 }
 
 // Daemon is the long-running cellar node process.
@@ -73,6 +80,7 @@ type Daemon struct {
 	runtimeSrv    *grpcapi.RuntimeServer
 	driver        *runtime.Driver
 	agent         *runtime.Agent
+	blobs         blob.Store
 	// runtimeErr is set when this node cannot start a microsandbox runtime agent.
 	// SandboxCreate surfaces it when no other node has a live runtime.
 	runtimeErr error
@@ -460,7 +468,7 @@ func (d *Daemon) resumeManager(ctx context.Context, state identity.DaemonState) 
 	defer d.mu.Unlock()
 	d.raft = rs
 	d.caServer = d.newCAServer(rs)
-	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
+	d.sandboxServer = d.newSandboxServer(rs)
 	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 	_ = d.caServer.UpdateRootCA(ctx)
 	d.clusterWG.Add(1)
@@ -527,6 +535,11 @@ func (d *Daemon) watchLeadership(ctx context.Context) {
 				go func() {
 					defer d.clusterWG.Done()
 					d.evictionLoop(evictCtx)
+				}()
+				d.clusterWG.Add(1)
+				go func() {
+					defer d.clusterWG.Done()
+					d.snapshotReaperLoop(evictCtx)
 				}()
 			}
 			if !leader && wasLeader {
@@ -621,7 +634,7 @@ func (d *Daemon) Init(ctx context.Context, req *cellarv1.InitRequest) (*cellarv1
 	}
 	d.raft = rs
 	d.caServer = d.newCAServer(rs)
-	d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
+	d.sandboxServer = d.newSandboxServer(rs)
 	d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 
 	if err := rs.CreateCluster(ctx, store.ClusterConfig{
@@ -832,7 +845,7 @@ func (d *Daemon) Join(ctx context.Context, req *cellarv1.JoinRequest) (*cellarv1
 		}
 		d.raft = rs
 		d.caServer = d.newCAServer(rs)
-		d.sandboxServer = grpcapi.NewSandboxServer(rs, rs, d)
+		d.sandboxServer = d.newSandboxServer(rs)
 		d.sandboxAPI = grpcapi.NewSandboxAPIServer(rs, rs, d.sandboxServer, d)
 		_ = d.caServer.UpdateRootCA(ctx)
 		clusterCtx := d.ensureClusterCtxLocked()
@@ -1045,6 +1058,21 @@ func (c *controlServer) SandboxList(ctx context.Context, req *cellarv1.SandboxLi
 }
 func (c *controlServer) SandboxLogs(req *cellarv1.SandboxLogsRequest, stream cellarv1.Control_SandboxLogsServer) error {
 	return c.d.SandboxLogs(req, stream)
+}
+func (c *controlServer) SandboxUpdate(ctx context.Context, req *cellarv1.SandboxUpdateRequest) (*cellarv1.SandboxUpdateResponse, error) {
+	return c.d.SandboxUpdate(ctx, req)
+}
+func (c *controlServer) SnapshotCreate(ctx context.Context, req *cellarv1.SnapshotCreateRequest) (*cellarv1.SnapshotCreateResponse, error) {
+	return c.d.SnapshotCreate(ctx, req)
+}
+func (c *controlServer) SnapshotGet(ctx context.Context, req *cellarv1.SnapshotGetRequest) (*cellarv1.SnapshotGetResponse, error) {
+	return c.d.SnapshotGet(ctx, req)
+}
+func (c *controlServer) SnapshotList(ctx context.Context, req *cellarv1.SnapshotListRequest) (*cellarv1.SnapshotListResponse, error) {
+	return c.d.SnapshotList(ctx, req)
+}
+func (c *controlServer) SnapshotDelete(ctx context.Context, req *cellarv1.SnapshotDeleteRequest) (*cellarv1.SnapshotDeleteResponse, error) {
+	return c.d.SnapshotDelete(ctx, req)
 }
 func (c *controlServer) APIKeyCreate(ctx context.Context, req *cellarv1.APIKeyCreateRequest) (*cellarv1.APIKeyCreateResponse, error) {
 	return c.d.APIKeyCreate(ctx, req)

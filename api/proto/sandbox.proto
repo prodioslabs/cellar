@@ -19,6 +19,12 @@ service SandboxControl {
   rpc GetVolume(VolumeGetRequest) returns (VolumeGetResponse);
   rpc GetDefaultVolume(VolumeGetDefaultRequest) returns (VolumeGetResponse);
   rpc DeleteVolume(VolumeDeleteRequest) returns (VolumeDeleteResponse);
+
+  rpc Update(SandboxUpdateRequest) returns (SandboxUpdateResponse);
+  rpc CreateSnapshot(SnapshotCreateRequest) returns (SnapshotCreateResponse);
+  rpc GetSnapshot(SnapshotGetRequest) returns (SnapshotGetResponse);
+  rpc ListSnapshots(SnapshotListRequest) returns (SnapshotListResponse);
+  rpc DeleteSnapshot(SnapshotDeleteRequest) returns (SnapshotDeleteResponse);
 }
 
 // SandboxAPI is the public client API on managers (API key auth).
@@ -37,6 +43,12 @@ service SandboxAPI {
   rpc GetVolume(VolumeGetRequest) returns (VolumeGetResponse);
   rpc GetDefaultVolume(VolumeGetDefaultRequest) returns (VolumeGetResponse);
   rpc DeleteVolume(VolumeDeleteRequest) returns (VolumeDeleteResponse);
+
+  rpc Update(SandboxUpdateRequest) returns (SandboxUpdateResponse);
+  rpc CreateSnapshot(SnapshotCreateRequest) returns (SnapshotCreateResponse);
+  rpc GetSnapshot(SnapshotGetRequest) returns (SnapshotGetResponse);
+  rpc ListSnapshots(SnapshotListRequest) returns (SnapshotListResponse);
+  rpc DeleteSnapshot(SnapshotDeleteRequest) returns (SnapshotDeleteResponse);
 }
 
 // RuntimeAgent is served on managers. Nodes report heartbeats and status.
@@ -63,6 +75,10 @@ service SandboxRuntime {
 
   rpc EnsureLocalVolume(EnsureLocalVolumeRequest) returns (EnsureLocalVolumeResponse);
   rpc DeleteLocalVolume(DeleteLocalVolumeRequest) returns (DeleteLocalVolumeResponse);
+
+  rpc CaptureFilesystemSnapshot(CaptureFilesystemSnapshotRequest) returns (CaptureFilesystemSnapshotResponse);
+  rpc RestoreFilesystemSnapshot(RestoreFilesystemSnapshotRequest) returns (RestoreFilesystemSnapshotResponse);
+  rpc DeleteSnapshotBlob(DeleteSnapshotBlobRequest) returns (DeleteSnapshotBlobResponse);
 }
 
 // SpecJSON carries the msb-cloud Spec as JSON bytes (snake_case wire).
@@ -70,6 +86,7 @@ message SandboxCreateRequest {
   bytes spec_json = 1;
   string sandbox_id = 2; // optional; generated if empty
   bool start = 3;
+  string snapshot_id = 4; // optional; restore from this filesystem snapshot
 }
 
 message SandboxCreateResponse {
@@ -135,6 +152,8 @@ message Sandbox {
   int64 created_at_unix_nano = 10;
   int64 updated_at_unix_nano = 11;
   int64 assignment_generation = 12;
+  string from_snapshot_id = 13;
+  string from_snapshot_location = 14;
 }
 
 message SandboxStatus {
@@ -357,3 +376,102 @@ message DeleteLocalVolumeRequest {
 }
 
 message DeleteLocalVolumeResponse {}
+
+message SandboxUpdateRequest {
+  string sandbox_id = 1;
+  optional int64 snapshot_expiration_ms = 2;
+  optional uint32 keep_last_snapshots = 3;
+  optional int64 keep_last_expiration_ms = 4;
+  optional bool keep_last_delete_evicted = 5;
+}
+
+message SandboxUpdateResponse {
+  Sandbox sandbox = 1;
+}
+
+message KeepLastSnapshots {
+  uint32 count = 1;
+  optional int64 expiration_ms = 2;
+  optional bool delete_evicted = 3;
+}
+
+message FSSnapshot {
+  string id = 1;
+  string sandbox_id = 2;
+  string sandbox_name = 3;
+  string node_id = 4;
+  string kind = 5;
+  string status = 6;
+  string backend = 7;
+  string location = 8;
+  int64 size_bytes = 9;
+  string digest = 10;
+  bytes spec_json = 11;
+  int64 expiration_ms = 12;
+  int64 last_used_at_unix_nano = 13;
+  int64 expires_at_unix_nano = 14;
+  string message = 15;
+  int64 created_at_unix_nano = 16;
+  int64 updated_at_unix_nano = 17;
+}
+
+message SnapshotCreateRequest {
+  string sandbox_id = 1;
+  bool stop = 2;
+  optional int64 expiration_ms = 3;
+}
+
+message SnapshotCreateResponse {
+  FSSnapshot snapshot = 1;
+}
+
+message SnapshotGetRequest {
+  string snapshot_id = 1;
+}
+
+message SnapshotGetResponse {
+  FSSnapshot snapshot = 1;
+}
+
+message SnapshotListRequest {
+  string sandbox_id = 1;
+  string sandbox_name = 2;
+  bool include_deleted = 3;
+}
+
+message SnapshotListResponse {
+  repeated FSSnapshot snapshots = 1;
+}
+
+message SnapshotDeleteRequest {
+  string snapshot_id = 1;
+}
+
+message SnapshotDeleteResponse {
+  string message = 1;
+}
+
+message CaptureFilesystemSnapshotRequest {
+  string sandbox_id = 1;
+  string snapshot_id = 2;
+  string location = 3;
+}
+
+message CaptureFilesystemSnapshotResponse {
+  string digest = 1;
+  int64 size_bytes = 2;
+}
+
+message RestoreFilesystemSnapshotRequest {
+  string sandbox_id = 1;
+  string snapshot_id = 2;
+  string location = 3;
+}
+
+message RestoreFilesystemSnapshotResponse {}
+
+message DeleteSnapshotBlobRequest {
+  string location = 1;
+}
+
+message DeleteSnapshotBlobResponse {}

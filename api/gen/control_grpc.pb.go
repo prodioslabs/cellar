@@ -32,6 +32,11 @@ const (
 	Control_SandboxGetByName_FullMethodName = "/cellar.v1.Control/SandboxGetByName"
 	Control_SandboxList_FullMethodName      = "/cellar.v1.Control/SandboxList"
 	Control_SandboxLogs_FullMethodName      = "/cellar.v1.Control/SandboxLogs"
+	Control_SandboxUpdate_FullMethodName    = "/cellar.v1.Control/SandboxUpdate"
+	Control_SnapshotCreate_FullMethodName   = "/cellar.v1.Control/SnapshotCreate"
+	Control_SnapshotGet_FullMethodName      = "/cellar.v1.Control/SnapshotGet"
+	Control_SnapshotList_FullMethodName     = "/cellar.v1.Control/SnapshotList"
+	Control_SnapshotDelete_FullMethodName   = "/cellar.v1.Control/SnapshotDelete"
 	Control_APIKeyCreate_FullMethodName     = "/cellar.v1.Control/APIKeyCreate"
 	Control_APIKeyList_FullMethodName       = "/cellar.v1.Control/APIKeyList"
 	Control_APIKeyDelete_FullMethodName     = "/cellar.v1.Control/APIKeyDelete"
@@ -63,6 +68,11 @@ type ControlClient interface {
 	SandboxGetByName(ctx context.Context, in *SandboxGetByNameRequest, opts ...grpc.CallOption) (*SandboxGetResponse, error)
 	SandboxList(ctx context.Context, in *SandboxListRequest, opts ...grpc.CallOption) (*SandboxListResponse, error)
 	SandboxLogs(ctx context.Context, in *SandboxLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SandboxLogsChunk], error)
+	SandboxUpdate(ctx context.Context, in *SandboxUpdateRequest, opts ...grpc.CallOption) (*SandboxUpdateResponse, error)
+	SnapshotCreate(ctx context.Context, in *SnapshotCreateRequest, opts ...grpc.CallOption) (*SnapshotCreateResponse, error)
+	SnapshotGet(ctx context.Context, in *SnapshotGetRequest, opts ...grpc.CallOption) (*SnapshotGetResponse, error)
+	SnapshotList(ctx context.Context, in *SnapshotListRequest, opts ...grpc.CallOption) (*SnapshotListResponse, error)
+	SnapshotDelete(ctx context.Context, in *SnapshotDeleteRequest, opts ...grpc.CallOption) (*SnapshotDeleteResponse, error)
 	// API key management (local unix socket; writes require Raft leader).
 	APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error)
 	APIKeyList(ctx context.Context, in *APIKeyListRequest, opts ...grpc.CallOption) (*APIKeyListResponse, error)
@@ -223,6 +233,56 @@ func (c *controlClient) SandboxLogs(ctx context.Context, in *SandboxLogsRequest,
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxLogsClient = grpc.ServerStreamingClient[SandboxLogsChunk]
 
+func (c *controlClient) SandboxUpdate(ctx context.Context, in *SandboxUpdateRequest, opts ...grpc.CallOption) (*SandboxUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxUpdateResponse)
+	err := c.cc.Invoke(ctx, Control_SandboxUpdate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SnapshotCreate(ctx context.Context, in *SnapshotCreateRequest, opts ...grpc.CallOption) (*SnapshotCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SnapshotCreateResponse)
+	err := c.cc.Invoke(ctx, Control_SnapshotCreate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SnapshotGet(ctx context.Context, in *SnapshotGetRequest, opts ...grpc.CallOption) (*SnapshotGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SnapshotGetResponse)
+	err := c.cc.Invoke(ctx, Control_SnapshotGet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SnapshotList(ctx context.Context, in *SnapshotListRequest, opts ...grpc.CallOption) (*SnapshotListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SnapshotListResponse)
+	err := c.cc.Invoke(ctx, Control_SnapshotList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlClient) SnapshotDelete(ctx context.Context, in *SnapshotDeleteRequest, opts ...grpc.CallOption) (*SnapshotDeleteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SnapshotDeleteResponse)
+	err := c.cc.Invoke(ctx, Control_SnapshotDelete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlClient) APIKeyCreate(ctx context.Context, in *APIKeyCreateRequest, opts ...grpc.CallOption) (*APIKeyCreateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(APIKeyCreateResponse)
@@ -333,6 +393,11 @@ type ControlServer interface {
 	SandboxGetByName(context.Context, *SandboxGetByNameRequest) (*SandboxGetResponse, error)
 	SandboxList(context.Context, *SandboxListRequest) (*SandboxListResponse, error)
 	SandboxLogs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error
+	SandboxUpdate(context.Context, *SandboxUpdateRequest) (*SandboxUpdateResponse, error)
+	SnapshotCreate(context.Context, *SnapshotCreateRequest) (*SnapshotCreateResponse, error)
+	SnapshotGet(context.Context, *SnapshotGetRequest) (*SnapshotGetResponse, error)
+	SnapshotList(context.Context, *SnapshotListRequest) (*SnapshotListResponse, error)
+	SnapshotDelete(context.Context, *SnapshotDeleteRequest) (*SnapshotDeleteResponse, error)
 	// API key management (local unix socket; writes require Raft leader).
 	APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error)
 	APIKeyList(context.Context, *APIKeyListRequest) (*APIKeyListResponse, error)
@@ -392,6 +457,21 @@ func (UnimplementedControlServer) SandboxList(context.Context, *SandboxListReque
 }
 func (UnimplementedControlServer) SandboxLogs(*SandboxLogsRequest, grpc.ServerStreamingServer[SandboxLogsChunk]) error {
 	return status.Error(codes.Unimplemented, "method SandboxLogs not implemented")
+}
+func (UnimplementedControlServer) SandboxUpdate(context.Context, *SandboxUpdateRequest) (*SandboxUpdateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SandboxUpdate not implemented")
+}
+func (UnimplementedControlServer) SnapshotCreate(context.Context, *SnapshotCreateRequest) (*SnapshotCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SnapshotCreate not implemented")
+}
+func (UnimplementedControlServer) SnapshotGet(context.Context, *SnapshotGetRequest) (*SnapshotGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SnapshotGet not implemented")
+}
+func (UnimplementedControlServer) SnapshotList(context.Context, *SnapshotListRequest) (*SnapshotListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SnapshotList not implemented")
+}
+func (UnimplementedControlServer) SnapshotDelete(context.Context, *SnapshotDeleteRequest) (*SnapshotDeleteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SnapshotDelete not implemented")
 }
 func (UnimplementedControlServer) APIKeyCreate(context.Context, *APIKeyCreateRequest) (*APIKeyCreateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method APIKeyCreate not implemented")
@@ -668,6 +748,96 @@ func _Control_SandboxLogs_Handler(srv interface{}, stream grpc.ServerStream) err
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Control_SandboxLogsServer = grpc.ServerStreamingServer[SandboxLogsChunk]
 
+func _Control_SandboxUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SandboxUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SandboxUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SandboxUpdate(ctx, req.(*SandboxUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SnapshotCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SnapshotCreate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SnapshotCreate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SnapshotCreate(ctx, req.(*SnapshotCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SnapshotGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SnapshotGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SnapshotGet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SnapshotGet(ctx, req.(*SnapshotGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SnapshotList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SnapshotList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SnapshotList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SnapshotList(ctx, req.(*SnapshotListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Control_SnapshotDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).SnapshotDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Control_SnapshotDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).SnapshotDelete(ctx, req.(*SnapshotDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Control_APIKeyCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(APIKeyCreateRequest)
 	if err := dec(in); err != nil {
@@ -884,6 +1054,26 @@ var Control_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SandboxList",
 			Handler:    _Control_SandboxList_Handler,
+		},
+		{
+			MethodName: "SandboxUpdate",
+			Handler:    _Control_SandboxUpdate_Handler,
+		},
+		{
+			MethodName: "SnapshotCreate",
+			Handler:    _Control_SnapshotCreate_Handler,
+		},
+		{
+			MethodName: "SnapshotGet",
+			Handler:    _Control_SnapshotGet_Handler,
+		},
+		{
+			MethodName: "SnapshotList",
+			Handler:    _Control_SnapshotList_Handler,
+		},
+		{
+			MethodName: "SnapshotDelete",
+			Handler:    _Control_SnapshotDelete_Handler,
 		},
 		{
 			MethodName: "APIKeyCreate",

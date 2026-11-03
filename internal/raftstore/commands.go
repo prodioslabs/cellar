@@ -13,18 +13,20 @@ import (
 )
 
 const (
-	opCreateCluster  = "create_cluster"
-	opUpdateCluster  = "update_cluster"
-	opSaveNode       = "save_node"
-	opDeleteNode     = "delete_node"
-	opSavePeer       = "save_peer"
-	opDeletePeer     = "delete_peer"
-	opSaveSandbox    = "save_sandbox"
-	opDeleteSandbox  = "delete_sandbox"
-	opSaveVolume     = "save_volume"
-	opDeleteVolume   = "delete_volume"
-	opSaveAPIKey     = "save_api_key"
-	opDeleteAPIKey   = "delete_api_key"
+	opCreateCluster    = "create_cluster"
+	opUpdateCluster    = "update_cluster"
+	opSaveNode         = "save_node"
+	opDeleteNode       = "delete_node"
+	opSavePeer         = "save_peer"
+	opDeletePeer       = "delete_peer"
+	opSaveSandbox      = "save_sandbox"
+	opDeleteSandbox    = "delete_sandbox"
+	opSaveVolume       = "save_volume"
+	opDeleteVolume     = "delete_volume"
+	opSaveAPIKey       = "save_api_key"
+	opDeleteAPIKey     = "delete_api_key"
+	opSaveFSSnapshot   = "save_fs_snapshot"
+	opDeleteFSSnapshot = "delete_fs_snapshot"
 
 	// Legacy ops still decoded for older log entries / tests.
 	opInitCluster = "init_cluster"
@@ -89,6 +91,14 @@ type saveAPIKeyPayload struct {
 }
 
 type deleteAPIKeyPayload struct {
+	ID string `json:"id"`
+}
+
+type saveFSSnapshotPayload struct {
+	Snapshot *sandbox.FSSnapshot `json:"snapshot"`
+}
+
+type deleteFSSnapshotPayload struct {
 	ID string `json:"id"`
 }
 

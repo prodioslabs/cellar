@@ -19,7 +19,21 @@ sudo cellar sandbox start <id>
 sudo cellar sandbox logs -f <id>
 sudo cellar sandbox stop <id>
 sudo cellar sandbox rm <id>
+
+# Filesystem snapshots (see Snapshots)
+sudo cellar sandbox snapshot <id-or-name> --stop
+sudo cellar sandbox create --name demo2 --from-snapshot <snapshot-id>
 ```
+
+Automatic snapshots run when a persistent sandbox stops, including idle/max-duration session expiry. See [Snapshots](/docs/sandboxes/snapshots).
+
+<Cards>
+  <Card
+    title="Snapshots"
+    href="/docs/sandboxes/snapshots"
+    description="Capture a stopped root disk and restore it into a new sandbox"
+  />
+</Cards>
 
 Managers and workers both run sandboxes. Desired state lives in Raft; the leader schedules onto the least-loaded live node (nodes with availability `pause` or `drain` are skipped).
 

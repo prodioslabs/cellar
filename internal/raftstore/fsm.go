@@ -26,8 +26,9 @@ type FSM struct {
 	sandboxes    map[string]*sandbox.Sandbox
 	sandboxNames map[string]string // name -> id
 	volumes      map[string]*sandbox.Volume
-	volumeNames  map[string]string // name -> id (named only)
+	volumeNames  map[string]string      // name -> id (named only)
 	apiKeys      map[string]*apikey.Key // by id
+	fsSnapshots  map[string]*sandbox.FSSnapshot
 }
 
 // NewFSM creates an empty FSM.
@@ -40,6 +41,7 @@ func NewFSM() *FSM {
 		volumes:      make(map[string]*sandbox.Volume),
 		volumeNames:  make(map[string]string),
 		apiKeys:      make(map[string]*apikey.Key),
+		fsSnapshots:  make(map[string]*sandbox.FSSnapshot),
 	}
 }
 
@@ -78,6 +80,10 @@ func (f *FSM) Apply(l *raft.Log) interface{} {
 		return f.applySaveAPIKey(cmd.Payload)
 	case opDeleteAPIKey:
 		return f.applyDeleteAPIKey(cmd.Payload)
+	case opSaveFSSnapshot:
+		return f.applySaveFSSnapshot(cmd.Payload)
+	case opDeleteFSSnapshot:
+		return f.applyDeleteFSSnapshot(cmd.Payload)
 	default:
 		return fmt.Errorf("unknown raft op %q", cmd.Op)
 	}
@@ -334,6 +340,33 @@ func (f *FSM) applySaveAPIKey(raw json.RawMessage) interface{} {
 	return nil
 }
 
+func (f *FSM) applySaveFSSnapshot(raw json.RawMessage) interface{} {
+	var p saveFSSnapshotPayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.Snapshot == nil || p.Snapshot.ID == "" {
+		return fmt.Errorf("filesystem snapshot is required")
+	}
+	f.fsSnapshots[p.Snapshot.ID] = sandbox.CloneFSSnapshot(p.Snapshot)
+	return nil
+}
+
+func (f *FSM) applyDeleteFSSnapshot(raw json.RawMessage) interface{} {
+	var p deleteFSSnapshotPayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	if p.ID == "" {
+		return fmt.Errorf("filesystem snapshot id is required")
+	}
+	if _, ok := f.fsSnapshots[p.ID]; !ok {
+		return store.ErrFSSnapshotNotFound
+	}
+	delete(f.fsSnapshots, p.ID)
+	return nil
+}
+
 func (f *FSM) applyDeleteAPIKey(raw json.RawMessage) interface{} {
 	var p deleteAPIKeyPayload
 	if err := json.Unmarshal(raw, &p); err != nil {
@@ -355,11 +388,12 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	defer f.mu.RUnlock()
 
 	snap := &fsmSnapshot{
-		nodes:     make(map[string]*node.Node, len(f.nodes)),
-		peers:     make(map[string]PeerInfo, len(f.peers)),
-		sandboxes: make(map[string]*sandbox.Sandbox, len(f.sandboxes)),
-		volumes:   make(map[string]*sandbox.Volume, len(f.volumes)),
-		apiKeys:   make(map[string]*apikey.Key, len(f.apiKeys)),
+		nodes:       make(map[string]*node.Node, len(f.nodes)),
+		peers:       make(map[string]PeerInfo, len(f.peers)),
+		sandboxes:   make(map[string]*sandbox.Sandbox, len(f.sandboxes)),
+		volumes:     make(map[string]*sandbox.Volume, len(f.volumes)),
+		apiKeys:     make(map[string]*apikey.Key, len(f.apiKeys)),
+		fsSnapshots: make(map[string]*sandbox.FSSnapshot, len(f.fsSnapshots)),
 	}
 	if f.cluster != nil {
 		c := *f.cluster
@@ -382,6 +416,9 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	}
 	for id, k := range f.apiKeys {
 		snap.apiKeys[id] = apikey.Clone(k)
+	}
+	for id, s := range f.fsSnapshots {
+		snap.fsSnapshots[id] = sandbox.CloneFSSnapshot(s)
 	}
 	return snap, nil
 }
@@ -438,6 +475,13 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 		}
 		apiKeys[id] = apikey.Clone(k)
 	}
+	fsSnapshots := make(map[string]*sandbox.FSSnapshot, len(snap.FSSnapshots))
+	for id, s := range snap.FSSnapshots {
+		if s == nil {
+			continue
+		}
+		fsSnapshots[id] = sandbox.CloneFSSnapshot(s)
+	}
 
 	var cluster *store.Cluster
 	if snap.Cluster != nil {
@@ -489,16 +533,18 @@ func (f *FSM) Restore(rc io.ReadCloser) error {
 	f.volumes = volumes
 	f.volumeNames = volumeNames
 	f.apiKeys = apiKeys
+	f.fsSnapshots = fsSnapshots
 	return nil
 }
 
 type persistedSnapshot struct {
-	Cluster   *store.Cluster              `json:"cluster,omitempty"`
-	Nodes     map[string]*node.Node       `json:"nodes,omitempty"`
-	Peers     map[string]PeerInfo         `json:"peers,omitempty"`
-	Sandboxes map[string]*sandbox.Sandbox `json:"sandboxes,omitempty"`
-	Volumes   map[string]*sandbox.Volume  `json:"volumes,omitempty"`
-	APIKeys   map[string]*apikey.Key      `json:"api_keys,omitempty"`
+	Cluster     *store.Cluster                 `json:"cluster,omitempty"`
+	Nodes       map[string]*node.Node          `json:"nodes,omitempty"`
+	Peers       map[string]PeerInfo            `json:"peers,omitempty"`
+	Sandboxes   map[string]*sandbox.Sandbox    `json:"sandboxes,omitempty"`
+	Volumes     map[string]*sandbox.Volume     `json:"volumes,omitempty"`
+	APIKeys     map[string]*apikey.Key         `json:"api_keys,omitempty"`
+	FSSnapshots map[string]*sandbox.FSSnapshot `json:"fs_snapshots,omitempty"`
 	// Legacy fields
 	CertPEM       []byte              `json:"cert_pem,omitempty"`
 	KeyPEM        []byte              `json:"key_pem,omitempty"`
@@ -514,22 +560,24 @@ type legacyClusterState struct {
 }
 
 type fsmSnapshot struct {
-	cluster   *store.Cluster
-	nodes     map[string]*node.Node
-	peers     map[string]PeerInfo
-	sandboxes map[string]*sandbox.Sandbox
-	volumes   map[string]*sandbox.Volume
-	apiKeys   map[string]*apikey.Key
+	cluster     *store.Cluster
+	nodes       map[string]*node.Node
+	peers       map[string]PeerInfo
+	sandboxes   map[string]*sandbox.Sandbox
+	volumes     map[string]*sandbox.Volume
+	apiKeys     map[string]*apikey.Key
+	fsSnapshots map[string]*sandbox.FSSnapshot
 }
 
 func (s *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	err := json.NewEncoder(sink).Encode(persistedSnapshot{
-		Cluster:   s.cluster,
-		Nodes:     s.nodes,
-		Peers:     s.peers,
-		Sandboxes: s.sandboxes,
-		Volumes:   s.volumes,
-		APIKeys:   s.apiKeys,
+		Cluster:     s.cluster,
+		Nodes:       s.nodes,
+		Peers:       s.peers,
+		Sandboxes:   s.sandboxes,
+		Volumes:     s.volumes,
+		APIKeys:     s.apiKeys,
+		FSSnapshots: s.fsSnapshots,
 	})
 	if err != nil {
 		_ = sink.Cancel()
@@ -728,6 +776,38 @@ func (f *FSM) getAPIKeyByHash(keyHash string) (*apikey.Key, error) {
 		}
 	}
 	return nil, store.ErrAPIKeyNotFound
+}
+
+func (f *FSM) getFSSnapshot(id string) (*sandbox.FSSnapshot, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	s, ok := f.fsSnapshots[id]
+	if !ok {
+		return nil, store.ErrFSSnapshotNotFound
+	}
+	return sandbox.CloneFSSnapshot(s), nil
+}
+
+func (f *FSM) listFSSnapshots() []*sandbox.FSSnapshot {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	out := make([]*sandbox.FSSnapshot, 0, len(f.fsSnapshots))
+	for _, s := range f.fsSnapshots {
+		out = append(out, sandbox.CloneFSSnapshot(s))
+	}
+	return out
+}
+
+func (f *FSM) listFSSnapshotsBySandbox(sandboxID string) []*sandbox.FSSnapshot {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	out := make([]*sandbox.FSSnapshot, 0)
+	for _, s := range f.fsSnapshots {
+		if s.SandboxID == sandboxID {
+			out = append(out, sandbox.CloneFSSnapshot(s))
+		}
+	}
+	return out
 }
 
 func (f *FSM) listAPIKeys() []*apikey.Key {
